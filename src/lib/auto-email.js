@@ -32,6 +32,12 @@ async function getEligibleLeads(campaignId) {
   `;
   const params = [campaignId];
 
+  // Scope to the campaign's project (if set) so each project emails only its own leads
+  if (campaign.project_id) {
+    params.push(campaign.project_id);
+    sql += ` AND l.project_id = $${params.length}`;
+  }
+
   if (filters.sector) {
     params.push(filters.sector);
     sql += ` AND l.sector = $${params.length}`;

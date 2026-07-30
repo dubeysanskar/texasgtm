@@ -330,6 +330,9 @@ async function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_gtm_smtp_project ON gtm_smtp_accounts(project_id);
+
+    -- Self-healing columns (idempotent) for tables that predate these fields
+    ALTER TABLE gtm_leads ADD COLUMN IF NOT EXISTS contact_person TEXT DEFAULT '';
   `);
 
   // Seed default settings

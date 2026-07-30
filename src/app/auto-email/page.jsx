@@ -124,14 +124,33 @@ export default function AutoEmailPage() {
     if (!confirm('Start sending emails for this campaign? This will send real emails to leads.')) return;
     setSendingCampaign(campaignId);
     setSendResult(null);
-    setSendProgress({ campaignId, status: 'Starting...', sent: 0, failed: 0 });
+    setSendProgress({ campaignId, status: 'Starting…', sent: 0, failed: 0 });
     try {
       const r = await fetch(`/api/auto-email/campaigns/${campaignId}/send`, { method: 'POST' });
       const d = await r.json();
-      setSendResult(d);
-      setSendProgress(null);
-      fetchCampaigns();
-      if (expandedId === campaignId) fetchSends(campaignId);
+      if (!r.ok) { setSendResult({ error: d.error }); setSendProgress(null); setSendingCampaign(null); return; }
+
+      // Sending runs in the background now — poll campaign status for live progress.
+      let done = false, ticks = 0;
+      while (!done && ticks < 300) {
+        ticks++;
+        await new Promise(res => setTimeout(res, 4000));
+        const cr = await fetch(`/api/auto-email/campaigns/${campaignId}`);
+        if (!cr.ok) continue;
+        const c = await cr.json();
+        const bd = {}; (c.send_breakdown || []).forEach(b => { bd[b.status] = parseInt(b.count); });
+        const sent = (bd.sent || 0) + (bd.opened || 0) + (bd.delivered || 0) + (bd.replied || 0);
+        const failed = bd.failed || 0;
+        setSendProgress({ campaignId, status: c.status, sent, failed });
+        fetchCampaigns();
+        if (expandedId === campaignId) fetchSends(campaignId);
+        if (c.status === 'completed' || c.status === 'paused') {
+          done = true;
+          setSendResult({ sent, failed, skipped: 0 });
+          setSendProgress(null);
+        }
+      }
+      if (!done) setSendProgress(null); // still running after timeout — it continues server-side
     } catch (err) {
       setSendResult({ error: err.message });
       setSendProgress(null);

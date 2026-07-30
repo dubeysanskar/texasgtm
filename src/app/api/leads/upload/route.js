@@ -166,7 +166,7 @@ export async function PUT(request) {
     const { leads, project_id, skipDuplicates } = await request.json();
     if (!leads || !leads.length) return NextResponse.json({ error: 'No leads provided' }, { status: 400 });
 
-    let added = 0, skipped = 0, errors = 0;
+    let added = 0, skipped = 0, errors = 0, firstError = null;
 
     for (const lead of leads) {
       if (lead._isDuplicate && skipDuplicates) { skipped++; continue; }
@@ -207,6 +207,7 @@ export async function PUT(request) {
         added++;
       } catch (err) {
         console.error('Insert error:', err.message);
+        if (!firstError) firstError = err.message;
         errors++;
       }
     }
@@ -214,12 +215,12 @@ export async function PUT(request) {
     // Log the upload
     try {
       await query(
-        `INSERT INTO gtm_activity_logs (user_id, action, details, project_id) VALUES ($1, $2, $3, $4)`,
-        [user.id, 'bulk_upload', JSON.stringify({ added, skipped, errors, total: leads.length }), project_id || null]
+        `INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, metadata, project_id) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [user.id, user.name || 'System', user.role || '', `Bulk upload: ${added} added, ${skipped} skipped, ${errors} errors`, 'leads', JSON.stringify({ added, skipped, errors, total: leads.length }), project_id || null]
       );
-    } catch {}
+    } catch (e) { console.error('[upload] activity log failed:', e.message); }
 
-    return NextResponse.json({ success: true, added, skipped, errors, total: leads.length });
+    return NextResponse.json({ success: true, added, skipped, errors, total: leads.length, error_sample: firstError });
 
   } catch (err) {
     console.error('Upload confirm error:', err);
