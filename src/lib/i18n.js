@@ -1,0 +1,324 @@
+/**
+ * Lightweight UI translation layer.
+ *
+ * Keys are the English strings themselves, so `t('Dashboard')` renders "Dashboard"
+ * for English and the RU entry below for Russian. Missing keys fall back to English,
+ * so nothing ever renders blank. `{name}` placeholders are substituted from `vars`.
+ *
+ * The active language is resolved in ProjectContext:
+ *   explicit choice (login toggle / sidebar switch) > active project's language > user's language > 'en'
+ */
+
+export const SUPPORTED_LANGS = ['en', 'ru'];
+
+export const RU = {
+  // ── Generic ───────────────────────────────────────────────────────────────
+  'Loading...': 'Загрузка...', 'Loading…': 'Загрузка…', 'Cancel': 'Отмена', 'Save': 'Сохранить', 'Delete': 'Удалить',
+  'Edit': 'Редактировать', 'Create': 'Создать', 'Update': 'Обновить', 'Add': 'Добавить', 'Close': 'Закрыть', 'Search': 'Поиск',
+  'Clear': 'Очистить', 'Apply': 'Применить', 'Select': 'Выбрать', 'Done': 'Готово', 'Back': 'Назад', 'Next': 'Далее',
+  'Send': 'Отправить', 'Sending...': 'Отправка...', 'Sending…': 'Отправка…', 'Saving…': 'Сохранение…', 'Creating...': 'Создание...',
+  'Creating…': 'Создание…', 'Try again': 'Повторить', 'Error': 'Ошибка', 'Errors': 'Ошибки', 'Total': 'Всего', 'total': 'всего',
+  'Name': 'Имя', 'Email': 'Email', 'Phone': 'Телефон', 'Company': 'Компания', 'City': 'Город', 'Country': 'Страна', 'Region': 'Регион',
+  'Status': 'Статус', 'Priority': 'Приоритет', 'Notes': 'Заметки', 'Actions': 'Действия', 'Role': 'Роль', 'User': 'Пользователь',
+  'Time': 'Время', 'Action': 'Действие', 'Category': 'Категория', 'Active': 'Активен', 'Inactive': 'Неактивен', 'Disabled': 'Отключён',
+  'Enable': 'Включить', 'Disable': 'Отключить', 'Off': 'Выкл', 'On': 'Вкл', 'Enabled': 'Включено', 'None': 'Нет', 'All': 'Все',
+  'New': 'Новое', 'Old': 'Старое', 'Via': 'Источник', 'Page': 'Страница', 'pg': 'стр', 'day': 'день', 'limit': 'лимит',
+  'Language': 'Язык', 'English': 'Английский', 'Russian': 'Русский', 'German': 'Немецкий', 'Arabic': 'Арабский',
+  'Admin': 'Админ', 'Owner': 'Владелец', 'Member': 'Участник', 'Viewer': 'Наблюдатель', 'Manager': 'Менеджер', 'Staff': 'Сотрудник',
+  'Marketing': 'Маркетинг', 'Super Admin': 'Супер-администратор',
+  'owner': 'владелец', 'admin': 'админ', 'member': 'участник', 'viewer': 'наблюдатель', 'manager': 'менеджер', 'staff': 'сотрудник',
+  'marketing': 'маркетинг', 'super_admin': 'супер-администратор',
+  'Request failed': 'Ошибка запроса', 'Request failed ({status})': 'Ошибка запроса ({status})', 'Failed': 'Не удалось',
+  'Cannot reach the server. Check your connection and try again.': 'Сервер недоступен. Проверьте подключение и попробуйте снова.',
+  'Server error — the database may be unavailable. Please try again shortly.': 'Ошибка сервера — база данных может быть недоступна. Попробуйте позже.',
+  'Database unavailable — please try again shortly or contact the administrator.': 'База данных недоступна — попробуйте позже или обратитесь к администратору.',
+  'Unauthorized': 'Нет доступа', 'Admin only': 'Только для администраторов', 'Super admin only': 'Только для супер-администратора',
+  'Access denied': 'Доступ запрещён', 'Not found': 'Не найдено',
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  'Dashboard': 'Панель управления', 'Messages': 'Сообщения', 'Tasks': 'Задачи', 'Lead Management': 'Управление лидами',
+  'Lead Scraper': 'Сбор лидов', 'Templates': 'Шаблоны', 'Auto Email': 'Авторассылка', 'Team': 'Команда', 'Documents': 'Документы',
+  'Activity Logs': 'Журнал действий', 'Admin Panel': 'Администрирование', 'My Profile': 'Мой профиль', 'Sign Out': 'Выйти',
+  'My Project': 'Мой проект', 'Select Project': 'Выберите проект', 'New Project': 'Новый проект', 'leads': 'лидов',
+  'Project name (e.g. Arabic GTM)': 'Название проекта (напр. Россия)', 'Country (e.g. Saudi Arabia)': 'Страна (напр. Россия)',
+  'Project language': 'Язык проекта', 'Notifications': 'Уведомления', 'Mark all read': 'Отметить все прочитанными',
+  'No notifications': 'Уведомлений нет',
+
+  // ── Login ─────────────────────────────────────────────────────────────────
+  'Welcome back': 'С возвращением', 'Verify your identity': 'Подтвердите личность', 'Create your account': 'Создайте аккаунт',
+  'Reset your password': 'Сброс пароля', 'Sign in to your CRM account to continue': 'Войдите в CRM, чтобы продолжить',
+  'Enter the 6-digit code sent to {email}': 'Введите 6-значный код, отправленный на {email}',
+  'Join your team workspace': 'Присоединяйтесь к рабочему пространству команды',
+  'We will email you a link to set a new password': 'Мы отправим на почту ссылку для установки нового пароля',
+  'Manage leads, campaigns, and your team across Arabic, Russian, and global markets — all in one workspace.': 'Управляйте лидами, рассылками и командой на арабском, российском и мировых рынках — в одном рабочем пространстве.',
+  '2-Step Verification': 'Двухэтапная проверка', 'OTP-secured login for all users': 'Вход по одноразовому коду для всех пользователей',
+  'Lead Intelligence': 'Аналитика лидов', 'Track and score leads by region': 'Отслеживайте и оценивайте лиды по регионам',
+  'Automated Outreach': 'Автоматические рассылки', 'Multilingual email campaigns at scale': 'Многоязычные email-кампании в масштабе',
+  'Where Talent Meets Reliability': 'Где талант встречает надёжность',
+  'Email Address': 'Адрес email', 'Password': 'Пароль', 'Enter your password': 'Введите пароль', 'Forgot Password?': 'Забыли пароль?',
+  'Continue': 'Продолжить', 'Verifying credentials...': 'Проверка данных...', 'Secured with OTP verification': 'Защищено одноразовым кодом',
+  'Admin detected. Click below to receive your login code.': 'Обнаружен администратор. Нажмите ниже, чтобы получить код входа.',
+  'Sending OTP...': 'Отправка кода...', 'Request OTP': 'Получить код',
+  'A 6-digit verification code has been sent to your email. Check your inbox and spam folder.': 'На вашу почту отправлен 6-значный код. Проверьте входящие и папку «Спам».',
+  'Verification Code': 'Код подтверждения', 'Enter 6-digit code': 'Введите 6-значный код', 'Verifying...': 'Проверка...',
+  'Verify & Sign In': 'Подтвердить и войти', 'Resend in {n}s': 'Отправить снова через {n}с', 'Resend Code': 'Отправить код снова',
+  'Back to login': 'Назад ко входу', 'Full Name': 'Полное имя', 'John Doe': 'Иван Иванов', 'Create a password': 'Придумайте пароль',
+  'Project Allotment': 'Проект', 'Select your project...': 'Выберите проект...', 'Create Account': 'Создать аккаунт',
+  'Send Reset Link': 'Отправить ссылку', 'Already have an account?': 'Уже есть аккаунт?', 'Sign in': 'Войти', 'Sign In': 'Войти',
+  "Don't have an account?": 'Нет аккаунта?', 'Create one here': 'Создать',
+  'No account found with this email': 'Аккаунт с таким email не найден', 'Verification code sent to your email': 'Код подтверждения отправлен на почту',
+  'New verification code sent': 'Новый код отправлен', 'If that email exists, a reset link has been sent.': 'Если такой email существует, ссылка для сброса отправлена.',
+  'Sign-in is unavailable until the database is back online.': 'Вход недоступен, пока база данных не восстановлена.',
+  'Invalid credentials': 'Неверный email или пароль', 'Account disabled': 'Аккаунт отключён', 'User not found': 'Пользователь не найден',
+  'Invalid OTP': 'Неверный код', 'OTP expired': 'Срок действия кода истёк', 'Email required': 'Укажите email',
+  'Email and password required': 'Укажите email и пароль', 'Email and OTP required': 'Укажите email и код', 'Failed to send OTP': 'Не удалось отправить код',
+  'Please select a project': 'Выберите проект', 'Selected project not found': 'Проект не найден', 'Email already registered': 'Этот email уже зарегистрирован',
+  'Name, email, password required': 'Укажите имя, email и пароль',
+  // Reset password page
+  'Invalid Reset Link': 'Недействительная ссылка', 'This link is invalid or has expired.': 'Ссылка недействительна или устарела.',
+  'Go to Login': 'Ко входу', 'Set your new password': 'Задайте новый пароль', 'Password Reset!': 'Пароль сброшен!',
+  'Your password has been updated.': 'Ваш пароль обновлён.', 'New Password': 'Новый пароль', 'Confirm Password': 'Подтвердите пароль',
+  'Resetting...': 'Сброс...', 'Reset Password': 'Сбросить пароль', 'Passwords do not match': 'Пароли не совпадают',
+  'Password must be at least 6 characters': 'Пароль должен быть не короче 6 символов', 'Password must be 6+ chars': 'Пароль должен быть не короче 6 символов',
+  'Invalid or expired reset link': 'Ссылка недействительна или устарела', 'Reset link expired': 'Срок действия ссылки истёк', 'All fields required': 'Заполните все поля',
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  'Welcome back,': 'С возвращением,', 'Total Tasks': 'Всего задач', 'Completed': 'Завершено', 'Pending': 'В ожидании',
+  'Total Leads': 'Всего лидов', 'HOT Leads': 'Горячие лиды', 'Team Members': 'Участники команды', 'Task Completion': 'Выполнение задач',
+  'Recent Tasks': 'Последние задачи', 'View All': 'Все', 'No tasks yet. Create one from the Tasks page.': 'Задач пока нет. Создайте на странице «Задачи».',
+  'Assigned to:': 'Исполнитель:',
+  // task statuses (raw values)
+  'pending': 'ожидает', 'in_progress': 'в работе', 'progress': 'в работе', 'review': 'на проверке', 'complete': 'завершена', 'completed': 'завершено',
+  'running': 'выполняется', 'failed': 'ошибка',
+
+  // ── Logs ──────────────────────────────────────────────────────────────────
+  'No activity logs yet': 'Записей пока нет', 'lead': 'лид', 'task': 'задача', 'team': 'команда', 'auto_email': 'авторассылка',
+  'general': 'общее', 'system': 'система',
+
+  // ── Marketing / Docs ──────────────────────────────────────────────────────
+  'Campaign tracking & content management': 'Отслеживание кампаний и управление контентом', 'Active Campaigns': 'Активные кампании',
+  'Leads This Month': 'Лидов за месяц', 'Conversion Rate': 'Конверсия', 'Marketing Module': 'Модуль маркетинга',
+  'Campaign management, content calendar, and analytics coming soon.': 'Управление кампаниями, контент-календарь и аналитика — скоро.',
+  'Shared Documents': 'Общие документы', 'Document Library': 'Библиотека документов',
+  'Upload and share team documents. Coming soon.': 'Загружайте и делитесь документами команды. Скоро.',
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+  'Profile updated': 'Профиль обновлён', 'Password changed': 'Пароль изменён', 'Job title': 'Должность',
+  'Interface language': 'Язык интерфейса', 'Bio': 'О себе', 'Joined': 'Дата регистрации', 'Edit Profile': 'Редактировать профиль',
+  'Change Password': 'Сменить пароль', 'Current Password': 'Текущий пароль', 'Update Password': 'Обновить пароль',
+  'Current password incorrect': 'Текущий пароль неверен',
+
+  // ── Team ──────────────────────────────────────────────────────────────────
+  '{n} members': 'Участников: {n}', 'Invite User': 'Пригласить', 'Invite New Team Member': 'Пригласить нового участника',
+  'e.g. John Doe': 'напр. Иван Иванов', 'e.g. Sales Manager': 'напр. Менеджер по продажам', 'Send Invite': 'Отправить приглашение',
+  '{name} invited successfully!': '{name} успешно приглашён(а)!', 'Name and email required': 'Укажите имя и email',
+  'User with this email already exists': 'Пользователь с таким email уже существует',
+
+  // ── Messages ──────────────────────────────────────────────────────────────
+  'New Chat': 'Новый чат', 'Start New Chat': 'Начать новый чат', 'Conversations': 'Диалоги', 'No conversations yet': 'Диалогов пока нет',
+  'Select a conversation or start a new chat': 'Выберите диалог или начните новый', 'No messages yet. Say hello!': 'Сообщений пока нет. Поздоровайтесь!',
+  'Type a message...': 'Введите сообщение...',
+
+  // ── Tasks ─────────────────────────────────────────────────────────────────
+  'Task Management': 'Управление задачами', '{p} pending, {i} in progress, {c} complete': '{p} в ожидании, {i} в работе, {c} завершено',
+  'Search tasks...': 'Поиск задач...', 'All Status': 'Все статусы', 'In Progress': 'В работе', 'Review': 'Проверка', 'Under Review': 'На проверке',
+  'Complete': 'Завершена', 'New Task': 'Новая задача', 'Title': 'Название', 'Assign To': 'Исполнитель', 'Unassigned': 'Не назначено',
+  'Low': 'Низкий', 'Normal': 'Обычный', 'High': 'Высокий', 'Urgent': 'Срочно', 'Days to Complete': 'Дней на выполнение',
+  'Create Task': 'Создать задачу', 'Assign': 'Назначить', 'Days': 'Дней', 'by': 'от', 'OVERDUE {n}d': 'ПРОСРОЧЕНО на {n} д.',
+  '{n}h left': 'осталось {n} ч', '{n}d left': 'осталось {n} д', 'No tasks found. Create one to get started.': 'Задач не найдено. Создайте первую.',
+  'Delete Task?': 'Удалить задачу?', 'This will permanently delete the task and all comments.': 'Задача и все комментарии будут удалены безвозвратно.',
+  'Task Details': 'Детали задачи', 'Created by': 'Создал(а)', 'Assigned to': 'Исполнитель', 'Show History': 'Показать историю',
+  'Hide History': 'Скрыть историю', 'changed': 'изменил(а)', 'No comments yet. Start the conversation.': 'Комментариев пока нет. Начните обсуждение.',
+  'edited': 'изменено', 'edit': 'изменить', 'delete': 'удалить', 'Type a comment...': 'Введите комментарий...',
+  'Delete this message?': 'Удалить это сообщение?',
+
+  // ── Templates ─────────────────────────────────────────────────────────────
+  'Outreach Templates': 'Шаблоны для рассылок', '{n} templates • Multi-language • Copy-paste ready': 'Шаблонов: {n} • Многоязычные • Готовы к копированию',
+  'New Template': 'Новый шаблон', 'Edit Template': 'Редактировать шаблон', 'No templates yet': 'Шаблонов пока нет', '{n} touches': 'Касаний: {n}',
+  'Touch': 'Касание', 'No {lang} translation': 'Нет перевода: {lang}', 'Copied': 'Скопировано', 'Copy': 'Копировать',
+  'Click edit to add a {lang} translation': 'Нажмите «Редактировать», чтобы добавить перевод: {lang}', 'Delete this template?': 'Удалить этот шаблон?',
+  'Name and body required': 'Укажите название и текст', 'Platform': 'Платформа', 'Draft': 'Черновик', 'Archived': 'В архиве',
+  'Subject': 'Тема', 'Body': 'Текст', 'Use': 'Используйте', 'as placeholders': 'как подстановки',
+  'LinkedIn': 'LinkedIn', 'Instagram': 'Instagram', 'WhatsApp': 'WhatsApp', 'Telegram': 'Telegram', 'Cold Calling': 'Холодные звонки',
+  'Name and body are required': 'Укажите название и текст',
+
+  // ── Leads ─────────────────────────────────────────────────────────────────
+  '{n} total leads': 'Всего лидов: {n}', 'Bulk Lookup': 'Массовый поиск', 'Bulk Upload': 'Массовая загрузка', 'Add Lead': 'Добавить лид',
+  'Export': 'Экспорт', 'Export failed': 'Экспорт не удался', 'HOT': 'Горячие', 'HIGH': 'Высокие', 'MEDIUM': 'Средние', 'PARTNER': 'Партнёры',
+  'Signed': 'Подписано', 'Partners': 'Партнёры', 'Bulk Lookup — paste IDs or company names': 'Массовый поиск — вставьте ID или названия компаний',
+  'Paste IDs or names separated by comma, space, or newline...': 'Вставьте ID или названия через запятую, пробел или с новой строки...',
+  'Search company, city, email, ID…': 'Поиск по компании, городу, email, ID…', 'All priorities': 'Все приоритеты', 'All sectors': 'Все отрасли',
+  'All statuses': 'Все статусы', 'Newest first': 'Сначала новые', 'Oldest first': 'Сначала старые', 'Newest': 'Новые', 'Oldest': 'Старые',
+  'Select Range': 'Выбрать диапазон', 'From ID': 'С ID', 'To ID': 'По ID', '{n} selected': 'Выбрано: {n}', 'Set status…': 'Установить статус…',
+  'Set Template': 'Назначить шаблон', 'Search template…': 'Поиск шаблона…', 'Copy Emails': 'Копировать email', 'Copy Phones': 'Копировать телефоны',
+  '{n} emails copied!': 'Скопировано email: {n}', 'No emails found': 'Email не найдены', '{n} phones copied!': 'Скопировано телефонов: {n}',
+  'No phone numbers found': 'Телефоны не найдены', 'Deselect all': 'Снять выделение', 'No leads found': 'Лиды не найдены',
+  'Industry': 'Отрасль', 'City/Region': 'Город/Регион', 'Size': 'Размер', 'Why They Need': 'Зачем нужны', 'Decision Maker': 'ЛПР',
+  'Where to Find': 'Где найти', 'Contact': 'Контакт', 'Template Used': 'Шаблон', 'Delete this lead?': 'Удалить этот лид?',
+  'Add New Lead': 'Новый лид', 'Domain': 'Домен', 'Sector': 'Отрасль', 'Pain Point': 'Потребность', 'Set template': 'Назначить шаблон',
+  'Search template, subject, message…': 'Поиск по шаблону, теме, тексту…', 'Clear template': 'Убрать шаблон', 'No templates found': 'Шаблоны не найдены',
+  'Company name required': 'Укажите название компании', 'Duplicate lead': 'Такой лид уже существует',
+  // Lead status labels
+  'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',
+  'Call Made': 'Звонок сделан', 'Replied': 'Ответили', 'Meeting Booked': 'Встреча назначена', 'Proposal Sent': 'КП отправлено',
+  'Negotiating': 'Переговоры', 'Contract Signed ✓': 'Договор подписан ✓', 'Contract Signed': 'Договор подписан', 'Not Interested': 'Не заинтересованы',
+  'Follow Up Later': 'Связаться позже',
+  'not_contacted': 'Не связывались', 'touch_1': 'Касание 1', 'touch_2': 'Касание 2', 'touch_3': 'Касание 3', 'email_sent': 'Письмо отправлено',
+  'call_made': 'Звонок сделан', 'replied': 'Ответили', 'meeting_booked': 'Встреча назначена', 'proposal_sent': 'КП отправлено',
+  'negotiating': 'Переговоры', 'contract_signed': 'Договор подписан', 'not_interested': 'Не заинтересованы', 'follow_up_later': 'Связаться позже',
+  // Priority labels
+  '🔥 HOT': '🔥 Горячий', '⚡ HIGH': '⚡ Высокий', '● MEDIUM': '● Средний', '🤝 PARTNER': '🤝 Партнёр',
+  // Sector labels
+  'Construction': 'Строительство', 'Manufacturing': 'Производство', 'Warehouse/Logistics': 'Склад и логистика', 'Food Processing': 'Пищевая промышленность',
+  'Metallurgy': 'Металлургия', 'Mining': 'Добыча', 'Chemicals': 'Химия и нефть', 'Automotive': 'Автопром', 'Hospitality': 'Гостиничный бизнес',
+  'Retail': 'Розница', 'Agency Partner': 'Агентство-партнёр', 'Industry Association': 'Отраслевая ассоциация', 'Other': 'Другое',
+  'construction': 'Строительство', 'manufacturing': 'Производство', 'warehouse_logistics': 'Склад и логистика', 'food_processing': 'Пищевая промышленность',
+  'metallurgy': 'Металлургия', 'mining': 'Добыча', 'chemicals': 'Химия и нефть', 'automotive': 'Автопром', 'hospitality': 'Гостиничный бизнес',
+  'retail': 'Розница', 'agency_partner': 'Агентство-партнёр', 'industry_association': 'Отраслевая ассоциация', 'other': 'Другое',
+  'healthcare': 'Здравоохранение', 'education': 'Образование', 'it_tech': 'IT и технологии', 'real_estate': 'Недвижимость', 'oil_gas': 'Нефть и газ',
+  'logistics': 'Логистика', 'cleaning_maintenance': 'Клининг и обслуживание', 'trading': 'Торговля', 'security': 'Охрана', 'woodworking': 'Деревообработка',
+  'textiles': 'Текстиль', 'energy': 'Энергетика', 'agriculture': 'Сельское хозяйство',
+  // Bulk upload
+  'Bulk Lead Upload': 'Массовая загрузка лидов', 'Upload': 'Загрузка', 'Template Mapping': 'Сопоставление колонок', 'Download Template': 'Скачать шаблон',
+  'Excel template with all fields + sample data + field guide': 'Excel-шаблон со всеми полями, примером и справочником полей',
+  'Processing...': 'Обработка...', 'Drop your Excel/CSV file here': 'Перетащите файл Excel/CSV сюда', 'or click to browse': 'или нажмите, чтобы выбрать',
+  'Max 5,000 rows': 'Максимум 5 000 строк', 'Clean': 'Без ошибок', 'Duplicates': 'Дубликаты', 'Duplicate': 'Дубликат', 'Re-upload': 'Загрузить заново',
+  'Required': 'Обязательно', 'Invalid email': 'Некорректный email', 'Invalid phone': 'Некорректный телефон', 'Invalid': 'Некорректно',
+  'Importing...': 'Импорт...', 'Import {n} leads': 'Импортировать лидов: {n}', '(skip {n} dupes)': '(пропустить дубликатов: {n})',
+  'Import Complete!': 'Импорт завершён!', 'Added': 'Добавлено', 'Skipped': 'Пропущено', 'Please upload .xlsx, .xls, or .csv file': 'Загрузите файл .xlsx, .xls или .csv',
+  'Upload failed': 'Загрузка не удалась', 'Upload error': 'Ошибка загрузки', 'Import error': 'Ошибка импорта',
+  "Map your file's column names to lead fields. This helps if your file uses different column headers than our template.": 'Сопоставьте колонки вашего файла с полями лида. Это нужно, если заголовки в файле отличаются от нашего шаблона.',
+  'YOUR COLUMN': 'ВАША КОЛОНКА', 'MAPS TO FIELD': 'ПОЛЕ ЛИДА', '(skip this column)': '(пропустить колонку)',
+  'Upload a file first to see column mappings': 'Сначала загрузите файл, чтобы увидеть сопоставление колонок',
+  'Re-upload with this mapping': 'Загрузить заново с этим сопоставлением', 'Last Upload': 'Последняя загрузка', 'No uploads yet in this session': 'В этой сессии загрузок не было',
+  'Company Name': 'Название компании', 'Company Size': 'Размер компании', 'Contact Person': 'Контактное лицо', 'Source URL': 'Источник (URL)',
+  'File is empty': 'Файл пуст', 'Max 5000 rows per upload': 'Максимум 5000 строк за одну загрузку', 'No leads provided': 'Нет лидов для импорта',
+
+  // ── Auto Email ────────────────────────────────────────────────────────────
+  'Bulk Email Engine': 'Массовая email-рассылка', 'Automated outreach pipeline': 'Автоматическая воронка рассылок', '{n} campaigns': 'кампаний: {n}',
+  '{n} emails delivered': 'писем доставлено: {n}', 'New Campaign': 'Новая кампания', 'Total Sent': 'Отправлено', 'Opened': 'Открыто',
+  'Bounced': 'Отказы', 'Open Rate': 'Открываемость', 'Reply Rate': 'Доля ответов', 'Bounce Rate': 'Доля отказов', 'Unsubscribed': 'Отписались',
+  'Campaigns': 'Кампании', 'Send Log': 'Журнал отправок', 'Starting…': 'Запуск…', 'Sending campaign emails…': 'Отправка писем кампании…',
+  '{s} sent, {f} failed': 'отправлено {s}, ошибок {f}', 'Campaign complete': 'Кампания завершена', '{s} sent, {f} failed, {k} skipped': 'отправлено {s}, ошибок {f}, пропущено {k}',
+  'Loading campaigns…': 'Загрузка кампаний…', 'No Campaigns Yet': 'Кампаний пока нет',
+  'Create your first automated email campaign to start reaching leads at scale.': 'Создайте первую автоматическую кампанию, чтобы охватить лидов в масштабе.',
+  'Create Campaign': 'Создать кампанию', 'sent': 'отправлено', 'Filtered': 'С фильтром', 'Send Now': 'Отправить сейчас',
+  'Pause': 'Пауза', 'Resume': 'Продолжить', 'Preview': 'Предпросмотр', 'Duplicate campaign': 'Дублировать', 'Sent': 'Отправлено', 'Unsubs': 'Отписки',
+  'AI Personalized': 'ИИ-персонализация', 'Template Only': 'Только шаблон', 'All Sent Emails': 'Все отправленные письма',
+  'Loading send log…': 'Загрузка журнала…', 'No emails sent yet': 'Писем пока не отправлено', 'Campaign': 'Кампания', 'Sent At': 'Отправлено',
+  'Page {p} of {n}': 'Страница {p} из {n}', 'Edit Campaign': 'Редактировать кампанию', 'Basics': 'Основное', 'Targeting': 'Аудитория',
+  'Settings': 'Настройки', 'Campaign Name': 'Название кампании', 'Russia Q3 Outreach': 'Россия — рассылка Q3', 'Email Template': 'Шаблон письма',
+  'Select template…': 'Выберите шаблон…', 'Daily Limit': 'Дневной лимит', 'AI Personalization': 'ИИ-персонализация', 'Off (template only)': 'Выкл (только шаблон)',
+  'Lead Filters': 'Фильтры лидов', 'Narrow which leads receive this campaign': 'Уточните, какие лиды получат эту кампанию', 'Lead Status': 'Статус лида',
+  'e.g. Moscow': 'напр. Москва', 'e.g. Russia': 'напр. Россия', 'Counting…': 'Подсчёт…', 'Count Leads': 'Посчитать лидов',
+  'leads match these filters': 'лидов подходят под фильтры', 'Send Window Start': 'Начало окна отправки', 'Send Window End': 'Конец окна отправки',
+  'Campaign Summary': 'Сводка кампании', 'Template': 'Шаблон', 'Send Window': 'Окно отправки', 'Filter': 'Фильтр', 'Matching Leads': 'Подходящих лидов',
+  'Save Changes': 'Сохранить изменения', 'Campaign name required': 'Укажите название кампании', 'Select a template': 'Выберите шаблон',
+  'Start sending emails for this campaign? This will send real emails to leads.': 'Запустить рассылку? Лидам будут отправлены настоящие письма.',
+  'Delete this campaign and all its send history? This cannot be undone.': 'Удалить кампанию и всю историю отправок? Это действие необратимо.',
+  'Email Preview': 'Предпросмотр письма', 'Enter Lead ID to preview…': 'Введите ID лида для предпросмотра…', 'Generate Preview': 'Показать',
+  'Enter a lead ID': 'Введите ID лида', 'To': 'Кому', 'AI Opener': 'ИИ-вступление', 'AI Value Prop': 'ИИ-ценность', 'Text': 'Текст',
+  'Queued': 'В очереди', 'Sending': 'Отправка', 'Delivered': 'Доставлено', 'Unsub': 'Отписка', 'Scheduled': 'Запланирована',
+  'sector': 'отрасль', 'priority': 'приоритет', 'status': 'статус', 'region': 'регион', 'country': 'страна',
+  'Assign a template to this campaign first': 'Сначала назначьте шаблон кампании', 'Campaign is already sending': 'Кампания уже отправляется',
+  'Campaign not found': 'Кампания не найдена',
+
+  // ── Lead scraper ──────────────────────────────────────────────────────────
+  '5 sources · Email verification · Smart enrichment': '5 источников · Проверка email · Умное обогащение',
+  'Starting scrape from {src}...': 'Запуск сбора из {src}...', 'Max leads': 'Макс. лидов', 'Max Leads': 'Макс. лидов',
+  'Sending request to server... (this may take 1-5 minutes)': 'Запрос отправлен на сервер... (может занять 1–5 минут)',
+  'Scrape complete! Found {f}, added {a}, skipped {s} duplicates': 'Сбор завершён! Найдено {f}, добавлено {a}, пропущено дубликатов {s}',
+  'Scrape failed': 'Сбор не удался', 'Starting enrichment (mode: {mode})': 'Запуск обогащения (режим: {mode})',
+  'Processing {n} leads in {b} batches of {s}': 'Обработка {n} лидов в {b} пакетах по {s}', 'Fallback: Website → 2GIS → hh.ru → Email guessing': 'Цепочка: сайт → 2GIS → hh.ru → подбор email',
+  'Batch {b}/{n}: IDs {from}-{to}...': 'Пакет {b}/{n}: ID {from}–{to}...', 'Batch {b} failed': 'Пакет {b} не удался',
+  'Batch {b}: {e}/{n} updated (📧 {m} emails, 📞 {p} phones)': 'Пакет {b}: обновлено {e}/{n} (📧 {m} email, 📞 {p} тел.)',
+  'Batch {b} error': 'Ошибка пакета {b}', 'Pausing 2s before next batch...': 'Пауза 2 с перед следующим пакетом...', 'ALL BATCHES COMPLETE': 'ВСЕ ПАКЕТЫ ОБРАБОТАНЫ',
+  'Total: {e}/{n} updated | 📧 {m} emails | 📞 {p} phones | ❌ {f} failed | ⚠️ {b} batch errors': 'Итого: обновлено {e}/{n} | 📧 {m} email | 📞 {p} тел. | ❌ {f} ошибок | ⚠️ {b} ошибок пакетов',
+  'Starting SMTP mailbox verification...': 'Запуск проверки почтовых ящиков (SMTP)...', 'Starting MX record verification...': 'Запуск проверки MX-записей...',
+  'Verified {n} emails. Valid: {v}, Bad: {b}, No MX: {m}': 'Проверено {n} email. Валидных: {v}, некорректных: {b}, без MX: {m}',
+  'Verification failed': 'Проверка не удалась', 'Fixing {n} leads with bad format emails...': 'Исправление {n} лидов с некорректными email...',
+  'Web Search': 'Веб-поиск', 'Dorking': 'Google Dorking', 'Enrichment': 'Обогащение',
+  'ALL {n} LEADS HAVE WRONG EMAILS': 'У ВСЕХ {n} ЛИДОВ НЕВЕРНЫЕ EMAIL',
+  'Emails were scraped from job boards (hh.ru) — they are generic HR/recruitment emails, NOT actual company contacts. Re-enrich to get real emails from company websites & 2GIS.': 'Email собраны с job-сайтов (hh.ru) — это общие HR-адреса, а не реальные контакты компаний. Запустите обогащение, чтобы получить настоящие email с сайтов компаний и 2GIS.',
+  'RE-ENRICHING…': 'ОБОГАЩЕНИЕ…', 'RE-ENRICH ALL {n} LEADS NOW': 'ОБОГАТИТЬ ВСЕ {n} ЛИДОВ', 'Scraping in progress...': 'Идёт сбор...',
+  'Enrichment in progress...': 'Идёт обогащение...', 'Activity Log': 'Журнал', 'Working... please wait': 'Работаем... подождите',
+  'Scrape New Leads': 'Собрать новые лиды', 'Source': 'Источник', 'Business Search': 'поиск компаний', 'Business Directory': 'справочник компаний',
+  'Advanced': 'продвинутый', 'Crawl Sites': 'обход сайтов', 'Job Board': 'вакансии', 'Dork Type': 'Тип запроса', 'Search Query': 'Поисковый запрос',
+  'Keywords...': 'Ключевые слова...', 'Presets': 'Готовые запросы', 'Scraping…': 'Сбор…', 'Run Scrape': 'Запустить сбор', 'Custom Dork': 'Свой запрос',
+  'Cities': 'Города', '{a} added, {s} skipped ({f} found)': 'добавлено {a}, пропущено {s} (найдено {f})',
+  'Email Quality Verification': 'Проверка качества email', 'Scanning {n} leads...': 'Сканирование {n} лидов...', 'Real Contact': 'Реальный контакт',
+  'Generic (info@/hr@)': 'Общий (info@/hr@)', 'Broken Format': 'Неверный формат', 'Empty': 'Пусто',
+  '{n} leads have GENERIC emails — campaigns will NEVER get read': 'У {n} лидов ОБЩИЕ email — такие письма никто не прочитает',
+  'These go to company-wide inboxes nobody checks. You need personal emails (name@company.ru) to reach decision makers.': 'Они попадают в общие ящики, которые никто не проверяет. Нужны личные email (имя@компания.ru), чтобы дойти до ЛПР.',
+  'Only {g}/{n} leads ready for outreach ({p}%)': 'Только {g}/{n} лидов готовы к рассылке ({p}%)',
+  '{n} leads will bounce or be ignored. Use Google Dorking or 2GIS to find real decision-maker emails.': '{n} лидов отскочат или будут проигнорированы. Используйте Google Dorking или 2GIS, чтобы найти реальные email ЛПР.',
+  'Verifying…': 'Проверка…', 'Check MX Records': 'Проверить MX-записи', 'Connecting…': 'Подключение…', 'Verify Mailboxes (SMTP)': 'Проверить ящики (SMTP)',
+  'Deep Results': 'Подробные результаты', 'checked': 'проверено', 'Personal': 'Личные', 'Generic': 'Общие', 'Bad': 'Некорректные', 'No MX': 'Без MX',
+  'Not Exists': 'Не существуют', 'Exists': 'Существуют', 'Show {n} issues': 'Показать проблем: {n}', 'Problem': 'Проблема',
+  'Enrich Leads (Fix Emails & Phones)': 'Обогащение лидов (email и телефоны)', '4 fallbacks: Website crawling → 2GIS → hh.ru → Email guessing': '4 источника: обход сайта → 2GIS → hh.ru → подбор email',
+  'Have Email': 'С email', 'No Email': 'Без email', 'Have Phone': 'С телефоном', 'No Phone': 'Без телефона', 'Mode': 'Режим',
+  'Force (overwrite wrong data)': 'Принудительно (перезаписать неверные данные)', 'Only Missing': 'Только отсутствующие', 'Max': 'Макс.',
+  'Enriching…': 'Обогащение…', 'Run Enrichment': 'Запустить обогащение', '{e}/{n} updated — 📧 {m} emails · 📞 {p} phones': 'обновлено {e}/{n} — 📧 {m} email · 📞 {p} тел.',
+  '{n} changes': 'изменений: {n}', 'History & Reports': 'История и отчёты', 'No jobs yet': 'Заданий пока нет', 'Details': 'Детали', 'Found': 'Найдено',
+  'Skip': 'Пропущено', 'Started': 'Запущено', 'Duration': 'Длительность', 'Summary': 'Итого',
+  '{c} completed, {f} failed, {n} total leads added': 'завершено {c}, ошибок {f}, всего добавлено лидов {n}',
+  'All Industries': 'Все отрасли', 'Find Companies with Email': 'Найти компании с email', 'Find Companies Hiring Workers': 'Найти компании, нанимающие рабочих',
+  'Find Decision Makers': 'Найти ЛПР', 'Find Emails by Domain': 'Найти email по домену', 'Custom Dork Query': 'Свой запрос',
+  'Woodworking': 'Деревообработка', 'Textiles': 'Текстиль', 'Energy': 'Энергетика', 'Agriculture': 'Сельское хозяйство', 'Chemicals & Oil': 'Химия и нефть',
+  'Warehouse & Logistics': 'Склад и логистика',
+
+  // ── Admin panel ───────────────────────────────────────────────────────────
+  'Manage users, roles, and system settings': 'Пользователи, роли и настройки системы', 'Add User': 'Добавить пользователя', 'Users': 'Пользователи',
+  'Project Access': 'Доступ к проектам', 'Features': 'Функции', 'Email / SMTP': 'Email / SMTP', 'Create New User': 'Новый пользователь',
+  'Projects': 'Проекты', 'select one or more': 'выберите один или несколько', 'Project Role': 'Роль в проекте',
+  'Super Admins automatically have access to all projects — no project mapping needed.': 'Супер-администраторы автоматически имеют доступ ко всем проектам.',
+  'All projects': 'Все проекты', 'No project': 'Нет проекта', 'Assign to project': 'Назначить в проект', 'Remove from {project}': 'Убрать из {project}',
+  'Edit role': 'Изменить роль', 'Reset password': 'Сбросить пароль', 'New password:': 'Новый пароль:', 'Member added!': 'Участник добавлен!',
+  'Member removed': 'Участник удалён', 'User created!': 'Пользователь создан!', 'Project assigned!': 'Проект назначен!', 'Project removed': 'Проект убран',
+  'Updated!': 'Обновлено!', 'Remove this user from the project?': 'Убрать пользователя из проекта?', 'Remove this user from {project}?': 'Убрать пользователя из {project}?',
+  'Add Member': 'Добавить участника', 'Select user...': 'Выберите пользователя...', 'Members': 'Участники', 'No members assigned to this project yet': 'В проекте пока нет участников',
+  'System Role': 'Системная роль', 'Remove from project': 'Убрать из проекта', 'Project language updated': 'Язык проекта обновлён',
+  'Members of this project see the interface, emails and upload templates in this language.': 'Участники проекта видят интерфейс, письма и шаблоны загрузки на этом языке.',
+  'Feature Access by Role': 'Доступ к функциям по ролям',
+  'Control which side-nav features each role can see. Changes apply to everyone with that role after their next page refresh.': 'Управляйте, какие разделы меню видит каждая роль. Изменения применяются после обновления страницы.',
+  'Super Admins always see all features — they are not listed here. Admin Panel and My Profile are never gated.': 'Супер-администраторы всегда видят всё и здесь не перечислены. «Администрирование» и «Мой профиль» доступны всегда.',
+  'Feature access saved!': 'Доступ к функциям сохранён!', 'Feature': 'Функция', 'features': 'функций', 'Save Feature Access': 'Сохранить доступ',
+  'Reset to Defaults': 'Сбросить по умолчанию', 'Restore the default visibility rules': 'Восстановить правила по умолчанию',
+  'SMTP Accounts': 'SMTP-аккаунты',
+  "Add as many sending accounts as you want. Assign each to a project (or leave global) — Auto Email rotates through that project's accounts and respects each daily limit.": 'Добавьте любое число отправляющих аккаунтов. Привяжите каждый к проекту (или оставьте глобальным) — авторассылка чередует аккаунты проекта с учётом дневных лимитов.',
+  'Add SMTP': 'Добавить SMTP', 'Label': 'Название', 'e.g. Arabic outreach — Gmail 1': 'напр. Россия — Gmail 1', 'Project': 'Проект',
+  'Global (all projects)': 'Глобальный (все проекты)', 'SMTP Host': 'SMTP-сервер', 'Port': 'Порт', 'secure': 'защищённое', 'Username': 'Логин',
+  'Password / App Password': 'Пароль / пароль приложения', '(leave blank to keep)': '(оставьте пустым, чтобы не менять)', 'app password': 'пароль приложения',
+  'From Email': 'Email отправителя', 'defaults to username': 'по умолчанию — логин', 'From Name': 'Имя отправителя', 'Update Account': 'Обновить аккаунт',
+  'Add Account': 'Добавить аккаунт', 'No SMTP accounts yet. Add one to start sending Auto Email.': 'SMTP-аккаунтов пока нет. Добавьте, чтобы запустить авторассылку.',
+  'Until then, the system falls back to the SMTP settings in the server .env file.': 'До тех пор используются настройки SMTP из файла .env на сервере.',
+  'Account': 'Аккаунт', 'Host': 'Сервер', 'From': 'От', 'Global': 'Глобальный', 'Send test email': 'Отправить тестовое письмо',
+  'Delete this SMTP account?': 'Удалить этот SMTP-аккаунт?', 'SMTP account updated!': 'SMTP-аккаунт обновлён!', 'SMTP account added!': 'SMTP-аккаунт добавлен!',
+  'SMTP account deleted': 'SMTP-аккаунт удалён', 'Send a test email to:': 'Отправить тестовое письмо на:', 'Sending test email…': 'Отправка тестового письма…',
+  'Test email sent from {from} to {to}': 'Тестовое письмо отправлено с {from} на {to}', 'Test failed': 'Тест не удался',
+  'Role Labels': 'Названия ролей', 'Rename roles to match your organization. Changes apply across the entire app.': 'Переименуйте роли под вашу организацию. Изменения применяются во всём приложении.',
+  'Role labels saved!': 'Названия ролей сохранены!', 'Display name for {role}': 'Отображаемое имя для {role}', 'Save Role Labels': 'Сохранить названия ролей',
+  'Host, username and password are required': 'Укажите сервер, логин и пароль', 'Name is required': 'Укажите название',
+  'A project with this name already exists': 'Проект с таким названием уже существует', 'Email already exists': 'Такой email уже существует',
+  'Please assign at least one project (required for all roles except Super Admin)': 'Назначьте хотя бы один проект (обязательно для всех ролей, кроме супер-администратора)',
+  'User is already a member of this project': 'Пользователь уже участник этого проекта',
+};
+
+const DICTS = { ru: RU };
+
+/**
+ * Translate `key` into `lang`, substituting `{placeholders}` from `vars`.
+ * Falls back to the key (English) when there is no translation.
+ */
+export function translate(lang, key, vars) {
+  if (key === undefined || key === null) return '';
+  const k = String(key);
+  const dict = DICTS[lang];
+  let s = (dict && Object.prototype.hasOwnProperty.call(dict, k)) ? dict[k] : k;
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      s = s.split(`{${name}}`).join(value === undefined || value === null ? '' : String(value));
+    }
+  }
+  return s;
+}

@@ -11,7 +11,7 @@ if (fs.existsSync(envPath)) {
     if (m) process.env[m[1]] = m[2].trim();
   });
 }
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false } });
 
 const candidates = [
   process.argv[2],

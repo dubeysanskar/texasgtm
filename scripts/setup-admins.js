@@ -1,4 +1,4 @@
-// TexasGTM — Setup Real Admins
+// GTM CRM — Setup Real Admins
 // Adds CRM admins + new admin, removes test admin
 // Run: node scripts/setup-admins.js
 
@@ -17,7 +17,7 @@ if (fs.existsSync(envPath)) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false },
 });
 
 const ADMINS = [
@@ -27,10 +27,10 @@ const ADMINS = [
 ];
 
 async function run() {
-  console.log('Setting up TexasGTM admins...\n');
+  console.log('Setting up GTM CRM admins...\n');
 
   // Default password (they'll use OTP login, but bcrypt hash needed for the column)
-  const hash = await bcrypt.hash('TexasGTM2026!', 10);
+  const hash = await bcrypt.hash('GTMCRM2026!', 10);
 
   for (const admin of ADMINS) {
     const existing = await pool.query('SELECT id FROM gtm_users WHERE email = $1', [admin.email]);
@@ -46,14 +46,14 @@ async function run() {
   }
 
   // Remove test admin
-  const testAdmin = await pool.query("SELECT id FROM gtm_users WHERE email = 'admin@texasgtm.com'");
+  const testAdmin = await pool.query("SELECT id FROM gtm_users WHERE email = 'admin@gtmcrm.local'");
   if (testAdmin.rows.length > 0) {
-    await pool.query("DELETE FROM gtm_users WHERE email = 'admin@texasgtm.com'");
-    console.log('\n  🗑️  Removed test admin (admin@texasgtm.com)');
+    await pool.query("DELETE FROM gtm_users WHERE email = 'admin@gtmcrm.local'");
+    console.log('\n  🗑️  Removed test admin (admin@gtmcrm.local)');
   }
 
   console.log('\n╔═══════════════════════════════════════╗');
-  console.log('║    TexasGTM Admins Ready               ║');
+  console.log('║    GTM CRM Admins Ready               ║');
   console.log('╠═══════════════════════════════════════╣');
   ADMINS.forEach(a => console.log(`║  ${a.email.padEnd(38)}║`));
   console.log('║                                       ║');

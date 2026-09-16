@@ -4,7 +4,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
   throw new Error('FATAL: JWT_SECRET not set');
 }
-const _SECRET = JWT_SECRET || 'texasgtm-dev-fallback-change-me';
+const _SECRET = JWT_SECRET || 'gtm-crm-dev-fallback-change-me';
 const JWT_EXPIRES = '7d';
 
 function signToken(payload) {

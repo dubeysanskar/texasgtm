@@ -30,7 +30,7 @@ const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" 
 
 export default function LeadsPage() {
   const { user, loading: authLoading, isAdmin } = useAuth();
-  const { projectId } = useProject();
+  const { projectId, t, lang } = useProject();
   const router = useRouter();
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
@@ -96,7 +96,7 @@ export default function LeadsPage() {
     fetchLeads(); fetchStats();
   }
   async function handleDelete(id) {
-    if (!confirm('Delete this lead?')) return;
+    if (!confirm(t('Delete this lead?'))) return;
     await fetch(`/api/leads/${id}`, { method: 'DELETE' }); fetchLeads(); fetchStats();
   }
   async function handleBulkStatus() {
@@ -119,10 +119,10 @@ export default function LeadsPage() {
   async function handleExport() {
     setExporting(true);
     try {
-      const r = await fetch('/api/leads/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const r = await fetch('/api/leads/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: projectId, lang }) });
       const b = await r.blob(); const u = URL.createObjectURL(b);
-      const a = document.createElement('a'); a.href = u; a.download = `TexasGTM_Leads_${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(u);
-    } catch (e) { alert('Export failed'); }
+      const a = document.createElement('a'); a.href = u; a.download = `${lang === 'ru' ? 'GTM_CRM_Lidy' : 'GTM_CRM_Leads'}_${new Date().toISOString().split('T')[0]}.xlsx`; a.click(); URL.revokeObjectURL(u);
+    } catch (e) { alert(t('Export failed')); }
     setExporting(false);
   }
   function handleBulkLookup() {
@@ -133,7 +133,7 @@ export default function LeadsPage() {
   function toggleSelectAll() { if (selected.size === leads.length) setSelected(new Set()); else setSelected(new Set(leads.map(l => l.id))); }
 
   // Excel-like cell styles
-  const TH = { padding:'8px 10px', textAlign:'left', fontSize:'0.7rem', fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.3px', borderRight:'1px solid #d1d5db', borderBottom:'2px solid #9ca3af', whiteSpace:'nowrap', userSelect:'none', background:'#f3f4f6' };
+  const TH = { padding:'8px 10px', textAlign:'left', fontSize:'0.7rem', fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.3px', borderRight:'1px solid #d1d5db', borderBottom:'2px solid #9ca3af', whiteSpace:'normal', lineHeight:1.25, userSelect:'none', background:'#f3f4f6', verticalAlign:'middle' };
   const TD = { padding:'5px 8px', borderRight:'1px solid #e5e7eb', borderBottom:'1px solid #e5e7eb', fontSize:'0.74rem', color:'#1f2937', userSelect:'text', cursor:'cell', verticalAlign:'top', lineHeight:1.5, wordBreak:'break-word', overflowWrap:'break-word', whiteSpace:'normal' };
   const PB = { padding:'5px 10px', border:'1px solid var(--border)', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:'0.72rem', color:'#374151' };
   const BB = { fontSize:'0.72rem', padding:'5px 12px', borderRadius:6, border:'1px solid #93c5fd', background:'#fff', cursor:'pointer', color:'#1e40af', fontWeight:600, display:'flex', alignItems:'center', gap:4 };
@@ -145,14 +145,14 @@ export default function LeadsPage() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 className="page-title" style={{ marginBottom:2, fontSize:'1.3rem' }}>Lead Management</h1>
-          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{total} total leads • Page {page}/{totalPages}</p>
+          <h1 className="page-title" style={{ marginBottom:2, fontSize:'1.3rem' }}>{t('Lead Management')}</h1>
+          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{t('{n} total leads', { n: total })} • {t('Page')} {page}/{totalPages}</p>
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-          <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> Bulk Lookup</button>
-          <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> Bulk Upload</button>
-          <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> Add Lead</button>
-          <button onClick={handleExport} disabled={exporting} className="btn btn-success" style={{ fontSize:'0.75rem' }}><MI name="download" size={14}/> Export</button>
+          <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> {t('Bulk Lookup')}</button>
+          <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>
+          <button onClick={handleExport} disabled={exporting} className="btn btn-success" style={{ fontSize:'0.75rem' }}><MI name="download" size={14}/> {t('Export')}</button>
         </div>
       </div>
 
@@ -160,12 +160,12 @@ export default function LeadsPage() {
       {stats && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:8, marginBottom:16 }}>
           {[
-            { l:'Total', v:stats.total, c:'#3b82f6', i:'groups' },
-            { l:'HOT', v:stats.hot, c:'#ef4444', i:'local_fire_department' },
-            { l:'HIGH', v:stats.high, c:'#22c55e', i:'bolt' },
-            { l:'Active', v:stats.active, c:'#8b5cf6', i:'trending_up' },
-            { l:'Signed', v:stats.signed, c:'#10b981', i:'verified' },
-            { l:'Partners', v:stats.partner, c:'#f59e0b', i:'handshake' },
+            { l:t('Total'), v:stats.total, c:'#3b82f6', i:'groups' },
+            { l:t('HOT'), v:stats.hot, c:'#ef4444', i:'local_fire_department' },
+            { l:t('HIGH'), v:stats.high, c:'#22c55e', i:'bolt' },
+            { l:t('Active'), v:stats.active, c:'#8b5cf6', i:'trending_up' },
+            { l:t('Signed'), v:stats.signed, c:'#10b981', i:'verified' },
+            { l:t('Partners'), v:stats.partner, c:'#f59e0b', i:'handshake' },
           ].map(s => (
             <div key={s.l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'10px 14px', textAlign:'center' }}>
               <MI name={s.i} size={18}/><div style={{ fontSize:'1.3rem', fontWeight:800, color:s.c, marginTop:2 }}>{s.v}</div>
@@ -178,67 +178,67 @@ export default function LeadsPage() {
       {/* Bulk Lookup Panel */}
       {showBulkLookup && (
         <div style={{ background:'#f8fafc', border:'1px solid var(--border)', borderRadius:10, padding:14, marginBottom:14 }}>
-          <div style={{ fontSize:'0.8rem', fontWeight:600, marginBottom:8 }}>Bulk Lookup — paste IDs or company names</div>
-          <textarea rows={3} value={bulkLookupText} onChange={e => setBulkLookupText(e.target.value)} placeholder="Paste IDs or names separated by comma, space, or newline..." style={{ width:'100%', padding:8, borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem', resize:'vertical' }}/>
+          <div style={{ fontSize:'0.8rem', fontWeight:600, marginBottom:8 }}>{t('Bulk Lookup — paste IDs or company names')}</div>
+          <textarea rows={3} value={bulkLookupText} onChange={e => setBulkLookupText(e.target.value)} placeholder={t('Paste IDs or names separated by comma, space, or newline...')} style={{ width:'100%', padding:8, borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem', resize:'vertical' }}/>
           <div style={{ display:'flex', gap:6, marginTop:8 }}>
-            <button onClick={handleBulkLookup} className="btn btn-primary" style={{ fontSize:'0.72rem' }}>Search</button>
-            <button onClick={() => { setShowBulkLookup(false); setBulkLookupText(''); setFilters(f => ({...f, search:''})); }} className="btn btn-ghost" style={{ fontSize:'0.72rem' }}>Clear</button>
+            <button onClick={handleBulkLookup} className="btn btn-primary" style={{ fontSize:'0.72rem' }}>{t('Search')}</button>
+            <button onClick={() => { setShowBulkLookup(false); setBulkLookupText(''); setFilters(f => ({...f, search:''})); }} className="btn btn-ghost" style={{ fontSize:'0.72rem' }}>{t('Clear')}</button>
           </div>
         </div>
       )}
 
       {/* Filters */}
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}>
-        <input type="text" placeholder="Search company, city, email, ID…" value={filters.search}
+        <input type="text" placeholder={t('Search company, city, email, ID…')} value={filters.search}
           onChange={e => setFilters(f => ({...f, search: e.target.value}))} style={{ flex:1, minWidth:180, padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem' }}/>
         <select value={filters.priority} onChange={e => setFilters(f => ({...f, priority: e.target.value}))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem' }}>
-          <option value="">All priorities</option>{Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{c.label}</option>)}
+          <option value="">{t('All priorities')}</option>{Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
         </select>
         <select value={filters.sector} onChange={e => setFilters(f => ({...f, sector: e.target.value}))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem' }}>
-          <option value="">All sectors</option>{Object.entries(SL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+          <option value="">{t('All sectors')}</option>{Object.entries(SL).map(([v,l]) => <option key={v} value={v}>{t(l)}</option>)}
         </select>
         <select value={filters.status} onChange={e => setFilters(f => ({...f, status: e.target.value}))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem' }}>
-          <option value="">All statuses</option>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{c.label}</option>)}
+          <option value="">{t('All statuses')}</option>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
         </select>
         <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem', width:80 }}>
-          {[25,50,100,200].map(n => <option key={n} value={n}>{n}/pg</option>)}
+          {[25,50,100,200].map(n => <option key={n} value={n}>{n}/{t('pg')}</option>)}
         </select>
-        <button onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+        <button onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={sortOrder === 'desc' ? t('Newest first') : t('Oldest first')}
           style={{ padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.72rem', cursor:'pointer', background: sortOrder === 'asc' ? '#eff6ff' : '#fff', color: sortOrder === 'asc' ? '#2563eb' : '#6b7280', fontWeight:600, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
-          <MI name={sortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward'} size={14}/> {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+          <MI name={sortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward'} size={14}/> {sortOrder === 'desc' ? t('Newest') : t('Oldest')}
         </button>
         {(filters.search||filters.priority||filters.sector||filters.status) && (
-          <button onClick={() => setFilters({sector:'',priority:'',status:'',search:''})} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ Clear</button>
+          <button onClick={() => setFilters({sector:'',priority:'',status:'',search:''})} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ {t('Clear')}</button>
         )}
       </div>
 
       {/* Range Selector + Bulk Actions Bar */}
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: selected.size > 0 ? 0 : 12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.72rem', color:'#6b7280' }}>
-          <span style={{ fontWeight:600 }}>Select Range:</span>
-          <input type="number" placeholder="From ID" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
+          <span style={{ fontWeight:600 }}>{t('Select Range')}:</span>
+          <input type="number" placeholder={t('From ID')} value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
           <span>→</span>
-          <input type="number" placeholder="To ID" value={rangeTo} onChange={e => setRangeTo(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
-          <button onClick={handleRangeSelect} style={{ ...BB, padding:'4px 10px', fontSize:'0.68rem' }}><MI name="select_all" size={13}/> Select</button>
+          <input type="number" placeholder={t('To ID')} value={rangeTo} onChange={e => setRangeTo(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
+          <button onClick={handleRangeSelect} style={{ ...BB, padding:'4px 10px', fontSize:'0.68rem' }}><MI name="select_all" size={13}/> {t('Select')}</button>
         </div>
       </div>
 
       {selected.size > 0 && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'#eff6ff', borderRadius:10, marginBottom:12, border:'1px solid #bfdbfe', flexWrap:'wrap' }}>
-          <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#1e40af' }}>{selected.size} selected</span>
+          <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#1e40af' }}>{t('{n} selected', { n: selected.size })}</span>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
           <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} style={{ padding:'5px 8px', borderRadius:6, border:'1px solid #93c5fd', fontSize:'0.72rem' }}>
-            <option value="">Set status…</option>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{c.label}</option>)}
+            <option value="">{t('Set status…')}</option>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
           </select>
-          <button onClick={handleBulkStatus} disabled={!bulkStatus} className="btn btn-primary" style={{ fontSize:'0.72rem', padding:'5px 14px' }}>Apply</button>
+          <button onClick={handleBulkStatus} disabled={!bulkStatus} className="btn btn-primary" style={{ fontSize:'0.72rem', padding:'5px 14px' }}>{t('Apply')}</button>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
           <div style={{ position:'relative' }}>
             <button onClick={() => setShowBulkTpl(!showBulkTpl)} style={BB}>
-              <MI name="description" size={13}/> Set Template
+              <MI name="description" size={13}/> {t('Set Template')}
             </button>
             {showBulkTpl && (
               <div style={{ position:'absolute', top:'100%', left:0, width:280, background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,.15)', marginTop:4, zIndex:100 }}>
-                <input autoFocus type="text" placeholder="Search template…" value={bulkTplSearch} onChange={e => setBulkTplSearch(e.target.value)}
+                <input autoFocus type="text" placeholder={t('Search template…')} value={bulkTplSearch} onChange={e => setBulkTplSearch(e.target.value)}
                   style={{ width:'100%', padding:'8px 10px', border:'none', borderBottom:'1px solid #e5e7eb', fontSize:'0.72rem', outline:'none' }}/>
                 <div style={{ maxHeight:200, overflowY:'auto' }}>
                   {templates.filter(t => !bulkTplSearch || [t.name,t.subject,t.body].join(' ').toLowerCase().includes(bulkTplSearch.toLowerCase())).map(t => (
@@ -253,43 +253,43 @@ export default function LeadsPage() {
             )}
           </div>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
-          <button onClick={() => { const emails = leads.filter(l => selected.has(l.id) && l.email).map(l => l.email).join(', '); if(emails){navigator.clipboard.writeText(emails);alert(`${emails.split(',').length} emails copied!`)}else{alert('No emails found')} }} style={BB}>
-            <MI name="mail" size={13}/> Copy Emails
+          <button onClick={() => { const emails = leads.filter(l => selected.has(l.id) && l.email).map(l => l.email).join(', '); if(emails){navigator.clipboard.writeText(emails);alert(t('{n} emails copied!', { n: emails.split(',').length }))}else{alert(t('No emails found'))} }} style={BB}>
+            <MI name="mail" size={13}/> {t('Copy Emails')}
           </button>
-          <button onClick={() => { const phones = leads.filter(l => selected.has(l.id) && l.phone).map(l => l.phone).join(', '); if(phones){navigator.clipboard.writeText(phones);alert(`${phones.split(',').length} phones copied!`)}else{alert('No phone numbers found')} }} style={BB}>
-            <MI name="call" size={13}/> Copy Phones
+          <button onClick={() => { const phones = leads.filter(l => selected.has(l.id) && l.phone).map(l => l.phone).join(', '); if(phones){navigator.clipboard.writeText(phones);alert(t('{n} phones copied!', { n: phones.split(',').length }))}else{alert(t('No phone numbers found'))} }} style={BB}>
+            <MI name="call" size={13}/> {t('Copy Phones')}
           </button>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
-          <button onClick={() => setSelected(new Set())} style={{ fontSize:'0.72rem', color:'#6b7280', background:'none', border:'none', cursor:'pointer' }}>Deselect all</button>
+          <button onClick={() => setSelected(new Set())} style={{ fontSize:'0.72rem', color:'#6b7280', background:'none', border:'none', cursor:'pointer' }}>{t('Deselect all')}</button>
         </div>
       )}
 
       {/* Table */}
-      {loading ? <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>Loading…</div> : leads.length === 0 ? (
-        <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name="groups" size={40}/><p style={{ marginTop:8 }}>No leads found</p></div>
+      {loading ? <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>{t('Loading…')}</div> : leads.length === 0 ? (
+        <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name="groups" size={40}/><p style={{ marginTop:8 }}>{t('No leads found')}</p></div>
       ) : (
         <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)' }}>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
+          <table style={{ width:'100%', minWidth: 1560, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
             <thead>
               <tr style={{ background:'#f8fafc', borderBottom:'2px solid var(--border)' }}>
                 <th style={{ padding:'10px 8px', width:36, textAlign:'center' }}>
                   <input type="checkbox" checked={selected.size === leads.length && leads.length > 0} onChange={toggleSelectAll} style={{ cursor:'pointer' }}/>
                 </th>
                 <th style={{...TH, width:40}}>#</th>
-                <th style={{...TH, width:'12%'}}>Company</th>
-                <th style={{...TH, width:'7%'}}>Industry</th>
-                <th style={{...TH, width:'7%'}}>City/Region</th>
-                <th style={{...TH, width:'4%'}}>Size</th>
-                <th style={{...TH, width:'10%', whiteSpace:'normal'}}>Why They Need</th>
-                <th style={{...TH, width:'7%', whiteSpace:'normal'}}>Decision Maker</th>
-                <th style={{...TH, width:'10%', whiteSpace:'normal'}}>Where to Find</th>
-                <th style={{...TH, width:'6%', whiteSpace:'normal'}}>Contact</th>
-                <th style={{...TH, width:'7%'}}>Phone</th>
-                <th style={{...TH, width:'9%'}}>Email</th>
-                <th style={{...TH, width:'5%'}}>Priority</th>
-                <th style={{...TH, width:'8%'}}>Status</th>
-                <th style={{...TH, width:'8%'}}>Notes</th>
-                <th style={{...TH, width:'10%', whiteSpace:'normal'}}>Template Used</th>
+                <th style={{...TH, width:'12%'}}>{t('Company')}</th>
+                <th style={{...TH, width:'7%'}}>{t('Industry')}</th>
+                <th style={{...TH, width:'7%'}}>{t('City/Region')}</th>
+                <th style={{...TH, width:'4%'}}>{t('Size')}</th>
+                <th style={{...TH, width:'9%'}}>{t('Why They Need')}</th>
+                <th style={{...TH, width:'7%', whiteSpace:'normal'}}>{t('Decision Maker')}</th>
+                <th style={{...TH, width:'8%'}}>{t('Where to Find')}</th>
+                <th style={{...TH, width:'6%', whiteSpace:'normal'}}>{t('Contact')}</th>
+                <th style={{...TH, width:'7%'}}>{t('Phone')}</th>
+                <th style={{...TH, width:'9%'}}>{t('Email')}</th>
+                <th style={{...TH, width:'7%'}}>{t('Priority')}</th>
+                <th style={{...TH, width:'10%'}}>{t('Status')}</th>
+                <th style={{...TH, width:'8%'}}>{t('Notes')}</th>
+                <th style={{...TH, width:'10%', whiteSpace:'normal'}}>{t('Template Used')}</th>
                 <th style={{width:30}}></th>
               </tr>
             </thead>
@@ -308,7 +308,7 @@ export default function LeadsPage() {
                       <div style={{ fontWeight:600, fontSize:'0.78rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</div>
                       {l.domain && <div style={{ fontSize:'0.64rem', color:'#9ca3af', marginTop:1, wordBreak:'break-all' }}>{l.domain}</div>}
                     </td>
-                    <td tabIndex={0} style={TD}>{SL[l.sector]||l.sector||'—'}</td>
+                    <td tabIndex={0} style={TD}>{SL[l.sector] ? t(SL[l.sector]) : (l.sector||'—')}</td>
                     <td tabIndex={0} style={TD}>{[l.city,l.region].filter(Boolean).join(', ')||'—'}</td>
                     <td tabIndex={0} style={TD}>{l.company_size||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.7rem', lineHeight:1.4}}>{l.pain_point||'—'}</td>
@@ -318,20 +318,20 @@ export default function LeadsPage() {
                     <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.66rem', wordBreak:'break-all'}}>{l.phone||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.68rem', wordBreak:'break-all'}}>{l.email ? <a href={`mailto:${l.email}`} style={{color:'#2563eb'}}>{l.email}</a> : '—'}</td>
                     <td tabIndex={0} style={{...TD, textAlign:'center'}}>
-                      <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{pc.label}</span>
+                      <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span>
                     </td>
                     <td style={TD}>
                       <select value={l.status} onChange={e => handleStatusChange(l.id, e.target.value)}
                         style={{ padding:'4px 8px', borderRadius:8, border:'1px solid #e5e7eb', fontSize:'0.72rem', fontWeight:600, background:sc.bg, color:sc.text, cursor:'pointer', width:'100%' }}>
-                        {Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{c.label}</option>)}
+                        {Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
                       </select>
                     </td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}>{l.notes||'—'}</td>
                     <td style={{...TD, minWidth:180, position:'relative'}}>
-                      <TemplateSelector leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
+                      <TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
                     </td>
                     <td style={{padding:'8px 4px', textAlign:'center'}}>
-                      <button onClick={() => handleDelete(l.id)} title="Delete" style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
+                      <button onClick={() => handleDelete(l.id)} title={t('Delete')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
                     </td>
                   </tr>
                 );
@@ -359,8 +359,8 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {showAddModal && <AddModal onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
-      {showUploadModal && <BulkUploadModal onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
+      {showAddModal && <AddModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
+      {showUploadModal && <BulkUploadModal t={t} lang={lang} onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
     </div>
   );
 }
@@ -369,14 +369,14 @@ const TH = { padding:'10px 8px', textAlign:'left', fontSize:'0.7rem', fontWeight
 const TD = { padding:'8px', fontSize:'0.75rem', color:'#4b5563' };
 const PB = { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'#fff', cursor:'pointer', fontSize:'0.78rem', display:'flex', alignItems:'center', justifyContent:'center' };
 
-function AddModal({ onClose, onDone }) {
+function AddModal({ t, projectId, onClose, onDone }) {
   const [f, setF] = useState({ company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', phone:'', email:'', contact_method:'', notes:'' });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   async function save(e) {
     e.preventDefault(); setSaving(true); setErr('');
-    const r = await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(f) });
-    if (r.ok) onDone(); else { const d = await r.json(); setErr(d.error||'Failed'); }
+    const r = await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId }) });
+    if (r.ok) onDone(); else { const d = await r.json(); setErr(t(d.error||'Failed')); }
     setSaving(false);
   }
   const SL2 = { construction:'Construction', manufacturing:'Manufacturing', warehouse_logistics:'Warehouse/Logistics', food_processing:'Food Processing', metallurgy:'Metallurgy', mining:'Mining', chemicals:'Chemicals', automotive:'Automotive', hospitality:'Hospitality', retail:'Retail', agency_partner:'Agency Partner', industry_association:'Industry Association', other:'Other' };
@@ -384,26 +384,26 @@ function AddModal({ onClose, onDone }) {
     <div className="leads-modal-overlay" onClick={onClose}>
       <div className="leads-modal" onClick={e => e.stopPropagation()}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <h3 style={{ fontSize:'1rem', fontWeight:700 }}>Add New Lead</h3>
+          <h3 style={{ fontSize:'1rem', fontWeight:700 }}>{t('Add New Lead')}</h3>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#94a3b8' }}>✕</button>
         </div>
         {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'8px 12px', borderRadius:8, fontSize:'0.78rem', marginBottom:12 }}>{err}</div>}
         <form onSubmit={save}>
           <div className="leads-form-grid">
-            <div className="leads-form-field"><label>Company *</label><input required value={f.company_name} onChange={e => setF({...f, company_name:e.target.value})}/></div>
-            <div className="leads-form-field"><label>Domain</label><input value={f.domain} onChange={e => setF({...f, domain:e.target.value})}/></div>
-            <div className="leads-form-field"><label>Sector</label><select value={f.sector} onChange={e => setF({...f, sector:e.target.value})}>{Object.entries(SL2).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select></div>
-            <div className="leads-form-field"><label>Priority</label><select value={f.priority} onChange={e => setF({...f, priority:e.target.value})}><option value="HOT">HOT</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="PARTNER">PARTNER</option></select></div>
-            <div className="leads-form-field"><label>City</label><input value={f.city} onChange={e => setF({...f, city:e.target.value})}/></div>
-            <div className="leads-form-field"><label>Size</label><input value={f.company_size} onChange={e => setF({...f, company_size:e.target.value})}/></div>
-            <div className="leads-form-field"><label>Phone</label><input value={f.phone} onChange={e => setF({...f, phone:e.target.value})}/></div>
-            <div className="leads-form-field"><label>Email</label><input value={f.email} onChange={e => setF({...f, email:e.target.value})}/></div>
-            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>Pain Point</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
-            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>Notes</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Company')} *</label><input required value={f.company_name} onChange={e => setF({...f, company_name:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Domain')}</label><input value={f.domain} onChange={e => setF({...f, domain:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Sector')}</label><select value={f.sector} onChange={e => setF({...f, sector:e.target.value})}>{Object.entries(SL2).map(([v,l]) => <option key={v} value={v}>{t(l)}</option>)}</select></div>
+            <div className="leads-form-field"><label>{t('Priority')}</label><select value={f.priority} onChange={e => setF({...f, priority:e.target.value})}><option value="HOT">{t('HOT')}</option><option value="HIGH">{t('HIGH')}</option><option value="MEDIUM">{t('MEDIUM')}</option><option value="PARTNER">{t('PARTNER')}</option></select></div>
+            <div className="leads-form-field"><label>{t('City')}</label><input value={f.city} onChange={e => setF({...f, city:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Size')}</label><input value={f.company_size} onChange={e => setF({...f, company_size:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Phone')}</label><input value={f.phone} onChange={e => setF({...f, phone:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Email')}</label><input value={f.email} onChange={e => setF({...f, email:e.target.value})}/></div>
+            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Pain Point')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
+            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Notes')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-            <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
-            <button type="submit" disabled={saving} className="btn btn-primary">{saving ? 'Saving…' : 'Add Lead'}</button>
+            <button type="button" onClick={onClose} className="btn btn-ghost">{t('Cancel')}</button>
+            <button type="submit" disabled={saving} className="btn btn-primary">{saving ? t('Saving…') : t('Add Lead')}</button>
           </div>
         </form>
       </div>
@@ -411,7 +411,7 @@ function AddModal({ onClose, onDone }) {
   );
 }
 
-function TemplateSelector({ leadId, currentId, templates, onChange, tplSearch, setTplSearch }) {
+function TemplateSelector({ t, leadId, currentId, templates, onChange, tplSearch, setTplSearch }) {
   const [open, setOpen] = useState(false);
   const search = (tplSearch[leadId] || '').toLowerCase();
   const current = templates.find(t => t.id === currentId);
@@ -425,21 +425,21 @@ function TemplateSelector({ leadId, currentId, templates, onChange, tplSearch, s
   if (!open) {
     return (
       <div onClick={() => setOpen(true)} style={{ cursor:'pointer', fontSize:'0.7rem', padding:'4px 8px', borderRadius:6, border:'1px solid #e5e7eb', background: current ? '#eff6ff' : '#fff', color: current ? '#1e40af' : '#9ca3af', minHeight:28, display:'flex', alignItems:'center', gap:4 }}>
-        {current ? <><MI name="description" size={12}/> {current.name}</> : <><MI name="add" size={12}/> Set template</>}
+        {current ? <><MI name="description" size={12}/> {current.name}</> : <><MI name="add" size={12}/> {t('Set template')}</>}
       </div>
     );
   }
 
   return (
     <div style={{ position:'relative', zIndex:50 }}>
-      <input autoFocus type="text" placeholder="Search template, subject, message…" value={tplSearch[leadId] || ''}
+      <input autoFocus type="text" placeholder={t('Search template, subject, message…')} value={tplSearch[leadId] || ''}
         onChange={e => setTplSearch(s => ({...s, [leadId]: e.target.value}))}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
         style={{ width:'100%', padding:'5px 8px', borderRadius:6, border:'1px solid #93c5fd', fontSize:'0.72rem', background:'#eff6ff' }} />
       <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, maxHeight:200, overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,.12)', marginTop:2, zIndex:99 }}>
         <div onClick={() => { onChange(leadId, null); setOpen(false); setTplSearch(s => ({...s, [leadId]: ''})); }}
           style={{ padding:'6px 10px', fontSize:'0.7rem', color:'#9ca3af', cursor:'pointer', borderBottom:'1px solid #f1f5f9' }}>
-          ✕ Clear template
+          ✕ {t('Clear template')}
         </div>
         {filtered.map(t => (
           <div key={t.id} onClick={() => { onChange(leadId, t.id); setOpen(false); setTplSearch(s => ({...s, [leadId]: ''})); }}
@@ -450,13 +450,13 @@ function TemplateSelector({ leadId, currentId, templates, onChange, tplSearch, s
             {t.subject && <div style={{ fontSize:'0.64rem', color:'#6b7280', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.subject}</div>}
           </div>
         ))}
-        {filtered.length === 0 && <div style={{ padding:'10px', textAlign:'center', fontSize:'0.7rem', color:'#9ca3af' }}>No templates found</div>}
+        {filtered.length === 0 && <div style={{ padding:'10px', textAlign:'center', fontSize:'0.7rem', color:'#9ca3af' }}>{t('No templates found')}</div>}
       </div>
     </div>
   );
 }
 
-function BulkUploadModal({ onClose, projectId, onImportDone }) {
+function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
   const [tab, setTab] = useState('upload'); // upload | mapping | status
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -474,21 +474,22 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
   async function handleFile(file) {
     if (!file) return;
     const ext = file.name.split('.').pop().toLowerCase();
-    if (!['xlsx','xls','csv'].includes(ext)) { alert('Please upload .xlsx, .xls, or .csv file'); return; }
+    if (!['xlsx','xls','csv'].includes(ext)) { alert(t('Please upload .xlsx, .xls, or .csv file')); return; }
     setUploading(true); setImportResult(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
       if (projectId) fd.append('project_id', projectId);
+      fd.append('lang', lang || 'en');
       if (Object.keys(mapping).length) fd.append('mapping', JSON.stringify(mapping));
       const r = await fetch('/api/leads/upload', { method: 'POST', body: fd });
       const d = await r.json();
-      if (!r.ok) { alert(d.error || 'Upload failed'); setUploading(false); return; }
+      if (!r.ok) { alert(t(d.error || 'Upload failed')); setUploading(false); return; }
       setPreview(d);
       setHeaders(d.headers || []);
       setMapping(d.mapping || {});
       setEditRows(d.preview || []);
-    } catch (e) { alert('Upload error: ' + e.message); }
+    } catch (e) { alert(t('Upload error') + ': ' + e.message); }
     setUploading(false);
   }
 
@@ -502,11 +503,11 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
       // Re-validate
       const errors = [];
       const row = updated[rowIdx];
-      if (!row.company_name || row.company_name.trim().length < 2) errors.push({ field: 'company_name', msg: 'Required' });
-      if (row.email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(row.email)) errors.push({ field: 'email', msg: 'Invalid email' });
-      if (row.phone && !/^[+\d\s\-()]{6,20}$/.test(row.phone)) errors.push({ field: 'phone', msg: 'Invalid phone' });
-      if (row.priority && !['HOT','HIGH','MEDIUM','PARTNER'].includes(row.priority.toUpperCase())) errors.push({ field: 'priority', msg: 'Invalid' });
-      if (row.status && !['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','follow_up_later'].includes(row.status.toLowerCase())) errors.push({ field: 'status', msg: 'Invalid' });
+      if (!row.company_name || row.company_name.trim().length < 2) errors.push({ field: 'company_name', msg: t('Required') });
+      if (row.email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(row.email)) errors.push({ field: 'email', msg: t('Invalid email') });
+      if (row.phone && !/^[+\d\s\-()]{6,20}$/.test(row.phone)) errors.push({ field: 'phone', msg: t('Invalid phone') });
+      if (row.priority && !['HOT','HIGH','MEDIUM','PARTNER','ГОРЯЧИЙ','ВЫСОКИЙ','СРЕДНИЙ','ПАРТНЁР','ПАРТНЕР'].includes(row.priority.toUpperCase())) errors.push({ field: 'priority', msg: t('Invalid') });
+      if (row.status && !['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','follow_up_later'].includes(row.status.toLowerCase()) && !/[а-яё]/i.test(row.status)) errors.push({ field: 'status', msg: t('Invalid') });
       updated[rowIdx]._errors = errors;
       updated[rowIdx]._hasErrors = errors.length > 0;
       return updated;
@@ -519,12 +520,12 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
       const r = await fetch('/api/leads/upload', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leads: editRows, project_id: projectId, skipDuplicates: true }),
+        body: JSON.stringify({ leads: editRows, project_id: projectId, skipDuplicates: true, lang }),
       });
       const d = await r.json();
       setImportResult(d);
       if (d.added > 0) onImportDone();
-    } catch (e) { alert('Import error: ' + e.message); }
+    } catch (e) { alert(t('Import error') + ': ' + e.message); }
     setImporting(false);
   }
 
@@ -533,10 +534,10 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
   }
 
   async function downloadTemplate() {
-    const r = await fetch('/api/leads/upload/template');
+    const r = await fetch(`/api/leads/upload/template?lang=${lang || 'en'}`);
     const b = await r.blob();
     const u = URL.createObjectURL(b);
-    const a = document.createElement('a'); a.href = u; a.download = 'lead_upload_template.xlsx'; a.click();
+    const a = document.createElement('a'); a.href = u; a.download = lang === 'ru' ? 'shablon_zagruzki_lidov.xlsx' : 'lead_upload_template.xlsx'; a.click();
     URL.revokeObjectURL(u);
   }
 
@@ -551,15 +552,15 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
       <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 1100, width: '95vw', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0, padding: '0 0 10px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}><MI name="upload_file" size={22} /> Bulk Lead Upload</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}><MI name="upload_file" size={22} /> {t('Bulk Lead Upload')}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: 16 }}>
-          <button onClick={() => setTab('upload')} style={tabStyle('upload')}><MI name="upload_file" size={14} /> Upload</button>
-          <button onClick={() => setTab('mapping')} style={tabStyle('mapping')}><MI name="swap_horiz" size={14} /> Template Mapping</button>
-          <button onClick={() => setTab('status')} style={tabStyle('status')}><MI name="history" size={14} /> Status</button>
+          <button onClick={() => setTab('upload')} style={tabStyle('upload')}><MI name="upload_file" size={14} /> {t('Upload')}</button>
+          <button onClick={() => setTab('mapping')} style={tabStyle('mapping')}><MI name="swap_horiz" size={14} /> {t('Template Mapping')}</button>
+          <button onClick={() => setTab('status')} style={tabStyle('status')}><MI name="history" size={14} /> {t('Status')}</button>
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
@@ -572,9 +573,9 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
               <div>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                   <button onClick={downloadTemplate} className="btn btn-ghost" style={{ fontSize: '0.78rem', border: '1px solid #3b82f6', color: '#3b82f6' }}>
-                    <MI name="download" size={14} /> Download Template
+                    <MI name="download" size={14} /> {t('Download Template')}
                   </button>
-                  <span style={{ fontSize: '0.72rem', color: '#9ca3af', alignSelf: 'center' }}>Excel template with all fields + sample data + field guide</span>
+                  <span style={{ fontSize: '0.72rem', color: '#9ca3af', alignSelf: 'center' }}>{t('Excel template with all fields + sample data + field guide')}</span>
                 </div>
                 <div
                   onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -590,9 +591,9 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
                 >
                   <MI name="cloud_upload" size={48} />
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: 8, color: '#374151' }}>
-                    {uploading ? 'Processing...' : 'Drop your Excel/CSV file here'}
+                    {uploading ? t('Processing...') : t('Drop your Excel/CSV file here')}
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: 4 }}>or click to browse • .xlsx, .xls, .csv • Max 5,000 rows</div>
+                  <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: 4 }}>{t('or click to browse')} • .xlsx, .xls, .csv • {t('Max 5,000 rows')}</div>
                   <input id="bulk-upload-input" type="file" accept=".xlsx,.xls,.csv" onChange={handleFileInput} style={{ display: 'none' }} />
                 </div>
               </div>
@@ -603,11 +604,11 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
               <div>
                 {/* Stats bar */}
                 <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <div style={{ padding: '6px 14px', borderRadius: 8, background: '#eff6ff', color: '#1e40af', fontSize: '0.78rem', fontWeight: 600 }}>📊 Total: {editRows.length}</div>
-                  <div style={{ padding: '6px 14px', borderRadius: 8, background: '#f0fdf4', color: '#15803d', fontSize: '0.78rem', fontWeight: 600 }}>✅ Clean: {cleanCount}</div>
-                  {errorCount > 0 && <div style={{ padding: '6px 14px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: '0.78rem', fontWeight: 600 }}>❌ Errors: {errorCount}</div>}
-                  {dupCount > 0 && <div style={{ padding: '6px 14px', borderRadius: 8, background: '#fffbeb', color: '#d97706', fontSize: '0.78rem', fontWeight: 600 }}>⚠️ Duplicates: {dupCount}</div>}
-                  <button onClick={() => { setPreview(null); setEditRows([]); setImportResult(null); }} className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>↺ Re-upload</button>
+                  <div style={{ padding: '6px 14px', borderRadius: 8, background: '#eff6ff', color: '#1e40af', fontSize: '0.78rem', fontWeight: 600 }}>📊 {t('Total')}: {editRows.length}</div>
+                  <div style={{ padding: '6px 14px', borderRadius: 8, background: '#f0fdf4', color: '#15803d', fontSize: '0.78rem', fontWeight: 600 }}>✅ {t('Clean')}: {cleanCount}</div>
+                  {errorCount > 0 && <div style={{ padding: '6px 14px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: '0.78rem', fontWeight: 600 }}>❌ {t('Errors')}: {errorCount}</div>}
+                  {dupCount > 0 && <div style={{ padding: '6px 14px', borderRadius: 8, background: '#fffbeb', color: '#d97706', fontSize: '0.78rem', fontWeight: 600 }}>⚠️ {t('Duplicates')}: {dupCount}</div>}
+                  <button onClick={() => { setPreview(null); setEditRows([]); setImportResult(null); }} className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>↺ {t('Re-upload')}</button>
                 </div>
 
                 {/* Table */}
@@ -618,10 +619,10 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
                         <th style={{ padding: '6px 8px', textAlign: 'center', borderRight: '1px solid #d1d5db', fontSize: '0.65rem', fontWeight: 700 }}>#</th>
                         {LEAD_FIELDS.map(f => (
                           <th key={f} style={{ padding: '6px 8px', textAlign: 'left', borderRight: '1px solid #d1d5db', fontSize: '0.65rem', fontWeight: 700, whiteSpace: 'nowrap', minWidth: f === 'company_name' ? 160 : 100 }}>
-                            {FIELD_LABELS[f]}{f === 'company_name' && ' *'}
+                            {t(FIELD_LABELS[f])}{f === 'company_name' && ' *'}
                           </th>
                         ))}
-                        <th style={{ padding: '6px 8px', fontSize: '0.65rem', fontWeight: 700, minWidth: 120 }}>Status</th>
+                        <th style={{ padding: '6px 8px', fontSize: '0.65rem', fontWeight: 700, minWidth: 120 }}>{t('Status')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -648,7 +649,7 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
                               </td>
                             ))}
                             <td style={{ padding: '4px 8px', borderBottom: '1px solid #e5e7eb', fontSize: '0.68rem' }}>
-                              {row._isDuplicate && <span style={{ color: '#d97706' }}>⚠️ Duplicate</span>}
+                              {row._isDuplicate && <span style={{ color: '#d97706' }}>⚠️ {t('Duplicate')}</span>}
                               {row._hasErrors && !row._isDuplicate && (
                                 <span style={{ color: '#dc2626' }} title={(row._errors || []).map(e => `${e.field}: ${e.msg}`).join('\n')}>
                                   ❌ {(row._errors || []).map(e => e.msg).join(', ')}
@@ -665,15 +666,15 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
 
                 {/* Import button */}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-                  <button onClick={onClose} className="btn btn-ghost">Cancel</button>
+                  <button onClick={onClose} className="btn btn-ghost">{t('Cancel')}</button>
                   <button
                     onClick={handleImport}
                     disabled={importing || cleanCount === 0}
                     className="btn btn-primary"
                     style={{ fontSize: '0.82rem', padding: '10px 24px' }}
                   >
-                    {importing ? '⏳ Importing...' : `✅ Import ${cleanCount} Lead${cleanCount !== 1 ? 's' : ''}`}
-                    {dupCount > 0 && ` (skip ${dupCount} dupes)`}
+                    {importing ? '⏳ ' + t('Importing...') : '✅ ' + t('Import {n} leads', { n: cleanCount })}
+                    {dupCount > 0 && ' ' + t('(skip {n} dupes)', { n: dupCount })}
                   </button>
                 </div>
               </div>
@@ -683,13 +684,13 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
             {importResult && (
               <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                 <MI name="check_circle" size={56} />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: 12, color: '#15803d' }}>Import Complete!</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: 12, color: '#15803d' }}>{t('Import Complete!')}</h3>
                 <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
-                  <div style={{ padding: '10px 20px', borderRadius: 8, background: '#f0fdf4', color: '#15803d', fontWeight: 600 }}>✅ Added: {importResult.added}</div>
-                  <div style={{ padding: '10px 20px', borderRadius: 8, background: '#fffbeb', color: '#d97706', fontWeight: 600 }}>⏭️ Skipped: {importResult.skipped}</div>
-                  {importResult.errors > 0 && <div style={{ padding: '10px 20px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontWeight: 600 }}>❌ Errors: {importResult.errors}</div>}
+                  <div style={{ padding: '10px 20px', borderRadius: 8, background: '#f0fdf4', color: '#15803d', fontWeight: 600 }}>✅ {t('Added')}: {importResult.added}</div>
+                  <div style={{ padding: '10px 20px', borderRadius: 8, background: '#fffbeb', color: '#d97706', fontWeight: 600 }}>⏭️ {t('Skipped')}: {importResult.skipped}</div>
+                  {importResult.errors > 0 && <div style={{ padding: '10px 20px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontWeight: 600 }}>❌ {t('Errors')}: {importResult.errors}</div>}
                 </div>
-                <button onClick={onClose} className="btn btn-primary" style={{ marginTop: 20 }}>Done</button>
+                <button onClick={onClose} className="btn btn-primary" style={{ marginTop: 20 }}>{t('Done')}</button>
               </div>
             )}
           </div>
@@ -699,13 +700,13 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
         {tab === 'mapping' && (
           <div>
             <p style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: 16 }}>
-              Map your file's column names to lead fields. This helps if your file uses different column headers than our template.
+              {t("Map your file's column names to lead fields. This helps if your file uses different column headers than our template.")}
             </p>
             {headers.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '8px 12px', alignItems: 'center', maxWidth: 600 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.72rem', color: '#6b7280' }}>YOUR COLUMN</div>
+                <div style={{ fontWeight: 700, fontSize: '0.72rem', color: '#6b7280' }}>{t('YOUR COLUMN')}</div>
                 <div></div>
-                <div style={{ fontWeight: 700, fontSize: '0.72rem', color: '#6b7280' }}>MAPS TO FIELD</div>
+                <div style={{ fontWeight: 700, fontSize: '0.72rem', color: '#6b7280' }}>{t('MAPS TO FIELD')}</div>
                 {headers.map(h => (
                   <>
                     <div key={h + '-label'} style={{ padding: '6px 10px', background: '#f3f4f6', borderRadius: 6, fontSize: '0.78rem', fontWeight: 600 }}>{h}</div>
@@ -716,8 +717,8 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
                       onChange={e => handleMappingChange(h, e.target.value)}
                       style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.78rem', background: mapping[h] ? '#eff6ff' : '#fff' }}
                     >
-                      <option value="">(skip this column)</option>
-                      {LEAD_FIELDS.map(f => <option key={f} value={f}>{FIELD_LABELS[f]}</option>)}
+                      <option value="">{t('(skip this column)')}</option>
+                      {LEAD_FIELDS.map(f => <option key={f} value={f}>{t(FIELD_LABELS[f])}</option>)}
                     </select>
                   </>
                 ))}
@@ -725,12 +726,12 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
             ) : (
               <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '0.82rem' }}>
                 <MI name="info" size={32} />
-                <div style={{ marginTop: 8 }}>Upload a file first to see column mappings</div>
+                <div style={{ marginTop: 8 }}>{t('Upload a file first to see column mappings')}</div>
               </div>
             )}
             {headers.length > 0 && (
               <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                <button onClick={() => { setTab('upload'); setPreview(null); }} className="btn btn-primary" style={{ fontSize: '0.78rem' }}>Re-upload with this mapping</button>
+                <button onClick={() => { setTab('upload'); setPreview(null); }} className="btn btn-primary" style={{ fontSize: '0.78rem' }}>{t('Re-upload with this mapping')}</button>
               </div>
             )}
           </div>
@@ -741,18 +742,18 @@ function BulkUploadModal({ onClose, projectId, onImportDone }) {
           <div>
             {importResult ? (
               <div style={{ padding: '20px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#15803d', marginBottom: 8 }}>Last Upload</h4>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#15803d', marginBottom: 8 }}>{t('Last Upload')}</h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#3b82f6' }}>{importResult.total}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Total</div></div>
-                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#15803d' }}>{importResult.added}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Added</div></div>
-                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#d97706' }}>{importResult.skipped}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Skipped</div></div>
-                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#dc2626' }}>{importResult.errors}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Errors</div></div>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#3b82f6' }}>{importResult.total}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Total')}</div></div>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#15803d' }}>{importResult.added}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Added')}</div></div>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#d97706' }}>{importResult.skipped}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Skipped')}</div></div>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#dc2626' }}>{importResult.errors}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Errors')}</div></div>
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '0.82rem' }}>
                 <MI name="history" size={32} />
-                <div style={{ marginTop: 8 }}>No uploads yet in this session</div>
+                <div style={{ marginTop: 8 }}>{t('No uploads yet in this session')}</div>
               </div>
             )}
           </div>

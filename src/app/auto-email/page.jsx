@@ -33,7 +33,7 @@ const SEND_STATUS = {
 
 export default function AutoEmailPage() {
   const { user, loading: authLoading, isAdmin } = useAuth();
-  const { projectId } = useProject();
+  const { projectId, t } = useProject();
   const router = useRouter();
   const [campaigns, setCampaigns] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -121,14 +121,14 @@ export default function AutoEmailPage() {
   }, [tab, globalSendsPage, globalSendFilter]);
 
   async function handleSend(campaignId) {
-    if (!confirm('Start sending emails for this campaign? This will send real emails to leads.')) return;
+    if (!confirm(t('Start sending emails for this campaign? This will send real emails to leads.'))) return;
     setSendingCampaign(campaignId);
     setSendResult(null);
-    setSendProgress({ campaignId, status: 'Starting…', sent: 0, failed: 0 });
+    setSendProgress({ campaignId, status: t('Starting…'), sent: 0, failed: 0 });
     try {
       const r = await fetch(`/api/auto-email/campaigns/${campaignId}/send`, { method: 'POST' });
       const d = await r.json();
-      if (!r.ok) { setSendResult({ error: d.error }); setSendProgress(null); setSendingCampaign(null); return; }
+      if (!r.ok) { setSendResult({ error: t(d.error || 'Request failed') }); setSendProgress(null); setSendingCampaign(null); return; }
 
       // Sending runs in the background now — poll campaign status for live progress.
       let done = false, ticks = 0;
@@ -171,7 +171,7 @@ export default function AutoEmailPage() {
   }
 
   async function handleDelete(campaignId) {
-    if (!confirm('Delete this campaign and all its send history? This cannot be undone.')) return;
+    if (!confirm(t('Delete this campaign and all its send history? This cannot be undone.'))) return;
     await fetch(`/api/auto-email/campaigns/${campaignId}`, { method: 'DELETE' });
     if (expandedId === campaignId) { setExpandedId(null); setSends([]); }
     fetchCampaigns();
@@ -182,7 +182,7 @@ export default function AutoEmailPage() {
       const r = await fetch('/api/auto-email/campaigns', {
         method: 'POST', headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({
-          name: `${campaign.name} (Copy)`,
+          name: `${campaign.name} (${t('Copy')})`,
           template_id: campaign.template_id,
           language: campaign.language,
           daily_limit: campaign.daily_limit,
@@ -190,6 +190,7 @@ export default function AutoEmailPage() {
           send_window_start: campaign.send_window_start,
           send_window_end: campaign.send_window_end,
           filters: typeof campaign.filters === 'string' ? JSON.parse(campaign.filters) : campaign.filters,
+          project_id: projectId,
         })
       });
       if (r.ok) fetchCampaigns();
@@ -200,7 +201,7 @@ export default function AutoEmailPage() {
   const replyRate = stats.total_sent > 0 ? ((stats.total_replied / stats.total_sent) * 100).toFixed(1) : '0.0';
   const bounceRate = stats.total_sent > 0 ? ((stats.total_bounced / stats.total_sent) * 100).toFixed(1) : '0.0';
 
-  if (authLoading || !user) return <div className="page-loading">Loading...</div>;
+  if (authLoading || !user) return <div className="page-loading">{t('Loading...')}</div>;
 
   return (
     <div className="page-content">
@@ -209,15 +210,15 @@ export default function AutoEmailPage() {
         <div>
           <h1 className="ae-page-title">
             <div className="ae-page-title-icon"><MI name="rocket_launch" size={22} /></div>
-            Bulk Email Engine
+            {t('Bulk Email Engine')}
           </h1>
           <p className="ae-page-subtitle">
-            Automated outreach pipeline • {stats.total_campaigns} campaigns • {stats.total_sent.toLocaleString()} emails delivered
+            {t('Automated outreach pipeline')} • {t('{n} campaigns', { n: stats.total_campaigns })} • {t('{n} emails delivered', { n: stats.total_sent.toLocaleString() })}
           </p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button onClick={() => setShowCreate(true)} className="ae-btn ae-btn-primary">
-            <MI name="add" size={16} /> New Campaign
+            <MI name="add" size={16} /> {t('New Campaign')}
           </button>
         </div>
       </div>
@@ -225,14 +226,14 @@ export default function AutoEmailPage() {
       {/* Analytics Dashboard */}
       <div className="ae-analytics-grid">
         {[
-          { label:'Total Sent', value:stats.total_sent.toLocaleString(), icon:'send', color:'#3b82f6', bg:'rgba(59,130,246,0.08)' },
-          { label:'Opened', value:stats.total_opened.toLocaleString(), icon:'visibility', color:'#10b981', bg:'rgba(16,185,129,0.08)' },
-          { label:'Replied', value:stats.total_replied.toLocaleString(), icon:'reply', color:'#8b5cf6', bg:'rgba(139,92,246,0.08)' },
-          { label:'Bounced', value:stats.total_bounced.toLocaleString(), icon:'error_outline', color:'#ef4444', bg:'rgba(239,68,68,0.08)' },
-          { label:'Open Rate', value:`${openRate}%`, icon:'trending_up', color:'#f59e0b', bg:'rgba(245,158,11,0.08)' },
-          { label:'Reply Rate', value:`${replyRate}%`, icon:'thumb_up', color:'#06b6d4', bg:'rgba(6,182,212,0.08)' },
-          { label:'Bounce Rate', value:`${bounceRate}%`, icon:'trending_down', color:'#f43f5e', bg:'rgba(244,63,94,0.08)' },
-          { label:'Unsubscribed', value:stats.total_unsubscribed?.toLocaleString() || '0', icon:'unsubscribe', color:'#a855f7', bg:'rgba(168,85,247,0.08)' },
+          { label:t('Total Sent'), value:stats.total_sent.toLocaleString(), icon:'send', color:'#3b82f6', bg:'rgba(59,130,246,0.08)' },
+          { label:t('Opened'), value:stats.total_opened.toLocaleString(), icon:'visibility', color:'#10b981', bg:'rgba(16,185,129,0.08)' },
+          { label:t('Replied'), value:stats.total_replied.toLocaleString(), icon:'reply', color:'#8b5cf6', bg:'rgba(139,92,246,0.08)' },
+          { label:t('Bounced'), value:stats.total_bounced.toLocaleString(), icon:'error_outline', color:'#ef4444', bg:'rgba(239,68,68,0.08)' },
+          { label:t('Open Rate'), value:`${openRate}%`, icon:'trending_up', color:'#f59e0b', bg:'rgba(245,158,11,0.08)' },
+          { label:t('Reply Rate'), value:`${replyRate}%`, icon:'thumb_up', color:'#06b6d4', bg:'rgba(6,182,212,0.08)' },
+          { label:t('Bounce Rate'), value:`${bounceRate}%`, icon:'trending_down', color:'#f43f5e', bg:'rgba(244,63,94,0.08)' },
+          { label:t('Unsubscribed'), value:stats.total_unsubscribed?.toLocaleString() || '0', icon:'unsubscribe', color:'#a855f7', bg:'rgba(168,85,247,0.08)' },
         ].map(s => (
           <div key={s.label} className="ae-analytics-card">
             <div className="ae-analytics-icon" style={{ background:s.bg, color:s.color }}>
@@ -249,10 +250,10 @@ export default function AutoEmailPage() {
       {/* Tabs */}
       <div className="ae-tabs">
         <button className={`ae-tab ${tab === 'campaigns' ? 'active' : ''}`} onClick={() => setTab('campaigns')}>
-          <MI name="campaign" size={16} /> Campaigns
+          <MI name="campaign" size={16} /> {t('Campaigns')}
         </button>
         <button className={`ae-tab ${tab === 'sends' ? 'active' : ''}`} onClick={() => setTab('sends')}>
-          <MI name="mark_email_read" size={16} /> Send Log
+          <MI name="mark_email_read" size={16} /> {t('Send Log')}
         </button>
       </div>
 
@@ -261,7 +262,7 @@ export default function AutoEmailPage() {
         <div className="ae-progress-toast">
           <div className="ae-progress-toast-inner">
             <span className="ae-spinner" />
-            <span>Sending campaign emails… {sendProgress.sent} sent, {sendProgress.failed} failed</span>
+            <span>{t('Sending campaign emails…')} {t('{s} sent, {f} failed', { s: sendProgress.sent, f: sendProgress.failed })}</span>
           </div>
           <div className="ae-progress-bar-track">
             <div className="ae-progress-bar-fill ae-progress-bar-animated" />
@@ -274,8 +275,8 @@ export default function AutoEmailPage() {
         <div className={`ae-result-toast ${sendResult.error ? 'error' : 'success'}`}>
           <span>
             {sendResult.error
-              ? <><MI name="error" size={16} /> Error: {sendResult.error}</>
-              : <><MI name="check_circle" size={16} /> Campaign complete — {sendResult.sent} sent, {sendResult.failed} failed, {sendResult.skipped} skipped</>
+              ? <><MI name="error" size={16} /> {t('Error')}: {sendResult.error}</>
+              : <><MI name="check_circle" size={16} /> {t('Campaign complete')} — {t('{s} sent, {f} failed, {k} skipped', { s: sendResult.sent, f: sendResult.failed, k: sendResult.skipped })}</>
             }
           </span>
           <button onClick={() => setSendResult(null)} className="ae-toast-close">✕</button>
@@ -286,14 +287,14 @@ export default function AutoEmailPage() {
       {tab === 'campaigns' && (
         <>
           {loading ? (
-            <div className="ae-empty-state"><span className="ae-spinner" /> Loading campaigns…</div>
+            <div className="ae-empty-state"><span className="ae-spinner" /> {t('Loading campaigns…')}</div>
           ) : campaigns.length === 0 ? (
             <div className="ae-empty-state">
               <div className="ae-empty-icon"><MI name="rocket_launch" size={48} /></div>
-              <h3>No Campaigns Yet</h3>
-              <p>Create your first automated email campaign to start reaching leads at scale.</p>
+              <h3>{t('No Campaigns Yet')}</h3>
+              <p>{t('Create your first automated email campaign to start reaching leads at scale.')}</p>
               <button onClick={() => setShowCreate(true)} className="ae-btn ae-btn-primary" style={{ marginTop:16 }}>
-                <MI name="add" size={16} /> Create Campaign
+                <MI name="add" size={16} /> {t('Create Campaign')}
               </button>
             </div>
           ) : (
@@ -318,10 +319,10 @@ export default function AutoEmailPage() {
                           <div className="ae-card-name">{c.name}</div>
                           <div className="ae-card-meta">
                             {c.template_name && <span><MI name="description" size={12} /> {c.template_name}</span>}
-                            <span><MI name="group" size={12} /> {c.total_leads} leads</span>
-                            <span><MI name="send" size={12} /> {c.total_sent} sent</span>
-                            {c.daily_limit && <span><MI name="speed" size={12} /> {c.daily_limit}/day</span>}
-                            {Object.values(filters).some(v => v) && <span className="ae-card-filtered"><MI name="filter_alt" size={12} /> Filtered</span>}
+                            <span><MI name="group" size={12} /> {c.total_leads} {t('leads')}</span>
+                            <span><MI name="send" size={12} /> {c.total_sent} {t('sent')}</span>
+                            {c.daily_limit && <span><MI name="speed" size={12} /> {c.daily_limit}/{t('day')}</span>}
+                            {Object.values(filters).some(v => v) && <span className="ae-card-filtered"><MI name="filter_alt" size={12} /> {t('Filtered')}</span>}
                           </div>
                         </div>
                       </div>
@@ -340,7 +341,7 @@ export default function AutoEmailPage() {
                         </div>
 
                         <span className="ae-badge" style={{ background:st.bg, color:st.text }}>
-                          <MI name={st.icon} size={12} /> {st.label}
+                          <MI name={st.icon} size={12} /> {t(st.label)}
                         </span>
 
                         <MI name={isExpanded ? 'expand_less' : 'expand_more'} size={20} />
@@ -355,36 +356,36 @@ export default function AutoEmailPage() {
                           <div className="ae-actions-left">
                             {c.status !== 'active' && (
                               <button onClick={() => handleSend(c.id)} disabled={sendingCampaign === c.id} className="ae-btn ae-btn-primary ae-btn-sm">
-                                {sendingCampaign === c.id ? <><span className="ae-spinner" /> Sending…</> : <><MI name="send" size={14} /> Send Now</>}
+                                {sendingCampaign === c.id ? <><span className="ae-spinner" /> {t('Sending…')}</> : <><MI name="send" size={14} /> {t('Send Now')}</>}
                               </button>
                             )}
                             {c.status === 'active' && (
                               <button onClick={() => handlePause(c.id)} className="ae-btn ae-btn-warning ae-btn-sm">
-                                <MI name="pause" size={14} /> Pause
+                                <MI name="pause" size={14} /> {t('Pause')}
                               </button>
                             )}
                             {c.status === 'paused' && (
                               <button onClick={() => handleResume(c.id)} className="ae-btn ae-btn-success ae-btn-sm">
-                                <MI name="play_arrow" size={14} /> Resume
+                                <MI name="play_arrow" size={14} /> {t('Resume')}
                               </button>
                             )}
                             <button onClick={() => setShowPreview(c.id)} className="ae-btn ae-btn-ghost ae-btn-sm">
-                              <MI name="preview" size={14} /> Preview
+                              <MI name="preview" size={14} /> {t('Preview')}
                             </button>
                             <button onClick={() => setEditCampaign(c)} className="ae-btn ae-btn-ghost ae-btn-sm">
-                              <MI name="edit" size={14} /> Edit
+                              <MI name="edit" size={14} /> {t('Edit')}
                             </button>
                             <button onClick={() => handleDuplicate(c)} className="ae-btn ae-btn-ghost ae-btn-sm">
-                              <MI name="content_copy" size={14} /> Duplicate
+                              <MI name="content_copy" size={14} /> {t('Duplicate campaign')}
                             </button>
                             <button onClick={() => handleDelete(c.id)} className="ae-btn ae-btn-danger ae-btn-sm">
-                              <MI name="delete" size={14} /> Delete
+                              <MI name="delete" size={14} /> {t('Delete')}
                             </button>
                           </div>
                           <div className="ae-actions-right">
                             <select value={sendFilter} onChange={e => setSendFilter(e.target.value)} className="ae-select-sm">
-                              <option value="">All statuses</option>
-                              {Object.entries(SEND_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                              <option value="">{t('All statuses')}</option>
+                              {Object.entries(SEND_STATUS).map(([k, v]) => <option key={k} value={k}>{t(v.label)}</option>)}
                             </select>
                           </div>
                         </div>
@@ -392,11 +393,11 @@ export default function AutoEmailPage() {
                         {/* Campaign Stats Row */}
                         <div className="ae-inline-stats">
                           {[
-                            { l:'Sent', v:c.total_sent, c:'#3b82f6', icon:'send' },
-                            { l:'Opened', v:c.total_opened, c:'#10b981', icon:'visibility' },
-                            { l:'Replied', v:c.total_replied, c:'#8b5cf6', icon:'reply' },
-                            { l:'Bounced', v:c.total_bounced, c:'#ef4444', icon:'error' },
-                            { l:'Unsubs', v:c.total_unsubscribed || 0, c:'#f59e0b', icon:'unsubscribe' },
+                            { l:t('Sent'), v:c.total_sent, c:'#3b82f6', icon:'send' },
+                            { l:t('Opened'), v:c.total_opened, c:'#10b981', icon:'visibility' },
+                            { l:t('Replied'), v:c.total_replied, c:'#8b5cf6', icon:'reply' },
+                            { l:t('Bounced'), v:c.total_bounced, c:'#ef4444', icon:'error' },
+                            { l:t('Unsubs'), v:c.total_unsubscribed || 0, c:'#f59e0b', icon:'unsubscribe' },
                           ].map(s => (
                             <div key={s.l} className="ae-inline-stat">
                               <MI name={s.icon} size={14} />
@@ -410,7 +411,7 @@ export default function AutoEmailPage() {
                         <div className="ae-config-row">
                           <div className="ae-config-item">
                             <MI name="language" size={14} />
-                            <span>{LANGS.find(l => l.code === c.language)?.label || c.language}</span>
+                            <span>{t(LANGS.find(l => l.code === c.language)?.label || c.language)}</span>
                           </div>
                           <div className="ae-config-item">
                             <MI name="schedule" size={14} />
@@ -418,22 +419,23 @@ export default function AutoEmailPage() {
                           </div>
                           <div className="ae-config-item">
                             <MI name="speed" size={14} />
-                            <span>{c.daily_limit || 50}/day limit</span>
+                            <span>{c.daily_limit || 50}/{t('day')} {t('limit')}</span>
                           </div>
                           <div className="ae-config-item">
                             <MI name={c.llm_personalize ? 'auto_awesome' : 'block'} size={14} />
-                            <span>{c.llm_personalize ? 'AI Personalized' : 'Template Only'}</span>
+                            <span>{c.llm_personalize ? t('AI Personalized') : t('Template Only')}</span>
                           </div>
                           {Object.entries(filters).filter(([,v]) => v).map(([k, v]) => (
                             <div key={k} className="ae-config-item ae-config-filter">
                               <MI name="filter_alt" size={14} />
-                              <span>{k}: {v}</span>
+                              <span>{t(k)}: {t(v)}</span>
                             </div>
                           ))}
                         </div>
 
                         {/* Send Log Table */}
                         <SendLogTable
+                          t={t}
                           sends={sends}
                           loading={sendsLoading}
                           total={sendsTotal}
@@ -454,13 +456,14 @@ export default function AutoEmailPage() {
       {tab === 'sends' && (
         <div className="ae-sends-tab">
           <div className="ae-sends-header">
-            <h3 className="ae-sends-title"><MI name="mark_email_read" size={20} /> All Sent Emails</h3>
+            <h3 className="ae-sends-title"><MI name="mark_email_read" size={20} /> {t('All Sent Emails')}</h3>
             <select value={globalSendFilter} onChange={e => { setGlobalSendFilter(e.target.value); setGlobalSendsPage(1); }} className="ae-select-sm">
-              <option value="">All statuses</option>
-              {Object.entries(SEND_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              <option value="">{t('All statuses')}</option>
+              {Object.entries(SEND_STATUS).map(([k, v]) => <option key={k} value={k}>{t(v.label)}</option>)}
             </select>
           </div>
           <SendLogTable
+            t={t}
             sends={globalSends}
             loading={globalSendsLoading}
             total={globalSendsTotal}
@@ -472,26 +475,26 @@ export default function AutoEmailPage() {
       )}
 
       {/* Create Campaign Modal */}
-      {showCreate && <CampaignModal templates={templates} onClose={() => setShowCreate(false)} onDone={() => { fetchCampaigns(); setShowCreate(false); }} />}
+      {showCreate && <CampaignModal t={t} projectId={projectId} templates={templates} onClose={() => setShowCreate(false)} onDone={() => { fetchCampaigns(); setShowCreate(false); }} />}
 
       {/* Edit Campaign Modal */}
-      {editCampaign && <CampaignModal campaign={editCampaign} templates={templates} onClose={() => setEditCampaign(null)} onDone={() => { fetchCampaigns(); setEditCampaign(null); }} />}
+      {editCampaign && <CampaignModal t={t} projectId={projectId} campaign={editCampaign} templates={templates} onClose={() => setEditCampaign(null)} onDone={() => { fetchCampaigns(); setEditCampaign(null); }} />}
 
       {/* Preview Modal */}
-      {showPreview && <PreviewModal campaignId={showPreview} onClose={() => setShowPreview(null)} />}
+      {showPreview && <PreviewModal t={t} campaignId={showPreview} onClose={() => setShowPreview(null)} />}
     </div>
   );
 }
 
 // ─── Send Log Table Component ──────────────────────────────────────────────
-function SendLogTable({ sends, loading, total, page, onPageChange, showCampaign }) {
+function SendLogTable({ t, sends, loading, total, page, onPageChange, showCampaign }) {
   const totalPages = Math.ceil(total / 50);
 
-  if (loading) return <div className="ae-table-empty"><span className="ae-spinner" /> Loading send log…</div>;
+  if (loading) return <div className="ae-table-empty"><span className="ae-spinner" /> {t('Loading send log…')}</div>;
   if (sends.length === 0) return (
     <div className="ae-table-empty">
       <MI name="inbox" size={32} />
-      <p>No emails sent yet</p>
+      <p>{t('No emails sent yet')}</p>
     </div>
   );
 
@@ -501,13 +504,13 @@ function SendLogTable({ sends, loading, total, page, onPageChange, showCampaign 
         <thead>
           <tr>
             <th>#</th>
-            {showCampaign && <th>Campaign</th>}
-            <th>Company</th>
-            <th>Email</th>
-            <th>Subject</th>
-            <th>Status</th>
-            <th>Sent At</th>
-            <th>Opened</th>
+            {showCampaign && <th>{t('Campaign')}</th>}
+            <th>{t('Company')}</th>
+            <th>{t('Email')}</th>
+            <th>{t('Subject')}</th>
+            <th>{t('Status')}</th>
+            <th>{t('Sent At')}</th>
+            <th>{t('Opened')}</th>
           </tr>
         </thead>
         <tbody>
@@ -525,7 +528,7 @@ function SendLogTable({ sends, loading, total, page, onPageChange, showCampaign 
                 <td className="ae-td-subject">{s.subject}</td>
                 <td>
                   <span className="ae-send-badge" style={{ background:ss.bg, color:ss.text }}>
-                    <MI name={ss.icon} size={12} /> {ss.label}
+                    <MI name={ss.icon} size={12} /> {t(ss.label)}
                   </span>
                 </td>
                 <td className="ae-td-date">{s.sent_at ? new Date(s.sent_at).toLocaleString() : '—'}</td>
@@ -540,7 +543,7 @@ function SendLogTable({ sends, loading, total, page, onPageChange, showCampaign 
       {totalPages > 1 && (
         <div className="ae-pagination">
           <button disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="ae-btn ae-btn-ghost ae-btn-sm"><MI name="chevron_left" size={16} /></button>
-          <span className="ae-page-info">Page {page} of {totalPages} ({total} total)</span>
+          <span className="ae-page-info">{t('Page {p} of {n}', { p: page, n: totalPages })} ({total} {t('total')})</span>
           <button disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} className="ae-btn ae-btn-ghost ae-btn-sm"><MI name="chevron_right" size={16} /></button>
         </div>
       )}
@@ -549,7 +552,7 @@ function SendLogTable({ sends, loading, total, page, onPageChange, showCampaign 
 }
 
 // ─── Campaign Create/Edit Modal ────────────────────────────────────────────
-function CampaignModal({ campaign, templates, onClose, onDone }) {
+function CampaignModal({ t, projectId, campaign, templates, onClose, onDone }) {
   const isEdit = !!campaign;
   const existingFilters = campaign?.filters ? (typeof campaign.filters === 'string' ? JSON.parse(campaign.filters) : campaign.filters) : {};
 
@@ -575,14 +578,14 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
   const [counting, setCounting] = useState(false);
   const [step, setStep] = useState(1);
 
-  const emailTemplates = templates.filter(t => t.platform === 'email' && t.status === 'active');
+  const emailTemplates = templates.filter(tp => tp.platform === 'email' && tp.status === 'active');
 
   async function countLeads() {
     setCounting(true);
     try {
       const r = await fetch('/api/auto-email/campaigns', {
         method: 'POST', headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ ...form, name: '__count_check__' })
+        body: JSON.stringify({ ...form, name: '__count_check__', project_id: projectId })
       });
       if (r.ok) {
         const d = await r.json();
@@ -595,18 +598,18 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
 
   async function save(e) {
     e.preventDefault();
-    if (!form.name.trim()) { setErr('Campaign name required'); return; }
-    if (!form.template_id) { setErr('Select a template'); return; }
+    if (!form.name.trim()) { setErr(t('Campaign name required')); return; }
+    if (!form.template_id) { setErr(t('Select a template')); return; }
     setSaving(true); setErr('');
     try {
       const url = isEdit ? `/api/auto-email/campaigns/${campaign.id}` : '/api/auto-email/campaigns';
       const method = isEdit ? 'PUT' : 'POST';
       const r = await fetch(url, {
         method, headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ ...form, template_id: parseInt(form.template_id) })
+        body: JSON.stringify({ ...form, template_id: parseInt(form.template_id), project_id: projectId })
       });
       if (r.ok) onDone();
-      else { const d = await r.json(); setErr(d.error || 'Failed'); }
+      else { const d = await r.json(); setErr(t(d.error || 'Failed')); }
     } catch (e) { setErr(e.message); }
     setSaving(false);
   }
@@ -618,7 +621,7 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
       <div className="ae-modal" onClick={e => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="ae-modal-header">
-          <h3><MI name={isEdit ? 'edit' : 'campaign'} size={20} /> {isEdit ? 'Edit Campaign' : 'New Campaign'}</h3>
+          <h3><MI name={isEdit ? 'edit' : 'campaign'} size={20} /> {isEdit ? t('Edit Campaign') : t('New Campaign')}</h3>
           <button onClick={onClose} className="ae-modal-close">✕</button>
         </div>
 
@@ -627,15 +630,15 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
         {/* Step Indicator */}
         <div className="ae-steps">
           <div className={`ae-step ${step >= 1 ? 'active' : ''}`} onClick={() => setStep(1)}>
-            <span className="ae-step-num">1</span> Basics
+            <span className="ae-step-num">1</span> {t('Basics')}
           </div>
           <div className="ae-step-line" />
           <div className={`ae-step ${step >= 2 ? 'active' : ''}`} onClick={() => setStep(2)}>
-            <span className="ae-step-num">2</span> Targeting
+            <span className="ae-step-num">2</span> {t('Targeting')}
           </div>
           <div className="ae-step-line" />
           <div className={`ae-step ${step >= 3 ? 'active' : ''}`} onClick={() => setStep(3)}>
-            <span className="ae-step-num">3</span> Settings
+            <span className="ae-step-num">3</span> {t('Settings')}
           </div>
         </div>
 
@@ -645,33 +648,33 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
             <div className="ae-modal-body">
               <div className="ae-form-grid">
                 <div className="ae-form-field">
-                  <label><MI name="label" size={14} /> Campaign Name *</label>
-                  <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Russia Q3 Outreach" />
+                  <label><MI name="label" size={14} /> {t('Campaign Name')} *</label>
+                  <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder={t('Russia Q3 Outreach')} />
                 </div>
                 <div className="ae-form-field">
-                  <label><MI name="description" size={14} /> Email Template *</label>
+                  <label><MI name="description" size={14} /> {t('Email Template')} *</label>
                   <select value={form.template_id} onChange={e => setForm(f => ({ ...f, template_id: e.target.value }))}>
-                    <option value="">Select template…</option>
-                    {emailTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    <option value="">{t('Select template…')}</option>
+                    {emailTemplates.map(tp => <option key={tp.id} value={tp.id}>{tp.name}</option>)}
                   </select>
                 </div>
               </div>
               <div className="ae-form-grid ae-form-grid-3">
                 <div className="ae-form-field">
-                  <label><MI name="translate" size={14} /> Language</label>
+                  <label><MI name="translate" size={14} /> {t('Language')}</label>
                   <select value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))}>
-                    {LANGS.map(l => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
+                    {LANGS.map(l => <option key={l.code} value={l.code}>{l.flag} {t(l.label)}</option>)}
                   </select>
                 </div>
                 <div className="ae-form-field">
-                  <label><MI name="speed" size={14} /> Daily Limit</label>
+                  <label><MI name="speed" size={14} /> {t('Daily Limit')}</label>
                   <input type="number" min={1} max={500} value={form.daily_limit} onChange={e => setForm(f => ({ ...f, daily_limit: parseInt(e.target.value) || 50 }))} />
                 </div>
                 <div className="ae-form-field">
-                  <label><MI name="auto_awesome" size={14} /> AI Personalization</label>
+                  <label><MI name="auto_awesome" size={14} /> {t('AI Personalization')}</label>
                   <select value={form.llm_personalize ? 'yes' : 'no'} onChange={e => setForm(f => ({ ...f, llm_personalize: e.target.value === 'yes' }))}>
-                    <option value="yes">✨ Enabled</option>
-                    <option value="no">Off (template only)</option>
+                    <option value="yes">✨ {t('Enabled')}</option>
+                    <option value="no">{t('Off (template only)')}</option>
                   </select>
                 </div>
               </div>
@@ -683,48 +686,48 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
             <div className="ae-modal-body">
               <div className="ae-target-panel">
                 <div className="ae-target-title">
-                  <MI name="filter_alt" size={18} /> Lead Filters
-                  <span className="ae-target-hint">Narrow which leads receive this campaign</span>
+                  <MI name="filter_alt" size={18} /> {t('Lead Filters')}
+                  <span className="ae-target-hint">{t('Narrow which leads receive this campaign')}</span>
                 </div>
                 <div className="ae-form-grid ae-form-grid-3">
                   <div className="ae-form-field">
-                    <label>Sector</label>
+                    <label>{t('Sector')}</label>
                     <select value={form.filters.sector} onChange={e => updateFilter('sector', e.target.value)}>
-                      <option value="">All sectors</option>
-                      {Object.entries(SECTORS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      <option value="">{t('All sectors')}</option>
+                      {Object.entries(SECTORS).map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
                     </select>
                   </div>
                   <div className="ae-form-field">
-                    <label>Priority</label>
+                    <label>{t('Priority')}</label>
                     <select value={form.filters.priority} onChange={e => updateFilter('priority', e.target.value)}>
-                      <option value="">All priorities</option>
-                      {Object.entries(PRIORITIES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      <option value="">{t('All priorities')}</option>
+                      {Object.entries(PRIORITIES).map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
                     </select>
                   </div>
                   <div className="ae-form-field">
-                    <label>Lead Status</label>
+                    <label>{t('Lead Status')}</label>
                     <select value={form.filters.status} onChange={e => updateFilter('status', e.target.value)}>
-                      <option value="">All statuses</option>
-                      {Object.entries(LEAD_STATUSES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      <option value="">{t('All statuses')}</option>
+                      {Object.entries(LEAD_STATUSES).map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
                     </select>
                   </div>
                   <div className="ae-form-field">
-                    <label>Region</label>
-                    <input value={form.filters.region} onChange={e => updateFilter('region', e.target.value)} placeholder="e.g. Moscow" />
+                    <label>{t('Region')}</label>
+                    <input value={form.filters.region} onChange={e => updateFilter('region', e.target.value)} placeholder={t('e.g. Moscow')} />
                   </div>
                   <div className="ae-form-field">
-                    <label>Country</label>
-                    <input value={form.filters.country} onChange={e => updateFilter('country', e.target.value)} placeholder="e.g. Russia" />
+                    <label>{t('Country')}</label>
+                    <input value={form.filters.country} onChange={e => updateFilter('country', e.target.value)} placeholder={t('e.g. Russia')} />
                   </div>
                   <div className="ae-form-field" style={{ display:'flex', alignItems:'flex-end' }}>
                     <button type="button" onClick={countLeads} disabled={counting} className="ae-btn ae-btn-ghost" style={{ width:'100%' }}>
-                      {counting ? <><span className="ae-spinner" /> Counting…</> : <><MI name="calculate" size={14} /> Count Leads</>}
+                      {counting ? <><span className="ae-spinner" /> {t('Counting…')}</> : <><MI name="calculate" size={14} /> {t('Count Leads')}</>}
                     </button>
                   </div>
                 </div>
                 {leadCount !== null && (
                   <div className="ae-lead-count">
-                    <MI name="groups" size={16} /> <strong>{leadCount}</strong> leads match these filters
+                    <MI name="groups" size={16} /> <strong>{leadCount}</strong> {t('leads match these filters')}
                   </div>
                 )}
               </div>
@@ -736,27 +739,27 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
             <div className="ae-modal-body">
               <div className="ae-form-grid">
                 <div className="ae-form-field">
-                  <label><MI name="schedule" size={14} /> Send Window Start</label>
+                  <label><MI name="schedule" size={14} /> {t('Send Window Start')}</label>
                   <input type="time" value={form.send_window_start} onChange={e => setForm(f => ({ ...f, send_window_start: e.target.value }))} />
                 </div>
                 <div className="ae-form-field">
-                  <label><MI name="schedule" size={14} /> Send Window End</label>
+                  <label><MI name="schedule" size={14} /> {t('Send Window End')}</label>
                   <input type="time" value={form.send_window_end} onChange={e => setForm(f => ({ ...f, send_window_end: e.target.value }))} />
                 </div>
               </div>
               <div className="ae-settings-summary">
-                <h4><MI name="summarize" size={16} /> Campaign Summary</h4>
+                <h4><MI name="summarize" size={16} /> {t('Campaign Summary')}</h4>
                 <div className="ae-summary-grid">
-                  <div><strong>Name:</strong> {form.name || '—'}</div>
-                  <div><strong>Template:</strong> {emailTemplates.find(t => t.id?.toString() === form.template_id)?.name || '—'}</div>
-                  <div><strong>Language:</strong> {LANGS.find(l => l.code === form.language)?.label || form.language}</div>
-                  <div><strong>Daily Limit:</strong> {form.daily_limit}</div>
-                  <div><strong>AI Personalization:</strong> {form.llm_personalize ? 'On' : 'Off'}</div>
-                  <div><strong>Send Window:</strong> {form.send_window_start} – {form.send_window_end}</div>
+                  <div><strong>{t('Name')}:</strong> {form.name || '—'}</div>
+                  <div><strong>{t('Template')}:</strong> {emailTemplates.find(tp => tp.id?.toString() === form.template_id)?.name || '—'}</div>
+                  <div><strong>{t('Language')}:</strong> {t(LANGS.find(l => l.code === form.language)?.label || form.language)}</div>
+                  <div><strong>{t('Daily Limit')}:</strong> {form.daily_limit}</div>
+                  <div><strong>{t('AI Personalization')}:</strong> {form.llm_personalize ? t('On') : t('Off')}</div>
+                  <div><strong>{t('Send Window')}:</strong> {form.send_window_start} – {form.send_window_end}</div>
                   {Object.entries(form.filters).filter(([,v]) => v).map(([k,v]) => (
-                    <div key={k}><strong>Filter ({k}):</strong> {v}</div>
+                    <div key={k}><strong>{t('Filter')} ({t(k)}):</strong> {t(v)}</div>
                   ))}
-                  {leadCount !== null && <div><strong>Matching Leads:</strong> {leadCount}</div>}
+                  {leadCount !== null && <div><strong>{t('Matching Leads')}:</strong> {leadCount}</div>}
                 </div>
               </div>
             </div>
@@ -767,19 +770,19 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
             <div className="ae-modal-footer-left">
               {step > 1 && (
                 <button type="button" onClick={() => setStep(step - 1)} className="ae-btn ae-btn-ghost">
-                  <MI name="arrow_back" size={14} /> Back
+                  <MI name="arrow_back" size={14} /> {t('Back')}
                 </button>
               )}
             </div>
             <div className="ae-modal-footer-right">
-              <button type="button" onClick={onClose} className="ae-btn ae-btn-ghost">Cancel</button>
+              <button type="button" onClick={onClose} className="ae-btn ae-btn-ghost">{t('Cancel')}</button>
               {step < 3 ? (
                 <button type="button" onClick={() => setStep(step + 1)} className="ae-btn ae-btn-primary">
-                  Next <MI name="arrow_forward" size={14} />
+                  {t('Next')} <MI name="arrow_forward" size={14} />
                 </button>
               ) : (
                 <button type="submit" disabled={saving} className="ae-btn ae-btn-primary">
-                  {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Campaign'}
+                  {saving ? t('Saving…') : isEdit ? t('Save Changes') : t('Create Campaign')}
                 </button>
               )}
             </div>
@@ -791,7 +794,7 @@ function CampaignModal({ campaign, templates, onClose, onDone }) {
 }
 
 // ─── Preview Modal ──────────────────────────────────────────────────────────
-function PreviewModal({ campaignId, onClose }) {
+function PreviewModal({ t, campaignId, onClose }) {
   const [leadId, setLeadId] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
@@ -799,7 +802,7 @@ function PreviewModal({ campaignId, onClose }) {
   const [viewMode, setViewMode] = useState('text');
 
   async function loadPreview() {
-    if (!leadId) { setErr('Enter a lead ID'); return; }
+    if (!leadId) { setErr(t('Enter a lead ID')); return; }
     setLoading(true); setErr(''); setData(null);
     try {
       const r = await fetch(`/api/auto-email/campaigns/${campaignId}/preview`, {
@@ -807,7 +810,7 @@ function PreviewModal({ campaignId, onClose }) {
         body: JSON.stringify({ lead_id: parseInt(leadId) })
       });
       if (r.ok) setData(await r.json());
-      else { const d = await r.json(); setErr(d.error || 'Failed'); }
+      else { const d = await r.json(); setErr(t(d.error || 'Failed')); }
     } catch (e) { setErr(e.message); }
     setLoading(false);
   }
@@ -816,15 +819,15 @@ function PreviewModal({ campaignId, onClose }) {
     <div className="ae-modal-overlay" onClick={onClose}>
       <div className="ae-modal ae-modal-lg" onClick={e => e.stopPropagation()}>
         <div className="ae-modal-header">
-          <h3><MI name="preview" size={20} /> Email Preview</h3>
+          <h3><MI name="preview" size={20} /> {t('Email Preview')}</h3>
           <button onClick={onClose} className="ae-modal-close">✕</button>
         </div>
 
         <div className="ae-modal-body">
           <div className="ae-preview-input">
-            <input type="number" placeholder="Enter Lead ID to preview…" value={leadId} onChange={e => setLeadId(e.target.value)} className="ae-preview-field" />
+            <input type="number" placeholder={t('Enter Lead ID to preview…')} value={leadId} onChange={e => setLeadId(e.target.value)} className="ae-preview-field" />
             <button onClick={loadPreview} disabled={loading} className="ae-btn ae-btn-primary ae-btn-sm">
-              {loading ? 'Loading…' : 'Generate Preview'}
+              {loading ? t('Loading…') : t('Generate Preview')}
             </button>
           </div>
 
@@ -834,9 +837,9 @@ function PreviewModal({ campaignId, onClose }) {
             <div className="ae-preview-content">
               {/* Lead info */}
               <div className="ae-preview-lead">
-                <span><strong>To:</strong> {data.lead?.company_name} ({data.to})</span>
-                <span><strong>Sector:</strong> {data.lead?.sector}</span>
-                <span><strong>City:</strong> {data.lead?.city}</span>
+                <span><strong>{t('To')}:</strong> {data.lead?.company_name} ({data.to})</span>
+                <span><strong>{t('Sector')}:</strong> {t(data.lead?.sector || '')}</span>
+                <span><strong>{t('City')}:</strong> {data.lead?.city}</span>
               </div>
 
               {/* AI Personalization */}
@@ -844,12 +847,12 @@ function PreviewModal({ campaignId, onClose }) {
                 <div className="ae-preview-ai">
                   {data.opener && (
                     <div className="ae-ai-slot opener">
-                      <strong><MI name="auto_awesome" size={14} /> AI Opener:</strong> {data.opener}
+                      <strong><MI name="auto_awesome" size={14} /> {t('AI Opener')}:</strong> {data.opener}
                     </div>
                   )}
                   {data.valueProp && (
                     <div className="ae-ai-slot value">
-                      <strong><MI name="lightbulb" size={14} /> AI Value Prop:</strong> {data.valueProp}
+                      <strong><MI name="lightbulb" size={14} /> {t('AI Value Prop')}:</strong> {data.valueProp}
                     </div>
                   )}
                 </div>
@@ -857,13 +860,13 @@ function PreviewModal({ campaignId, onClose }) {
 
               {/* Subject */}
               <div className="ae-preview-subject">
-                <strong>Subject:</strong> {data.subject}
+                <strong>{t('Subject')}:</strong> {data.subject}
               </div>
 
               {/* View mode toggle */}
               <div className="ae-preview-toggle">
                 <button className={`ae-toggle-btn ${viewMode === 'text' ? 'active' : ''}`} onClick={() => setViewMode('text')}>
-                  <MI name="article" size={14} /> Text
+                  <MI name="article" size={14} /> {t('Text')}
                 </button>
                 <button className={`ae-toggle-btn ${viewMode === 'html' ? 'active' : ''}`} onClick={() => setViewMode('html')}>
                   <MI name="code" size={14} /> HTML
@@ -873,7 +876,7 @@ function PreviewModal({ campaignId, onClose }) {
               {viewMode === 'text' ? (
                 <div className="ae-preview-body">{data.body}</div>
               ) : (
-                <iframe srcDoc={data.html} className="ae-preview-iframe" title="Email Preview" />
+                <iframe srcDoc={data.html} className="ae-preview-iframe" title={t('Email Preview')} />
               )}
             </div>
           )}

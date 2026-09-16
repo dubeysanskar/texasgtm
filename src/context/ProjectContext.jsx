@@ -1,12 +1,25 @@
 'use client';
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { translate, SUPPORTED_LANGS } from '@/lib/i18n';
 
 const ProjectContext = createContext(null);
+const LANG_KEY = 'gtm-lang';
 
 export function ProjectProvider({ children }) {
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [activeProject, setActiveProjectState] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Manual language override chosen by the person (login page toggle / sidebar switch).
+  const [manualLang, setManualLang] = useState(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved && SUPPORTED_LANGS.includes(saved)) setManualLang(saved);
+    } catch {}
+  }, []);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -54,23 +67,45 @@ export function ProjectProvider({ children }) {
 
   const refreshProjects = fetchProjects;
 
-  return (
-    <ProjectContext.Provider value={{
-      projects,
-      activeProject,
-      setActiveProject,
-      createProject,
-      refreshProjects,
-      loading,
-      projectId: activeProject?.id || null,
-    }}>
-      {children}
-    </ProjectContext.Provider>
-  );
+  // UI language: explicit choice > active project's language > user's language > English
+  const lang = manualLang || activeProject?.language || user?.language || 'en';
+
+  const setLang = useCallback((l) => {
+    const next = SUPPORTED_LANGS.includes(l) ? l : 'en';
+    setManualLang(next);
+    try { localStorage.setItem(LANG_KEY, next); } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') document.documentElement.lang = lang;
+  }, [lang]);
+
+  const t = useCallback((key, vars) => translate(lang, key, vars), [lang]);
+
+  const value = useMemo(() => ({
+    projects,
+    activeProject,
+    setActiveProject,
+    createProject,
+    refreshProjects,
+    loading,
+    projectId: activeProject?.id || null,
+    lang,
+    setLang,
+    t,
+  }), [projects, activeProject, setActiveProject, createProject, refreshProjects, loading, lang, setLang, t]);
+
+  return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
 }
 
 export function useProject() {
   const ctx = useContext(ProjectContext);
   if (!ctx) throw new Error('useProject must be used within ProjectProvider');
   return ctx;
+}
+
+/** Shorthand for components that only need the translator. */
+export function useT() {
+  const { t, lang } = useProject();
+  return { t, lang };
 }

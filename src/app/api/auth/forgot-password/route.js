@@ -8,7 +8,7 @@ export async function POST(request) {
     const { email } = await request.json();
     if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });
 
-    const user = await queryOne('SELECT id, email FROM gtm_users WHERE email = $1', [email.toLowerCase().trim()]);
+    const user = await queryOne('SELECT id, email, language FROM gtm_users WHERE email = $1', [email.toLowerCase().trim()]);
     // Always return success to prevent email enumeration
     if (!user) return NextResponse.json({ success: true });
 
@@ -20,7 +20,7 @@ export async function POST(request) {
     const resetUrl = `${process.env.APP_URL || 'http://localhost:3005'}/reset-password?token=${token}&email=${encodeURIComponent(user.email)}`;
 
     try {
-      await sendPasswordReset(user.email, resetUrl);
+      await sendPasswordReset(user.email, resetUrl, user.language);
     } catch (err) {
       console.error('[mailer] Reset email failed:', err.message);
     }

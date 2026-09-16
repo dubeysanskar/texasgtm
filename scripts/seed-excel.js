@@ -1,4 +1,4 @@
-// TexasGTM — Seed leads from Excel file
+// GTM CRM — Seed leads from Excel file
 // Run: node scripts/seed-excel.js <path-to-xlsx>
 const fs = require('fs');
 const path = require('path');
@@ -13,7 +13,7 @@ if (fs.existsSync(envPath)) {
   });
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false } });
 
 function dedupKey(name, domain) {
   return (name || '').toLowerCase().replace(/[^a-zA-Zа-яА-Я0-9]/g, '') + ((domain || '').toLowerCase().replace(/[^a-z0-9.]/g, ''));

@@ -3,68 +3,7 @@ const XLSX = require('xlsx');
 const { queryOne, queryAll, query } = require('@/lib/db');
 const { getUserFromRequest, isAdmin } = require('@/lib/auth');
 
-const VALID_STATUSES = ['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','follow_up_later'];
-const VALID_PRIORITIES = ['HOT','HIGH','MEDIUM','PARTNER'];
-const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const PHONE_RE = /^[+\d\s\-()]{6,20}$/;
-
-// Known column name aliases → standard field names
-const COLUMN_ALIASES = {
-  company_name: ['company_name', 'company', 'company name', 'organization', 'org', 'business', 'business name', 'name'],
-  email: ['email', 'email address', 'e-mail', 'mail', 'contact email'],
-  phone: ['phone', 'phone number', 'telephone', 'tel', 'mobile', 'contact phone', 'cell'],
-  city: ['city', 'location', 'town', 'area'],
-  domain: ['domain', 'website domain', 'web domain'],
-  sector: ['sector', 'industry', 'type', 'category', 'business type'],
-  company_size: ['company_size', 'company size', 'size', 'employees', 'staff', 'headcount'],
-  decision_maker_title: ['decision_maker_title', 'decision maker title', 'title', 'position', 'job title', 'designation'],
-  contact_person: ['contact_person', 'contact person', 'contact name', 'contact', 'person', 'poc', 'point of contact'],
-  pain_point: ['pain_point', 'pain point', 'need', 'requirement', 'challenge'],
-  notes: ['notes', 'note', 'remarks', 'comments', 'description'],
-  source_url: ['source_url', 'source url', 'source', 'url', 'link', 'website'],
-  priority: ['priority', 'lead priority', 'importance'],
-  status: ['status', 'lead status', 'stage', 'state'],
-};
-
-function autoMapColumns(headers) {
-  const mapping = {};
-  const usedFields = new Set();
-  for (const header of headers) {
-    const h = header.toLowerCase().trim();
-    for (const [field, aliases] of Object.entries(COLUMN_ALIASES)) {
-      if (usedFields.has(field)) continue;
-      if (aliases.includes(h)) {
-        mapping[header] = field;
-        usedFields.add(field);
-        break;
-      }
-    }
-  }
-  return mapping;
-}
-
-function validateRow(row, idx) {
-  const errors = [];
-  if (!row.company_name || String(row.company_name).trim().length < 2) {
-    errors.push({ field: 'company_name', msg: 'Company name is required (min 2 chars)' });
-  }
-  if (row.company_name && String(row.company_name).length > 120) {
-    errors.push({ field: 'company_name', msg: 'Company name too long (max 120 chars)' });
-  }
-  if (row.email && !EMAIL_RE.test(String(row.email).trim())) {
-    errors.push({ field: 'email', msg: 'Invalid email format' });
-  }
-  if (row.phone && !PHONE_RE.test(String(row.phone).trim())) {
-    errors.push({ field: 'phone', msg: 'Invalid phone format (use +country digits)' });
-  }
-  if (row.priority && !VALID_PRIORITIES.includes(String(row.priority).toUpperCase().trim())) {
-    errors.push({ field: 'priority', msg: `Invalid priority. Use: ${VALID_PRIORITIES.join(', ')}` });
-  }
-  if (row.status && !VALID_STATUSES.includes(String(row.status).toLowerCase().trim())) {
-    errors.push({ field: 'status', msg: `Invalid status. Use: ${VALID_STATUSES.join(', ')}` });
-  }
-  return errors;
-}
+const { autoMapColumns, normalizeLeadValues, validateRow, MSG } = require('@/lib/lead-fields');
 
 /**
  * POST /api/leads/upload — Parse uploaded Excel/CSV, validate, return preview
@@ -72,12 +11,14 @@ function validateRow(row, idx) {
 export async function POST(request) {
   const user = getUserFromRequest(request);
   if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  let lang = 'en';
 
   try {
     const formData = await request.formData();
     const file = formData.get('file');
     const customMapping = formData.get('mapping'); // Optional JSON string of {header: field}
     const projectId = formData.get('project_id');
+    lang = formData.get('lang') === 'ru' ? 'ru' : 'en';
 
     if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
 
@@ -87,8 +28,8 @@ export async function POST(request) {
     const ws = wb.Sheets[sheetName];
     const rawData = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-    if (!rawData.length) return NextResponse.json({ error: 'File is empty' }, { status: 400 });
-    if (rawData.length > 5000) return NextResponse.json({ error: 'Max 5000 rows per upload' }, { status: 400 });
+    if (!rawData.length) return NextResponse.json({ error: lang === 'ru' ? 'Файл пуст' : 'File is empty' }, { status: 400 });
+    if (rawData.length > 5000) return NextResponse.json({ error: lang === 'ru' ? 'Максимум 5000 строк за одну загрузку' : 'Max 5000 rows per upload' }, { status: 400 });
 
     // Get headers and auto-map
     const headers = Object.keys(rawData[0]);
@@ -102,18 +43,13 @@ export async function POST(request) {
           lead[field] = String(raw[header]).trim();
         }
       }
-      // Include unmapped fields
-      for (const header of headers) {
-        if (!mapping[header] && raw[header] !== '') {
-          // Skip unmapped
-        }
-      }
-      return lead;
+      // Russian (or English) labels for sector / priority / status → machine values
+      return normalizeLeadValues(lead);
     });
 
     // Validate all rows
     const preview = leads.map((lead, idx) => {
-      const errors = validateRow(lead, idx);
+      const errors = validateRow(lead, lang);
       return { ...lead, _row: idx + 2, _errors: errors, _hasErrors: errors.length > 0 };
     });
 
@@ -129,7 +65,7 @@ export async function POST(request) {
     for (const row of preview) {
       const key = (row.company_name || '').toLowerCase().replace(/[^a-zA-Zа-яА-Я0-9]/g, '') + (row.domain || '').toLowerCase();
       if (existingKeys.has(key)) {
-        row._errors.push({ field: 'company_name', msg: 'Duplicate — already exists in leads' });
+        row._errors.push({ field: 'company_name', msg: MSG[lang].duplicate });
         row._hasErrors = true;
         row._isDuplicate = true;
       }
@@ -151,7 +87,7 @@ export async function POST(request) {
 
   } catch (err) {
     console.error('Upload parse error:', err);
-    return NextResponse.json({ error: 'Failed to parse file: ' + err.message }, { status: 500 });
+    return NextResponse.json({ error: (lang === 'ru' ? 'Не удалось прочитать файл: ' : 'Failed to parse file: ') + err.message }, { status: 500 });
   }
 }
 
@@ -163,12 +99,14 @@ export async function PUT(request) {
   if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
   try {
-    const { leads, project_id, skipDuplicates } = await request.json();
-    if (!leads || !leads.length) return NextResponse.json({ error: 'No leads provided' }, { status: 400 });
+    const { leads, project_id, skipDuplicates, lang: reqLang } = await request.json();
+    const lang = reqLang === 'ru' ? 'ru' : 'en';
+    if (!leads || !leads.length) return NextResponse.json({ error: lang === 'ru' ? 'Нет лидов для импорта' : 'No leads provided' }, { status: 400 });
 
     let added = 0, skipped = 0, errors = 0, firstError = null;
 
-    for (const lead of leads) {
+    for (const rawLead of leads) {
+      const lead = normalizeLeadValues(rawLead);
       if (lead._isDuplicate && skipDuplicates) { skipped++; continue; }
 
       const companyName = (lead.company_name || '').trim();

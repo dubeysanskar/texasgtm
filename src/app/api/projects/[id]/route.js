@@ -20,11 +20,11 @@ export async function PUT(request, { params }) {
   if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
   const { id } = await params;
-  const { name, country, description, color, icon, scraper_config } = await request.json();
+  const { name, country, description, color, icon, scraper_config, language } = await request.json();
 
   const result = await query(
-    'UPDATE gtm_projects SET name=COALESCE($1,name), country=COALESCE($2,country), description=COALESCE($3,description), color=COALESCE($4,color), icon=COALESCE($5,icon), scraper_config=COALESCE($6,scraper_config) WHERE id=$7 RETURNING *',
-    [name, country, description, color, icon, scraper_config ? JSON.stringify(scraper_config) : null, id]
+    'UPDATE gtm_projects SET name=COALESCE($1,name), country=COALESCE($2,country), description=COALESCE($3,description), color=COALESCE($4,color), icon=COALESCE($5,icon), scraper_config=COALESCE($6,scraper_config), language=COALESCE($7,language) WHERE id=$8 RETURNING *',
+    [name, country, description, color, icon, scraper_config ? JSON.stringify(scraper_config) : null, language ? (language === 'ru' ? 'ru' : 'en') : null, id]
   );
 
   if (result.rowCount === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });

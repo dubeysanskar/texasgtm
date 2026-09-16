@@ -5,7 +5,7 @@ const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 export async function GET(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const members = await queryAll('SELECT id, name, email, role, company, phone, is_active, created_at FROM gtm_users ORDER BY role, name');
+  const members = await queryAll('SELECT id, name, name_en, email, role, company, phone, job_title, job_title_en, language, is_active, created_at FROM gtm_users ORDER BY role, name');
   return NextResponse.json({ members });
 }
 
@@ -14,7 +14,7 @@ export async function POST(request) {
   const user = getUserFromRequest(request);
   if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
 
-  const { name, email, role } = await request.json();
+  const { name, email, role, job_title, language } = await request.json();
   if (!name?.trim() || !email?.trim()) return NextResponse.json({ error: 'Name and email required' }, { status: 400 });
 
   const validRoles = ['super_admin', 'manager', 'staff', 'marketing'];
@@ -28,14 +28,14 @@ export async function POST(request) {
   const tempHash = await bcrypt.hash('temp_' + Date.now(), 10);
 
   const res = await query(
-    'INSERT INTO gtm_users (name, email, password_hash, role, is_active) VALUES ($1, $2, $3, $4, 1) RETURNING id',
-    [name.trim(), email.toLowerCase().trim(), tempHash, assignRole]
+    'INSERT INTO gtm_users (name, email, password_hash, role, job_title, language, is_active) VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING id',
+    [name.trim(), email.toLowerCase().trim(), tempHash, assignRole, (job_title || '').trim(), language === 'ru' ? 'ru' : 'en']
   );
 
   // Send invite email
   try {
     const { sendInvite } = require('@/lib/mailer');
-    await sendInvite({ email: email.toLowerCase().trim(), name, roleName: assignRole.replace('_', ' ') });
+    await sendInvite({ email: email.toLowerCase().trim(), name, roleName: assignRole.replace('_', ' '), lang: language === 'ru' ? 'ru' : 'en' });
   } catch (e) {
     console.error('[invite] Email send failed:', e.message);
   }

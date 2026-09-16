@@ -3,7 +3,7 @@ import { ProjectProvider } from '@/context/ProjectContext';
 import './globals.css';
 
 export const metadata = {
-  title: 'TexasGTM — CRM',
+  title: 'GTM CRM',
   description: 'Modern team CRM with lead management, tasks, and messaging',
   icons: {
     icon: '/favicon.png',

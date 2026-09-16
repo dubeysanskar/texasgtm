@@ -11,7 +11,7 @@ export async function POST(request) {
     if (!name || !email || !password) return NextResponse.json({ error: 'Name, email, password required' }, { status: 400 });
     if (!project_id) return NextResponse.json({ error: 'Please select a project' }, { status: 400 });
 
-    const project = await queryOne('SELECT id, name FROM gtm_projects WHERE id = $1 AND is_active = true', [project_id]);
+    const project = await queryOne('SELECT id, name, language FROM gtm_projects WHERE id = $1 AND is_active = true', [project_id]);
     if (!project) return NextResponse.json({ error: 'Selected project not found' }, { status: 400 });
 
     const existing = await queryOne('SELECT id FROM gtm_users WHERE email = $1', [email.toLowerCase().trim()]);
@@ -21,8 +21,8 @@ export async function POST(request) {
     const role = 'staff';
     const hash = await bcrypt.hash(password, 10);
     const result = await query(
-      'INSERT INTO gtm_users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id',
-      [name.trim(), email.toLowerCase().trim(), hash, role]
+      'INSERT INTO gtm_users (name, email, password_hash, role, language) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [name.trim(), email.toLowerCase().trim(), hash, role, project.language === 'ru' ? 'ru' : 'en']
     );
 
     const userId = result.rows[0].id;
@@ -35,12 +35,12 @@ export async function POST(request) {
     // Welcome email (non-blocking — registration succeeds even if mail fails)
     try {
       const { sendInvite } = require('@/lib/mailer');
-      await sendInvite({ email: email.toLowerCase().trim(), name: name.trim(), roleName: 'Staff', projectNames: [project.name], isWelcome: true });
+      await sendInvite({ email: email.toLowerCase().trim(), name: name.trim(), roleName: project.language === 'ru' ? 'Сотрудник' : 'Staff', projectNames: [project.name], isWelcome: true, lang: project.language });
     } catch (e) {
       console.error('[register] Welcome email failed:', e.message);
     }
 
-    const userData = { id: userId, name: name.trim(), email: email.toLowerCase().trim(), role };
+    const userData = { id: userId, name: name.trim(), email: email.toLowerCase().trim(), role, language: project.language === 'ru' ? 'ru' : 'en' };
     const token = signToken(userData);
 
     const res = NextResponse.json({ user: userData, project: project.name });

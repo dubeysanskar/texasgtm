@@ -5,7 +5,7 @@ const { queryAll } = require('@/lib/db');
 export async function GET() {
   try {
     const projects = await queryAll(
-      'SELECT id, name, slug, country, color, icon FROM gtm_projects WHERE is_active = true ORDER BY created_at ASC'
+      'SELECT id, name, slug, country, color, icon, language FROM gtm_projects WHERE is_active = true ORDER BY created_at ASC'
     );
     return NextResponse.json(projects);
   } catch {

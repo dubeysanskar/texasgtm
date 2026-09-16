@@ -1,9 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useProject } from '@/context/ProjectContext';
 
 export default function NotificationBell() {
   const { user } = useAuth();
+  const { t } = useProject();
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -44,7 +46,7 @@ export default function NotificationBell() {
 
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={openPanel} className="notif-bell-btn" title="Notifications">
+      <button onClick={openPanel} className="notif-bell-btn" title={t('Notifications')}>
         <span className="material-symbols-outlined" style={{ fontSize: 20 }}>notifications</span>
         {count > 0 && <span className="notif-badge">{count > 9 ? '9+' : count}</span>}
       </button>
@@ -54,11 +56,11 @@ export default function NotificationBell() {
           <div className="notif-overlay" onClick={() => setOpen(false)} />
           <div className="notif-panel">
             <div className="notif-header">
-              <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Notifications</span>
-              {count > 0 && <button onClick={markAllRead} className="notif-mark-all">Mark all read</button>}
+              <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>{t('Notifications')}</span>
+              {count > 0 && <button onClick={markAllRead} className="notif-mark-all">{t('Mark all read')}</button>}
             </div>
             <div className="notif-list">
-              {notifications.length === 0 && <p className="notif-empty">No notifications</p>}
+              {notifications.length === 0 && <p className="notif-empty">{t('No notifications')}</p>}
               {notifications.map(n => (
                 <div key={n.id} className={`notif-item ${n.is_read ? '' : 'unread'}`} onClick={() => !n.is_read && markRead(n.id)}>
                   <span className="material-symbols-outlined notif-icon">{ICONS[n.type] || 'notifications'}</span>

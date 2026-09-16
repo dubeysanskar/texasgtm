@@ -9,9 +9,12 @@ let pool;
 
 function getPool() {
   if (!pool) {
+    // SSL is required for hosted Postgres (Supabase etc.) but not for local/self-hosted servers.
+    // Set DATABASE_SSL=false to disable explicitly; localhost is detected automatically.
+    const noSsl = process.env.DATABASE_SSL === 'false' || /@(localhost|127\.0\.0\.1)[:/]/.test(DATABASE_URL || '');
     pool = new Pool({
       connectionString: DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ssl: noSsl ? false : { rejectUnauthorized: false },
       max: 10,
       idleTimeoutMillis: 30000,
     });
@@ -331,13 +334,50 @@ async function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_gtm_smtp_project ON gtm_smtp_accounts(project_id);
 
+    CREATE TABLE IF NOT EXISTS gtm_projects (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      country TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      color TEXT DEFAULT '#3B82F6',
+      icon TEXT DEFAULT 'language',
+      language TEXT DEFAULT 'en',
+      scraper_config JSONB DEFAULT '{}',
+      is_active BOOLEAN DEFAULT true,
+      created_by INTEGER,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
     -- Self-healing columns (idempotent) for tables that predate these fields
     ALTER TABLE gtm_leads ADD COLUMN IF NOT EXISTS contact_person TEXT DEFAULT '';
+    ALTER TABLE gtm_leads ADD COLUMN IF NOT EXISTS last_template_id INTEGER;
+    ALTER TABLE gtm_projects ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
+    ALTER TABLE gtm_projects ADD COLUMN IF NOT EXISTS scraper_config JSONB DEFAULT '{}';
+    ALTER TABLE gtm_users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en';
+    ALTER TABLE gtm_users ADD COLUMN IF NOT EXISTS name_en TEXT DEFAULT '';
+    ALTER TABLE gtm_users ADD COLUMN IF NOT EXISTS job_title TEXT DEFAULT '';
+    ALTER TABLE gtm_users ADD COLUMN IF NOT EXISTS job_title_en TEXT DEFAULT '';
+    ALTER TABLE gtm_leads ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_tasks ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_messages ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_shared_docs ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_activity_logs ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_team_remarks ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_email_sends ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_email_campaigns ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_notifications ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_templates ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    ALTER TABLE gtm_scrape_jobs ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    CREATE INDEX IF NOT EXISTS idx_gtm_leads_project ON gtm_leads(project_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_tasks_project ON gtm_tasks(project_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_templates_project ON gtm_templates(project_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_campaigns_project ON gtm_email_campaigns(project_id);
   `);
 
   // Seed default settings
   const defaults = [
-    ['app_name', 'TexasGTM'],
+    ['app_name', 'GTM CRM'],
     ['role_label_super_admin', 'Super Admin'],
     ['role_label_manager', 'Manager'],
     ['role_label_staff', 'Staff'],
@@ -351,7 +391,7 @@ async function initSchema() {
     );
   }
 
-  console.log('[db] TexasGTM schema initialized');
+  console.log('[db] GTM CRM schema initialized');
 }
 
 module.exports = { query, queryOne, queryAll, getPool, initSchema };

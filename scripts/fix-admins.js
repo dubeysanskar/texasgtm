@@ -14,11 +14,11 @@ if (fs.existsSync(envPath)) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false },
 });
 
 async function run() {
-  const hash = await bcrypt.hash('TexasGTM2026!', 10);
+  const hash = await bcrypt.hash('GTMCRM2026!', 10);
 
   // Remove wrong admins
   await pool.query("DELETE FROM gtm_users WHERE email IN ('sdoci17@gmail.com','shubhitamishra@gmail.com')");

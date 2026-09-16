@@ -1,4 +1,4 @@
-// TexasGTM — Create Super Admin User
+// GTM CRM — Create Super Admin User
 // Usage: node scripts/create-admin.js
 // Run this AFTER setting DATABASE_URL in .env
 
@@ -19,7 +19,7 @@ if (fs.existsSync(envPath)) {
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) { console.error('ERROR: DATABASE_URL not set in .env'); process.exit(1); }
 
-const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const pool = new Pool({ connectionString: DATABASE_URL, ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false } });
 
 async function run() {
   // Create tables first
@@ -30,7 +30,7 @@ async function run() {
 
   // Create super admin
   const name = 'Admin';
-  const email = 'admin@texasgtm.com';
+  const email = 'admin@gtmcrm.local';
   const password = 'admin123';
   const hash = await bcrypt.hash(password, 10);
 
@@ -46,7 +46,7 @@ async function run() {
   }
 
   console.log('\n╔════════════════════════════════════╗');
-  console.log('║   TexasGTM Super Admin Credentials  ║');
+  console.log('║   GTM CRM Super Admin Credentials  ║');
   console.log('╠════════════════════════════════════╣');
   console.log(`║  Email:    ${email}     ║`);
   console.log(`║  Password: ${password}                  ║`);

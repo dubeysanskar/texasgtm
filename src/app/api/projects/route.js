@@ -35,7 +35,7 @@ export async function POST(request) {
   const user = getUserFromRequest(request);
   if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
-  const { name, country, description, color, icon } = await request.json();
+  const { name, country, description, color, icon, language } = await request.json();
   if (!name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
 
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -45,8 +45,8 @@ export async function POST(request) {
   if (existing) return NextResponse.json({ error: 'A project with this name already exists' }, { status: 409 });
 
   const result = await query(
-    'INSERT INTO gtm_projects (name, slug, country, description, color, icon, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-    [name.trim(), slug, country || '', description || '', color || '#3B82F6', icon || 'language', user.id]
+    'INSERT INTO gtm_projects (name, slug, country, description, color, icon, language, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+    [name.trim(), slug, country || '', description || '', color || '#3B82F6', icon || 'language', language === 'ru' ? 'ru' : 'en', user.id]
   );
 
   return NextResponse.json(result.rows[0], { status: 201 });
