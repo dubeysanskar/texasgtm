@@ -2,16 +2,8 @@
 // Run: node scripts/seed-templates.js
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
 
-const envPath = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
-    const m = line.match(/^(\w+)=(.+)$/);
-    if (m) process.env[m[1]] = m[2].trim();
-  });
-}
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false } });
+const db = require('./_db');
 
 const candidates = [
   process.argv[2],
@@ -78,10 +70,10 @@ async function run() {
       if (langs.ar) translations.ar = langs.ar;
       
       const name = `${info.name} — ${touchLabel}`;
-      const existing = await pool.query('SELECT id FROM gtm_templates WHERE name = $1', [name]);
+      const existing = await db.query('SELECT id FROM gtm_templates WHERE name = $1', [name]);
       if (existing.rows.length) continue;
       
-      await pool.query(
+      await db.query(
         'INSERT INTO gtm_templates (name, platform, status, subject, body, language, translations) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [name, 'email', 'active', langs.en.subject, langs.en.body, 'en', JSON.stringify(translations)]
       );
@@ -89,7 +81,7 @@ async function run() {
     }
   }
   console.log(`✅ Seeded ${added} templates`);
-  await pool.end();
+  await db.close();
 }
 
 run().catch(e => { console.error(e); process.exit(1); });

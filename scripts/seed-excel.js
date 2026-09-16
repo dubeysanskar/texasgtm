@@ -2,18 +2,10 @@
 // Run: node scripts/seed-excel.js <path-to-xlsx>
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
 const XLSX = require('xlsx');
 
-const envPath = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
-    const m = line.match(/^(\w+)=(.+)$/);
-    if (m) process.env[m[1]] = m[2].trim();
-  });
-}
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: (/@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL || '') || process.env.DATABASE_SSL === 'false') ? false : { rejectUnauthorized: false } });
+const db = require('./_db');
 
 function dedupKey(name, domain) {
   return (name || '').toLowerCase().replace(/[^a-zA-Zа-яА-Я0-9]/g, '') + ((domain || '').toLowerCase().replace(/[^a-z0-9.]/g, ''));
@@ -98,10 +90,10 @@ async function run() {
     const dk = dedupKey(companyName, domain);
 
     try {
-      const existing = await pool.query('SELECT id FROM gtm_leads WHERE dedup_key = $1', [dk]);
+      const existing = await db.query('SELECT id FROM gtm_leads WHERE dedup_key = $1', [dk]);
       if (existing.rows.length) { skipped++; continue; }
 
-      await pool.query(
+      await db.query(
         `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, region, company_size, pain_point, decision_maker_title, phone, email, contact_method, find_instructions, notes, scraped_from, dedup_key, country) VALUES ($1,$2,$3,$4,'not_contacted',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'excel_import',$15,'Russia')`,
         [companyName, domain, sector, priority, city, region, companySize, painPoint, decisionMaker, phone, email, contactMethod, findInstructions, notes, dk]
       );
@@ -118,7 +110,7 @@ async function run() {
   console.log(`   Errors: ${errors}`);
   console.log(`   Total processed: ${data.length}`);
 
-  await pool.end();
+  await db.close();
 }
 
 run().catch(e => { console.error(e); process.exit(1); });

@@ -10,25 +10,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-
-const envPath = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
-    const m = line.match(/^(\w+)=(.+)$/);
-    if (m) process.env[m[1]] = m[2].trim();
-  });
-}
-if (!process.env.DATABASE_URL) { console.error('ERROR: DATABASE_URL not set in .env'); process.exit(1); }
-
-const Module = require('module');
-const origResolve = Module._resolveFilename;
-Module._resolveFilename = function (request, ...rest) {
-  if (request.startsWith('@/')) request = path.join(__dirname, '..', 'src', request.slice(2));
-  return origResolve.call(this, request, ...rest);
-};
-
+const db = require('./_db');
 const bcrypt = require('bcryptjs');
-const db = require('../src/lib/db');
 
 const args = process.argv.slice(2);
 const NO_SEED = args.includes('--no-seed');
