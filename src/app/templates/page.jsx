@@ -26,7 +26,7 @@ const SS = {
 };
 
 export default function TemplatesPage() {
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { user, loading: authLoading, isManager } = useAuth();
   const { projectId, t } = useProject();
   const router = useRouter();
   const [templates, setTemplates] = useState([]);
@@ -48,7 +48,7 @@ export default function TemplatesPage() {
     setLoading(false);
   }, [platform, projectId]);
 
-  useEffect(() => { if (user && isAdmin) fetch_(); }, [user, isAdmin, fetch_]);
+  useEffect(() => { if (user && isManager) fetch_(); }, [user, isManager, fetch_]);
 
   async function del(id) { if (!confirm(t('Delete this template?'))) return; await fetch(`/api/templates/${id}`, { method: 'DELETE' }); fetch_(); }
 
@@ -83,7 +83,8 @@ export default function TemplatesPage() {
   // Ungrouped (no touch pattern)
   const ungrouped = templates.filter(t => !/ — Touch \d$/.test(t.name));
 
-  if (authLoading || !user || !isAdmin) return <div className="page-loading">Loading...</div>;
+  if (authLoading || !user) return <div className="page-loading">{t('Loading...')}</div>;
+  if (!isManager) return <div className="page-content"><p>{t('Access denied')}</p></div>;
 
   return (
     <div className="page-content">

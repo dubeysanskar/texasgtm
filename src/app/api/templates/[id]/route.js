@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 const { queryOne, query } = require('@/lib/db');
-const { getUserFromRequest, isAdmin } = require('@/lib/auth');
+const { getUserFromRequest, isManager } = require('@/lib/auth');
 
 export async function PUT(request, { params }) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   const body = await request.json();
@@ -30,7 +30,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   await query('DELETE FROM gtm_templates WHERE id = $1', [id]);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 const { queryAll, query } = require('@/lib/db');
-const { getUserFromRequest, isAdmin } = require('@/lib/auth');
+const { getUserFromRequest, isManager } = require('@/lib/auth');
 
 export async function GET(request) {
   const user = getUserFromRequest(request);
@@ -22,7 +22,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { name, platform, status, subject, body, language, translations, project_id } = await request.json();
   if (!name || !body) return NextResponse.json({ error: 'Name and body are required' }, { status: 400 });
