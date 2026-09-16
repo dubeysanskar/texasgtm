@@ -159,6 +159,11 @@ export const RU = {
   'Add New Lead': 'Новый лид', 'Domain': 'Домен', 'Sector': 'Отрасль', 'Pain Point': 'Потребность', 'Set template': 'Назначить шаблон',
   'Search template, subject, message…': 'Поиск по шаблону, теме, тексту…', 'Clear template': 'Убрать шаблон', 'No templates found': 'Шаблоны не найдены',
   'Company name required': 'Укажите название компании', 'Duplicate lead': 'Такой лид уже существует',
+  'Source of lead': 'Источник лида', 'Mobile number (personal)': 'Мобильный (личный)', 'Requirement needed': 'Требуемая потребность',
+  'Decision maker name': 'Имя ЛПР', 'Comment': 'Комментарий', 'Telephone': 'Телефон', 'Logs': 'Журнал', 'View log': 'Журнал',
+  'Lead log': 'Журнал лида', 'No log entries yet': 'Записей пока нет', 'Created': 'Создан', 'Last Contacted': 'Последний контакт',
+  'e.g. exhibition, LinkedIn, referral': 'напр. выставка, LinkedIn, рекомендация', 'bulk': 'массово',
+  'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',
   'Call Made': 'Звонок сделан', 'Replied': 'Ответили', 'Meeting Booked': 'Встреча назначена', 'Proposal Sent': 'КП отправлено',

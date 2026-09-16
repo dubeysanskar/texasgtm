@@ -56,6 +56,7 @@ export default function LeadsPage() {
   const [bulkTplSearch, setBulkTplSearch] = useState('');
   const [showBulkTpl, setShowBulkTpl] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [logLead, setLogLead] = useState(null);
 
   useEffect(() => { if (!authLoading && !user) router.push('/'); }, [user, authLoading, router]);
 
@@ -93,6 +94,10 @@ export default function LeadsPage() {
 
   async function handleStatusChange(id, s) {
     await fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: s }) });
+    fetchLeads(); fetchStats();
+  }
+  async function handlePriorityChange(id, p) {
+    await fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority: p }) });
     fetchLeads(); fetchStats();
   }
   async function handleDelete(id) {
@@ -269,7 +274,7 @@ export default function LeadsPage() {
         <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name="groups" size={40}/><p style={{ marginTop:8 }}>{t('No leads found')}</p></div>
       ) : (
         <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)' }}>
-          <table style={{ width:'100%', minWidth: 1560, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
+          <table style={{ width:'100%', minWidth: 1700, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
             <thead>
               <tr style={{ background:'#f8fafc', borderBottom:'2px solid var(--border)' }}>
                 <th style={{ padding:'10px 8px', width:36, textAlign:'center' }}>
@@ -280,16 +285,17 @@ export default function LeadsPage() {
                 <th style={{...TH, width:'7%'}}>{t('Industry')}</th>
                 <th style={{...TH, width:'7%'}}>{t('City/Region')}</th>
                 <th style={{...TH, width:'4%'}}>{t('Size')}</th>
-                <th style={{...TH, width:'9%'}}>{t('Why They Need')}</th>
-                <th style={{...TH, width:'7%', whiteSpace:'normal'}}>{t('Decision Maker')}</th>
-                <th style={{...TH, width:'8%'}}>{t('Where to Find')}</th>
-                <th style={{...TH, width:'6%', whiteSpace:'normal'}}>{t('Contact')}</th>
-                <th style={{...TH, width:'7%'}}>{t('Phone')}</th>
+                <th style={{...TH, width:'9%'}}>{t('Requirement needed')}</th>
+                <th style={{...TH, width:'7%'}}>{t('Decision maker name')}</th>
+                <th style={{...TH, width:'8%'}}>{t('Source of lead')}</th>
+                <th style={{...TH, width:'7%'}}>{t('Mobile number (personal)')}</th>
+                <th style={{...TH, width:'7%'}}>{t('Telephone')}</th>
                 <th style={{...TH, width:'9%'}}>{t('Email')}</th>
-                <th style={{...TH, width:'7%'}}>{t('Priority')}</th>
+                <th style={{...TH, width:'8%'}}>{t('Priority')}</th>
                 <th style={{...TH, width:'10%'}}>{t('Status')}</th>
-                <th style={{...TH, width:'8%'}}>{t('Notes')}</th>
-                <th style={{...TH, width:'10%', whiteSpace:'normal'}}>{t('Template Used')}</th>
+                <th style={{...TH, width:'8%'}}>{t('Comment')}</th>
+                <th style={{...TH, width:'9%'}}>{t('Template Used')}</th>
+                <th style={{...TH, width:'6%'}}>{t('Logs')}</th>
                 <th style={{width:30}}></th>
               </tr>
             </thead>
@@ -314,11 +320,14 @@ export default function LeadsPage() {
                     <td tabIndex={0} style={{...TD, fontSize:'0.7rem', lineHeight:1.4}}>{l.pain_point||'—'}</td>
                     <td tabIndex={0} style={TD}>{l.decision_maker_title||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.68rem', lineHeight:1.4}}>{l.find_instructions||'—'}</td>
-                    <td tabIndex={0} style={TD}>{l.contact_method||'—'}</td>
+                    <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.66rem', wordBreak:'break-all'}}>{l.mobile_personal||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.66rem', wordBreak:'break-all'}}>{l.phone||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.68rem', wordBreak:'break-all'}}>{l.email ? <a href={`mailto:${l.email}`} style={{color:'#2563eb'}}>{l.email}</a> : '—'}</td>
-                    <td tabIndex={0} style={{...TD, textAlign:'center'}}>
-                      <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span>
+                    <td style={TD}>
+                      <select value={l.priority} onChange={e => handlePriorityChange(l.id, e.target.value)}
+                        style={{ padding:'4px 8px', borderRadius:8, border:'1px solid #e5e7eb', fontSize:'0.72rem', fontWeight:700, background:pc.bg, color:pc.text, cursor:'pointer', width:'100%' }}>
+                        {Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
+                      </select>
                     </td>
                     <td style={TD}>
                       <select value={l.status} onChange={e => handleStatusChange(l.id, e.target.value)}
@@ -329,6 +338,11 @@ export default function LeadsPage() {
                     <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}>{l.notes||'—'}</td>
                     <td style={{...TD, minWidth:180, position:'relative'}}>
                       <TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
+                    </td>
+                    <td style={{...TD, textAlign:'center'}}>
+                      <button onClick={() => setLogLead(l)} style={{ ...BB, padding:'4px 8px', fontSize:'0.66rem', justifyContent:'center', width:'100%' }}>
+                        <MI name="history" size={13}/> {t('View log')}
+                      </button>
                     </td>
                     <td style={{padding:'8px 4px', textAlign:'center'}}>
                       <button onClick={() => handleDelete(l.id)} title={t('Delete')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
@@ -360,6 +374,7 @@ export default function LeadsPage() {
       )}
 
       {showAddModal && <AddModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
+      {logLead && <LeadLogModal t={t} lang={lang} lead={logLead} onClose={() => setLogLead(null)} />}
       {showUploadModal && <BulkUploadModal t={t} lang={lang} onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
     </div>
   );
@@ -370,7 +385,7 @@ const TD = { padding:'8px', fontSize:'0.75rem', color:'#4b5563' };
 const PB = { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'#fff', cursor:'pointer', fontSize:'0.78rem', display:'flex', alignItems:'center', justifyContent:'center' };
 
 function AddModal({ t, projectId, onClose, onDone }) {
-  const [f, setF] = useState({ company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', phone:'', email:'', contact_method:'', notes:'' });
+  const [f, setF] = useState({ company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', notes:'' });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   async function save(e) {
@@ -394,12 +409,16 @@ function AddModal({ t, projectId, onClose, onDone }) {
             <div className="leads-form-field"><label>{t('Domain')}</label><input value={f.domain} onChange={e => setF({...f, domain:e.target.value})}/></div>
             <div className="leads-form-field"><label>{t('Sector')}</label><select value={f.sector} onChange={e => setF({...f, sector:e.target.value})}>{Object.entries(SL2).map(([v,l]) => <option key={v} value={v}>{t(l)}</option>)}</select></div>
             <div className="leads-form-field"><label>{t('Priority')}</label><select value={f.priority} onChange={e => setF({...f, priority:e.target.value})}><option value="HOT">{t('HOT')}</option><option value="HIGH">{t('HIGH')}</option><option value="MEDIUM">{t('MEDIUM')}</option><option value="PARTNER">{t('PARTNER')}</option></select></div>
+            <div className="leads-form-field"><label>{t('Status')}</label><select value={f.status} onChange={e => setF({...f, status:e.target.value})}>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}</select></div>
             <div className="leads-form-field"><label>{t('City')}</label><input value={f.city} onChange={e => setF({...f, city:e.target.value})}/></div>
-            <div className="leads-form-field"><label>{t('Size')}</label><input value={f.company_size} onChange={e => setF({...f, company_size:e.target.value})}/></div>
-            <div className="leads-form-field"><label>{t('Phone')}</label><input value={f.phone} onChange={e => setF({...f, phone:e.target.value})}/></div>
-            <div className="leads-form-field"><label>{t('Email')}</label><input value={f.email} onChange={e => setF({...f, email:e.target.value})}/></div>
-            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Pain Point')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
-            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Notes')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Size')}</label><input value={f.company_size} onChange={e => setF({...f, company_size:e.target.value})} placeholder="50-100"/></div>
+            <div className="leads-form-field"><label>{t('Decision maker name')}</label><input value={f.decision_maker_title} onChange={e => setF({...f, decision_maker_title:e.target.value})}/></div>
+            <div className="leads-form-field"><label>{t('Mobile number (personal)')}</label><input value={f.mobile_personal} onChange={e => setF({...f, mobile_personal:e.target.value})} placeholder="+7 916 000-00-00"/></div>
+            <div className="leads-form-field"><label>{t('Telephone')}</label><input value={f.phone} onChange={e => setF({...f, phone:e.target.value})} placeholder="+7 495 123-45-67"/></div>
+            <div className="leads-form-field"><label>{t('Email')}</label><input type="email" value={f.email} onChange={e => setF({...f, email:e.target.value})}/></div>
+            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Source of lead')}</label><input value={f.find_instructions} onChange={e => setF({...f, find_instructions:e.target.value})} placeholder={t('e.g. exhibition, LinkedIn, referral')}/></div>
+            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Requirement needed')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
+            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Comment')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
             <button type="button" onClick={onClose} className="btn btn-ghost">{t('Cancel')}</button>
@@ -468,8 +487,8 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
   const [importResult, setImportResult] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
 
-  const LEAD_FIELDS = ['company_name','email','phone','city','domain','sector','company_size','decision_maker_title','contact_person','pain_point','notes','source_url','priority','status'];
-  const FIELD_LABELS = { company_name:'Company Name', email:'Email', phone:'Phone', city:'City', domain:'Domain', sector:'Sector', company_size:'Company Size', decision_maker_title:'Decision Maker', contact_person:'Contact Person', pain_point:'Pain Point', notes:'Notes', source_url:'Source URL', priority:'Priority', status:'Status' };
+  const LEAD_FIELDS = ['company_name','email','phone','mobile_personal','city','domain','sector','company_size','decision_maker_title','pain_point','find_instructions','notes','source_url','priority','status'];
+  const FIELD_LABELS = { company_name:'Company Name', email:'Email', phone:'Telephone', mobile_personal:'Mobile number (personal)', city:'City', domain:'Domain', sector:'Industry', company_size:'Company Size', decision_maker_title:'Decision maker name', pain_point:'Requirement needed', find_instructions:'Source of lead', notes:'Comment', source_url:'Source URL', priority:'Priority', status:'Status', contact_person:'Contact Person' };
 
   async function handleFile(file) {
     if (!file) return;
@@ -760,6 +779,58 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
         )}
 
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LeadLogModal({ t, lang, lead, onClose }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    fetch(`/api/leads/${lead.id}`).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); setData(d); }).catch(e => setErr(e.message));
+  }, [lead.id]);
+  const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
+  // Merge status history, activity log and email sends into one timeline
+  const created = data && !data.logs.some(l => /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: '', icon: 'add', text: `${t('Lead created')}${lead.scraped_from ? ` (${t(lead.scraped_from)})` : ''}` }] : [];
+  const entries = data ? [
+    ...created,
+    ...data.history.map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}${h.note ? ` (${t(h.note)})` : ''}` })),
+    ...data.logs.map(l => ({ at: l.created_at, who: l.user_name, icon: 'edit_note', text: l.action })),
+    ...data.sends.map(sd => ({ at: sd.sent_at || sd.created_at, who: t('Auto Email'), icon: 'mail', text: `${t('Email')}: "${sd.subject}" — ${t(sd.status)}${sd.opened_at ? ` · ${t('Opened')} ${fmt(sd.opened_at)}` : ''}` })),
+  ].sort((a, b) => new Date(b.at) - new Date(a.at)) : [];
+  return (
+    <div className="leads-modal-overlay" onClick={onClose}>
+      <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+          <div>
+            <h3 style={{ fontSize:'1rem', fontWeight:700 }}><MI name="history" size={18}/> {t('Lead log')}</h3>
+            <div style={{ fontSize:'0.78rem', color:'var(--text-dim)', marginTop:2 }}>#{lead.id} · <strong>{lead.company_name}</strong>{lead.city ? ` · ${lead.city}` : ''}</div>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#94a3b8' }}>✕</button>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:8, marginBottom:14, fontSize:'0.74rem' }}>
+          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Status')}</div><strong>{t(SC[lead.status]?.label || lead.status)}</strong></div>
+          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Priority')}</div><strong>{t(PC[lead.priority]?.label || lead.priority)}</strong></div>
+          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong></div>
+          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last Contacted')}</div><strong>{fmt(lead.last_contacted_at)}</strong></div>
+        </div>
+        {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'8px 12px', borderRadius:8, fontSize:'0.78rem' }}>{err}</div>}
+        {!data && !err && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>{t('Loading…')}</div>}
+        {data && entries.length === 0 && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)', fontSize:'0.8rem' }}>{t('No log entries yet')}</div>}
+        {data && entries.length > 0 && (
+          <div style={{ maxHeight:'55vh', overflowY:'auto', borderTop:'1px solid var(--border)' }}>
+            {entries.map((e, i) => (
+              <div key={i} style={{ display:'flex', gap:10, padding:'10px 4px', borderBottom:'1px solid #f1f5f9', alignItems:'flex-start' }}>
+                <span style={{ width:28, height:28, borderRadius:8, background:'#eef2ff', color:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><MI name={e.icon} size={16}/></span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:'0.8rem', color:'var(--text)', wordBreak:'break-word' }}>{e.text}</div>
+                  <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', marginTop:2 }}>{e.who || '—'} · {fmt(e.at)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

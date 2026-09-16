@@ -119,8 +119,8 @@ export async function PUT(request) {
         if (existing) { skipped++; continue; }
 
         await query(
-          `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, company_size, pain_point, decision_maker_title, contact_person, phone, email, source_url, notes, scraped_from, dedup_key, created_by, project_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, company_size, pain_point, decision_maker_title, contact_person, phone, email, source_url, notes, scraped_from, dedup_key, created_by, project_id, mobile_personal, find_instructions)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
           [
             companyName,
             lead.domain || '',
@@ -140,6 +140,8 @@ export async function PUT(request) {
             dedupKey,
             user.id,
             project_id || null,
+            lead.mobile_personal || '',
+            lead.find_instructions || '',
           ]
         );
         added++;

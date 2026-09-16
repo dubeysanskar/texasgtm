@@ -489,6 +489,7 @@ async function initSchema() {
   const columns = [
     ['gtm_leads', 'contact_person', "TEXT DEFAULT ''"],
     ['gtm_leads', 'last_template_id', 'INTEGER'],
+    ['gtm_leads', 'mobile_personal', "TEXT DEFAULT ''"],
     ['gtm_projects', 'language', "TEXT DEFAULT 'en'"],
     ['gtm_projects', 'scraper_config', "JSONB DEFAULT '{}'"],
     ['gtm_users', 'language', "TEXT DEFAULT 'en'"],

@@ -86,10 +86,10 @@ async function run() {
     let user = await db.queryOne('SELECT id, role FROM gtm_users WHERE email = $1', [email]);
     if (user) {
       await db.query(
-        `UPDATE gtm_users SET name = $1, name_en = $2, job_title = $3, job_title_en = $4, role = $5, language = 'ru', is_active = 1 WHERE id = $6`,
-        [a.name, a.name_en, a.job_title, a.job_title_en, ROLE, user.id]
+        `UPDATE gtm_users SET name = $1, name_en = $2, job_title = $3, job_title_en = $4, language = 'ru', is_active = 1 WHERE id = $5`,
+        [a.name, a.name_en, a.job_title, a.job_title_en, user.id]
       );
-      console.log(`✓ Updated existing user #${user.id} ${a.name} <${email}> → ${ROLE}`);
+      console.log(`✓ Updated existing user #${user.id} ${a.name} <${email}> (role kept: ${user.role})`);
     } else {
       // Placeholder password: admins log in with email + OTP, and can set their own via "Forgot password".
       const hash = await bcrypt.hash('temp_' + Date.now() + Math.random(), 10);

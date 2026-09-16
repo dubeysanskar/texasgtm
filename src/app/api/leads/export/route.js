@@ -4,8 +4,8 @@ const { getUserFromRequest, isManager } = require('@/lib/auth');
 const { SECTOR_LABELS, STATUS_LABELS, PRIORITY_LABELS } = require('@/lib/lead-fields');
 
 const HEADERS = {
-  en: ['#', 'Company', 'Domain', 'Sector', 'City/Region', 'Size', 'Why They Need Workers', 'Decision Maker', 'Contact Person', 'Contact Method', 'Phone', 'Email', 'Where to Find', 'Priority', 'Status', 'Last Contacted', 'Notes'],
-  ru: ['№', 'Компания', 'Сайт', 'Отрасль', 'Город/Регион', 'Размер', 'Зачем нужны работники', 'ЛПР', 'Контактное лицо', 'Способ связи', 'Телефон', 'Email', 'Где найти', 'Приоритет', 'Статус', 'Последний контакт', 'Заметки'],
+  en: ['#', 'Company', 'Domain', 'Industry', 'City/Region', 'Size', 'Requirement needed', 'Decision maker name', 'Mobile number (personal)', 'Telephone', 'Email', 'Source of lead', 'Source URL', 'Priority', 'Status', 'Last Contacted', 'Comment'],
+  ru: ['№', 'Компания', 'Сайт', 'Отрасль', 'Город/Регион', 'Размер', 'Требуемая потребность', 'Имя ЛПР', 'Мобильный (личный)', 'Телефон', 'Email', 'Источник лида', 'Ссылка на источник', 'Приоритет', 'Статус', 'Последний контакт', 'Комментарий'],
 };
 const SHEETS = { en: ['All Leads', 'HOT Leads'], ru: ['Все лиды', 'Горячие лиды'] };
 
@@ -42,9 +42,9 @@ export async function POST(request) {
     i + 1, lead.company_name, lead.domain || '',
     sector(lead.sector),
     [lead.city, lead.region].filter(Boolean).join(', '),
-    lead.company_size || '', lead.pain_point || '', lead.decision_maker_title || '', lead.contact_person || '',
-    lead.contact_method || '', lead.phone || '', lead.email || '',
-    lead.find_instructions || '', priority(lead.priority),
+    lead.company_size || '', lead.pain_point || '', lead.decision_maker_title || '', lead.mobile_personal || '',
+    lead.phone || '', lead.email || '',
+    lead.find_instructions || '', lead.source_url || '', priority(lead.priority),
     status(lead.status),
     date(lead.last_contacted_at),
     lead.notes || '',
