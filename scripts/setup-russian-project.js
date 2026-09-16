@@ -2,8 +2,8 @@
 // Idempotent: safe to run more than once.
 //
 // Usage:
-//   node scripts/setup-russian-project.js            # create project + admins, send invite emails
-//   node scripts/setup-russian-project.js --no-email # skip invite emails
+//   node scripts/setup-russian-project.js            # create project + admins (no emails are sent)
+//   node scripts/setup-russian-project.js --send-email # also email each admin a Russian invitation
 //   node scripts/setup-russian-project.js --project-id=1
 //        # instead of creating a new project, mark an existing one (e.g. Russia GTM) as Russian-language
 //
@@ -11,7 +11,8 @@
 //   1. Ensures the schema (gtm_projects, language / job_title columns) exists.
 //   2. Creates the project "Taha Airwaves — Россия" with language = 'ru' (or updates --project-id).
 //   3. Creates the two admins below as super_admin with language = 'ru', and maps them to the project.
-//   4. Emails each of them a Russian invitation (OTP login, no password needed).
+//   4. Optionally (--send-email) emails each of them a Russian invitation. By default nothing is sent —
+//      the admins are told about their access manually.
 
 const fs = require('fs');
 const path = require('path');
@@ -38,7 +39,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../src/lib/db');
 
 const args = process.argv.slice(2);
-const NO_EMAIL = args.includes('--no-email');
+const SEND_EMAIL = args.includes('--send-email');
 const EXISTING_PROJECT_ID = (args.find(a => a.startsWith('--project-id=')) || '').split('=')[1] || null;
 
 const PROJECT = {
@@ -95,7 +96,7 @@ async function run() {
 
   // ── Admin users ──────────────────────────────────────────────────────────
   let sendInvite = null;
-  if (!NO_EMAIL) {
+  if (SEND_EMAIL) {
     try { ({ sendInvite } = require('../src/lib/mailer')); } catch (e) { console.warn('  (mailer unavailable, skipping emails:', e.message + ')'); }
   }
 
@@ -142,6 +143,7 @@ async function run() {
   console.log(`║  Project: #${String(project.id).padEnd(4)} ${project.name.padEnd(40)}║`);
   ADMINS.forEach(a => console.log(`║  ${a.email.padEnd(56)}║`));
   console.log('║  Login: email → OTP code (no password required)          ║');
+  if (!SEND_EMAIL) console.log('║  No invitation emails were sent (use --send-email)       ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
   process.exit(0);
 }

@@ -3,7 +3,7 @@
 //
 //   node scripts/bootstrap-db.js              # schema + projects + super admins + Russian project/admins + seeds (if files present)
 //   node scripts/bootstrap-db.js --no-seed    # skip templates / leads seeding
-//   node scripts/bootstrap-db.js --no-email   # don't send invitation emails
+//   node scripts/bootstrap-db.js --send-email # also email the Russian admins their invitations (off by default)
 //
 // Idempotent — safe to re-run.
 
@@ -32,7 +32,7 @@ const db = require('../src/lib/db');
 
 const args = process.argv.slice(2);
 const NO_SEED = args.includes('--no-seed');
-const NO_EMAIL = args.includes('--no-email');
+const SEND_EMAIL = args.includes('--send-email');
 
 // Projects that existed on the old database
 const PROJECTS = [
@@ -92,7 +92,7 @@ async function run() {
   for (const a of SUPER_ADMINS) await ensureSuperAdmin(a);
 
   // Russian project + its two admins (separate script, reused as-is)
-  runScript('setup-russian-project.js', NO_EMAIL ? ['--no-email'] : []);
+  runScript('setup-russian-project.js', SEND_EMAIL ? ['--send-email'] : []);
 
   if (!NO_SEED) {
     const root = path.join(__dirname, '..');
