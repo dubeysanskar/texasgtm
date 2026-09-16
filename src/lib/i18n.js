@@ -118,6 +118,7 @@ export const RU = {
   'New Chat': 'Новый чат', 'Start New Chat': 'Начать новый чат', 'Conversations': 'Диалоги', 'No conversations yet': 'Диалогов пока нет',
   'Select a conversation or start a new chat': 'Выберите диалог или начните новый', 'No messages yet. Say hello!': 'Сообщений пока нет. Поздоровайтесь!',
   'Type a message...': 'Введите сообщение...',
+  'No other users yet': 'Других пользователей пока нет',
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
   'Task Management': 'Управление задачами', '{p} pending, {i} in progress, {c} complete': '{p} в ожидании, {i} в работе, {c} завершено',

@@ -14,7 +14,6 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
-  const [showContacts, setShowContacts] = useState(false);
   const scrollRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -33,7 +32,7 @@ export default function MessagesPage() {
   useEffect(() => { if (!selectedUser) return; pollRef.current = setInterval(() => fetchChat(selectedUser.id), 3000); return () => clearInterval(pollRef.current); }, [selectedUser, fetchChat]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
 
-  const openChat = (u) => { setSelectedUser(u); fetchChat(u.id); setShowContacts(false); };
+  const openChat = (u) => { setSelectedUser(u); fetchChat(u.id); };
 
   const sendMessage = async (e) => {
     e.preventDefault(); if (!newMsg.trim() || !selectedUser || sending) return;
@@ -49,28 +48,27 @@ export default function MessagesPage() {
     <div className="page-content messaging-page">
       <div className="page-header">
         <h1><MI name="chat" size={24} /> {t('Messages')}</h1>
-        <button className="btn btn-sm btn-info" onClick={() => setShowContacts(!showContacts)}>{showContacts ? t('Close') : '+ ' + t('New Chat')}</button>
       </div>
       <div className="messaging-container">
         <div className="contacts-panel">
-          {showContacts && newContacts.length > 0 && (
-            <div className="contacts-section">
-              <p className="contacts-title">{t('Start New Chat')}</p>
-              {newContacts.map(u => (
-                <div key={u.id} className="contact-item" onClick={() => openChat(u)}>
-                  <div className="contact-avatar" style={{ background: roleColors[u.role] }}>{u.name.charAt(0)}</div>
-                  <div className="contact-info"><span className="contact-name">{u.name}</span><span className="contact-role">{t(roleLabels[u.role] || u.role)}</span></div>
-                </div>
-              ))}
-            </div>
-          )}
+          {conversations.length > 0 && (
           <div className="contacts-section">
             <p className="contacts-title"><MI name="chat_bubble" size={14} /> {t('Conversations')}</p>
-            {conversations.length === 0 && <p className="no-data">{t('No conversations yet')}</p>}
             {conversations.map(c => (
               <div key={c.id} className={`contact-item ${selectedUser?.id === c.id ? 'active' : ''}`} onClick={() => openChat(c)}>
                 <div className="contact-avatar" style={{ background: roleColors[c.role] }}>{c.name.charAt(0)}{c.unread_count > 0 && <span className="unread-badge">{c.unread_count}</span>}</div>
                 <div className="contact-info"><span className="contact-name">{c.name}</span><span className="contact-preview">{c.last_message?.substring(0, 40)}</span></div>
+              </div>
+            ))}
+          </div>
+          )}
+          <div className="contacts-section">
+            <p className="contacts-title"><MI name="group" size={14} /> {t('Team')}</p>
+            {newContacts.length === 0 && conversations.length === 0 && <p className="no-data">{t('No other users yet')}</p>}
+            {newContacts.map(u => (
+              <div key={u.id} className={`contact-item ${selectedUser?.id === u.id ? 'active' : ''}`} onClick={() => openChat(u)}>
+                <div className="contact-avatar" style={{ background: roleColors[u.role] }}>{u.name.charAt(0)}</div>
+                <div className="contact-info"><span className="contact-name">{u.name}</span><span className="contact-role">{t(roleLabels[u.role] || u.role)}</span></div>
               </div>
             ))}
           </div>
