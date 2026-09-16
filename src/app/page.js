@@ -3,244 +3,330 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
+const MI = ({ name, size = 18 }) => (
+  <span className="material-symbols-outlined" style={{ fontSize: `${size}px`, verticalAlign: 'middle' }}>{name}</span>
+);
+
+// Fetch wrapper that always yields a readable error, even when the server
+// returns a non-JSON 5xx page (e.g. when the database is unreachable).
+async function api(url, body, method = 'POST') {
+  let res;
+  try {
+    res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  } catch {
+    throw new Error('Cannot reach the server. Check your connection and try again.');
+  }
+  let data = {};
+  try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok) {
+    throw new Error(data.error || (res.status >= 500
+      ? 'Server error — the database may be unavailable. Please try again shortly.'
+      : `Request failed (${res.status})`));
+  }
+  return data;
+}
+
 export default function LoginPage() {
-  const { user, loading, login } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
+
+  const [mode, setMode] = useState('login'); // login | otp | register | forgot
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [regName, setRegName] = useState('');
+  const [regProjectId, setRegProjectId] = useState('');
+  const [projects, setProjects] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [mode, setMode] = useState('login'); // login | register | forgot | otp
-  const [regName, setRegName] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpEmail, setOtpEmail] = useState('');
-  const [isAdminOtp, setIsAdminOtp] = useState(false);
-  const [projects, setProjects] = useState([]);
-  const [regProjectId, setRegProjectId] = useState('');
 
   useEffect(() => { if (!loading && user) router.push('/dashboard'); }, [user, loading, router]);
 
-  // Load projects for the signup "Project Allotment" dropdown
+  // Projects for the signup "Project Allotment" dropdown
   useEffect(() => {
     if (mode !== 'register' || projects.length) return;
     fetch('/api/projects/public').then(r => r.json()).then(d => setProjects(Array.isArray(d) ? d : [])).catch(() => {});
   }, [mode, projects.length]);
 
-  // Check if email is admin — send OTP directly (no password)
-  const checkEmailAndProceed = async (e) => {
-    e.preventDefault(); setError(''); setSuccess(''); setSubmitting(true);
+  // OTP resend countdown
+  useEffect(() => {
+    if (otpCountdown <= 0) return;
+    const t = setTimeout(() => setOtpCountdown(otpCountdown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [otpCountdown]);
 
-    try {
-      // First check if this email is an admin (recognized user)
-      const checkRes = await fetch('/api/auth/check-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-      const checkData = await checkRes.json();
+  // Detect admin/manager accounts (OTP-only, no password) as the email is typed
+  useEffect(() => {
+    if (mode !== 'login' || !email.includes('@')) { setIsAdmin(false); return; }
+    const t = setTimeout(async () => {
+      try {
+        const d = await api('/api/auth/check-email', { email });
+        setIsAdmin(d.is_admin === true);
+      } catch { setIsAdmin(false); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [email, mode]);
 
-      if (checkData.is_admin) {
-        // Admin: send OTP directly, no password needed
-        const otpRes = await fetch('/api/auth/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, purpose: 'admin_login' }) });
-        if (otpRes.ok) {
-          setOtpEmail(email);
-          setIsAdminOtp(true);
-          setMode('otp');
-          setSuccess('Verification code sent to your email');
-        } else {
-          const d = await otpRes.json();
-          setError(d.error || 'Failed to send OTP');
-        }
-      } else if (checkData.exists) {
-        // Regular user: need password
-        setMode('password');
-      } else {
-        setError('No account found with this email');
-      }
-    } catch { setError('Network error'); }
-    setSubmitting(false);
-  };
+  const clearMsgs = () => { setError(''); setSuccess(''); };
+  const go = (m) => { setMode(m); setOtp(''); clearMsgs(); };
 
+  // Step 1: email (+ password for non-admins) → sends OTP
   const handleLogin = async (e) => {
-    e.preventDefault(); setError(''); setSubmitting(true);
+    e.preventDefault(); clearMsgs(); setSubmitting(true);
     try {
-      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      // Send OTP for 2-step verification
-      const otpRes = await fetch('/api/auth/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, purpose: 'login' }) });
-      if (otpRes.ok) {
-        setOtpEmail(email);
-        setIsAdminOtp(false);
-        setMode('otp');
-        setSuccess('Verification code sent to your email');
-      } else {
-        // If OTP fails, proceed with login
-        await login(email, password);
-        router.push('/dashboard');
+      const check = await api('/api/auth/check-email', { email });
+      if (!check.exists) throw new Error('No account found with this email');
+      if (!check.is_admin) {
+        await api('/api/auth/login', { email, password });
       }
+      await api('/api/auth/otp/send', { email, purpose: check.is_admin ? 'admin_login' : 'login' });
+      setIsAdmin(check.is_admin);
+      setMode('otp'); setOtpCountdown(60);
+      setSuccess('Verification code sent to your email');
     } catch (err) { setError(err.message); }
     setSubmitting(false);
   };
 
+  // Step 2: OTP → session cookie
   const handleOtpVerify = async (e) => {
-    e.preventDefault(); setError(''); setSubmitting(true);
+    e.preventDefault(); clearMsgs(); setSubmitting(true);
     try {
-      const res = await fetch('/api/auth/otp/send', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: otpEmail, otp }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      localStorage.setItem('gtm-user', JSON.stringify(data.user));
+      const d = await api('/api/auth/otp/send', { email, otp }, 'PUT');
+      localStorage.setItem('gtm-user', JSON.stringify(d.user));
       window.location.href = '/dashboard';
-    } catch (err) { setError(err.message); }
-    setSubmitting(false);
+    } catch (err) { setError(err.message); setSubmitting(false); }
   };
 
   const resendOtp = async () => {
-    setError(''); setSuccess('');
-    const res = await fetch('/api/auth/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: otpEmail }) });
-    if (res.ok) setSuccess('New code sent!'); else setError('Failed to resend');
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault(); setError(''); setSubmitting(true);
-    try {
-      const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: regName, email, password, project_id: Number(regProjectId) }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      await login(email, password);
-      router.push('/dashboard');
-    } catch (err) { setError(err.message); }
+    clearMsgs(); setSubmitting(true);
+    try { await api('/api/auth/otp/send', { email }); setOtpCountdown(60); setSuccess('New verification code sent'); }
+    catch (err) { setError(err.message); }
     setSubmitting(false);
   };
 
-  const handleForgot = async (e) => {
-    e.preventDefault(); setError(''); setSubmitting(true);
+  const handleRegister = async (e) => {
+    e.preventDefault(); clearMsgs(); setSubmitting(true);
     try {
-      const res = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-      if (res.ok) setSuccess('If that email exists, a reset link has been sent.');
-    } catch { setError('Network error'); }
+      await api('/api/auth/register', { name: regName, email, password, project_id: Number(regProjectId) });
+      window.location.href = '/dashboard'; // register sets the session cookie
+    } catch (err) { setError(err.message); setSubmitting(false); }
+  };
+
+  const handleForgot = async (e) => {
+    e.preventDefault(); clearMsgs(); setSubmitting(true);
+    try { await api('/api/auth/forgot-password', { email }); setSuccess('If that email exists, a reset link has been sent.'); }
+    catch (err) { setError(err.message); }
     setSubmitting(false);
   };
 
   if (loading) return <div className="page-loading">Loading...</div>;
   if (user) return null;
 
+  const maskedEmail = email ? email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : '';
+  const heading = { login: 'Welcome back', otp: 'Verify your identity', register: 'Create your account', forgot: 'Reset your password' }[mode];
+  const sub = {
+    login: 'Sign in to your CRM account to continue',
+    otp: `Enter the 6-digit code sent to ${maskedEmail}`,
+    register: 'Join your team workspace',
+    forgot: 'We will email you a link to set a new password',
+  }[mode];
+
   return (
-    <div className="login-page">
-      {/* ═══ Branded panel ═══ */}
-      <div className="login-brand">
-        <div className="login-brand-top">
-          <img src="/logo.png" alt="TexasGTM" />
-          <span>TexasGTM</span>
-        </div>
-        <div className="login-brand-hero">
-          <h2>Go-to-market intelligence,<br />built for every region.</h2>
-          <p>Manage leads, campaigns, and your team across Arabic, Russian, and global markets — all in one workspace.</p>
-          <div className="login-brand-features">
-            <div className="login-brand-feature"><span className="material-symbols-outlined">leaderboard</span> Track and score leads by region</div>
-            <div className="login-brand-feature"><span className="material-symbols-outlined">forward_to_inbox</span> Automate multilingual outreach</div>
-            <div className="login-brand-feature"><span className="material-symbols-outlined">groups</span> Role-based access for your whole team</div>
+    <div className="login-page-v2">
+      <div className="login-bg-decoration">
+        <div className="login-bg-circle login-bg-circle-1" />
+        <div className="login-bg-circle login-bg-circle-2" />
+        <div className="login-bg-circle login-bg-circle-3" />
+        <div className="login-bg-grid" />
+      </div>
+
+      <div className="login-wrapper">
+        {/* ═══ Branding panel ═══ */}
+        <div className="login-branding-panel">
+          <div className="login-branding-content">
+            <img src="/taha-logo.png" alt="Taha Airwaves" className="login-logo" />
+            <div className="login-branding-text">
+              <h2>TexasGTM CRM</h2>
+              <p>Manage leads, campaigns, and your team across Arabic, Russian, and global markets — all in one workspace.</p>
+            </div>
+            <div className="login-features">
+              <div className="login-feature-item">
+                <span className="login-feature-icon"><MI name="verified_user" size={22} /></span>
+                <div><strong>2-Step Verification</strong><span>OTP-secured login for all users</span></div>
+              </div>
+              <div className="login-feature-item">
+                <span className="login-feature-icon"><MI name="leaderboard" size={22} /></span>
+                <div><strong>Lead Intelligence</strong><span>Track and score leads by region</span></div>
+              </div>
+              <div className="login-feature-item">
+                <span className="login-feature-icon"><MI name="forward_to_inbox" size={22} /></span>
+                <div><strong>Automated Outreach</strong><span>Multilingual email campaigns at scale</span></div>
+              </div>
+            </div>
+          </div>
+          <div className="login-branding-footer">
+            <span>&copy; {new Date().getFullYear()} Taha Airwaves</span>
+            <span>Where Talent Meets Reliability</span>
           </div>
         </div>
-        <div className="login-brand-footer">© {new Date().getFullYear()} Taha Airwaves · TexasGTM CRM</div>
-      </div>
 
-      {/* ═══ Form panel ═══ */}
-      <div className="login-form-panel">
-      <div className="login-card">
-        <div className="login-logo">
-          <img src="/logo.png" alt="TexasGTM" />
-          <h1>{mode === 'register' ? 'Create your account' : 'Welcome back'}</h1>
-          <p>{mode === 'login' ? 'Enter your email to continue' : mode === 'password' ? 'Enter your password' : mode === 'register' ? 'Join your team workspace' : mode === 'forgot' ? 'Reset your password' : isAdminOtp ? 'Admin verification' : 'Enter verification code'}</p>
+        {/* ═══ Form panel ═══ */}
+        <div className="login-form-panel">
+          <div className="login-form-content">
+            <div className="login-form-header">
+              <img src="/taha-logo.png" alt="Taha Airwaves" className="login-form-logo-mobile" />
+              <h1>{heading}</h1>
+              <p>{sub}</p>
+            </div>
+
+            {success && <div className="login-alert login-alert-success"><span className="login-alert-icon"><MI name="check_circle" /></span>{success}</div>}
+            {error && <div className="login-alert login-alert-error"><span className="login-alert-icon"><MI name="warning" /></span>{error}</div>}
+
+            {/* ── LOGIN ── */}
+            {mode === 'login' && (
+              <form onSubmit={handleLogin} className="login-v2-form">
+                <div className="login-field">
+                  <label htmlFor="login-email">Email Address</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="mail" /></span>
+                    <input id="login-email" type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} placeholder="you@company.com" required autoComplete="email" autoFocus />
+                    {isAdmin && <span className="login-admin-tag"><MI name="shield" size={12} /> Admin</span>}
+                  </div>
+                </div>
+
+                {isAdmin ? (
+                  <>
+                    <div className="login-alert login-alert-info">
+                      <span className="login-alert-icon"><MI name="verified_user" /></span>
+                      Admin detected. Click below to receive your login code.
+                    </div>
+                    <button type="submit" className="login-submit-btn login-submit-btn-admin" disabled={submitting}>
+                      {submitting ? <><span className="login-spinner" /> Sending OTP...</> : <><MI name="send" size={16} /> Request OTP</>}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="login-field">
+                      <label htmlFor="login-password">Password</label>
+                      <div className="login-input-wrapper">
+                        <span className="login-input-icon"><MI name="lock" /></span>
+                        <input id="login-password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" required autoComplete="current-password" />
+                        <button type="button" className="login-password-toggle" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                          <MI name={showPassword ? 'visibility_off' : 'visibility'} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="login-forgot-row">
+                      <button type="button" className="login-link-btn" onClick={() => go('forgot')}>Forgot Password?</button>
+                    </div>
+                    <button type="submit" className="login-submit-btn" disabled={submitting}>
+                      {submitting ? <><span className="login-spinner" /> Verifying credentials...</> : <>Continue <MI name="arrow_forward" size={16} /></>}
+                    </button>
+                  </>
+                )}
+                <div className="login-secure-note"><MI name="shield" size={13} /> Secured with OTP verification</div>
+              </form>
+            )}
+
+            {/* ── OTP ── */}
+            {mode === 'otp' && (
+              <form onSubmit={handleOtpVerify} className="login-v2-form">
+                <div className="login-alert login-alert-otp">
+                  <span className="login-alert-icon"><MI name="shield" /></span>
+                  A 6-digit verification code has been sent to your email. Check your inbox and spam folder.
+                </div>
+                <div className="login-field">
+                  <label>Verification Code</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="pin" /></span>
+                    <input type="text" inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter 6-digit code" required maxLength={6} autoFocus className="login-otp-input" />
+                  </div>
+                </div>
+                <button type="submit" className="login-submit-btn" disabled={submitting || otp.length !== 6}>
+                  {submitting ? <><span className="login-spinner" /> Verifying...</> : <>Verify &amp; Sign In <span>&rarr;</span></>}
+                </button>
+                <div className="login-otp-actions">
+                  <button type="button" className="login-link-btn" onClick={resendOtp} disabled={otpCountdown > 0 || submitting} style={{ color: otpCountdown > 0 ? 'var(--text-muted)' : undefined }}>
+                    {otpCountdown > 0 ? `Resend in ${otpCountdown}s` : 'Resend Code'}
+                  </button>
+                  <button type="button" className="login-link-btn login-link-muted" onClick={() => go('login')}><MI name="arrow_back" size={14} /> Back to login</button>
+                </div>
+              </form>
+            )}
+
+            {/* ── REGISTER ── */}
+            {mode === 'register' && (
+              <form onSubmit={handleRegister} className="login-v2-form">
+                <div className="login-field">
+                  <label>Full Name</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="person" /></span>
+                    <input value={regName} onChange={e => setRegName(e.target.value)} placeholder="John Doe" required autoFocus />
+                  </div>
+                </div>
+                <div className="login-field">
+                  <label>Email Address</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="mail" /></span>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required autoComplete="email" />
+                  </div>
+                </div>
+                <div className="login-field">
+                  <label>Password</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="lock" /></span>
+                    <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Create a password" required autoComplete="new-password" />
+                    <button type="button" className="login-password-toggle" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                      <MI name={showPassword ? 'visibility_off' : 'visibility'} />
+                    </button>
+                  </div>
+                </div>
+                <div className="login-field">
+                  <label>Project Allotment</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="folder" /></span>
+                    <select value={regProjectId} onChange={e => setRegProjectId(e.target.value)} required>
+                      <option value="">Select your project...</option>
+                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}{p.country ? ` — ${p.country}` : ''}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" className="login-submit-btn" disabled={submitting || !regProjectId}>
+                  {submitting ? <><span className="login-spinner" /> Creating...</> : <>Create Account <MI name="arrow_forward" size={16} /></>}
+                </button>
+              </form>
+            )}
+
+            {/* ── FORGOT ── */}
+            {mode === 'forgot' && (
+              <form onSubmit={handleForgot} className="login-v2-form">
+                <div className="login-field">
+                  <label>Email Address</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><MI name="mail" /></span>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required autoFocus />
+                  </div>
+                </div>
+                <button type="submit" className="login-submit-btn" disabled={submitting}>
+                  {submitting ? <><span className="login-spinner" /> Sending...</> : <><MI name="send" size={16} /> Send Reset Link</>}
+                </button>
+                <div className="login-otp-actions">
+                  <button type="button" className="login-link-btn login-link-muted" onClick={() => go('login')}><MI name="arrow_back" size={14} /> Back to login</button>
+                </div>
+              </form>
+            )}
+
+            <div className="login-register-link">
+              {mode === 'register'
+                ? <><span>Already have an account?</span><button type="button" className="login-link-btn" onClick={() => go('login')}>Sign in</button></>
+                : <><span>Don&apos;t have an account?</span><button type="button" className="login-link-btn" onClick={() => go('register')}>Create one here</button></>}
+            </div>
+          </div>
         </div>
-
-        {error && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: 10, fontSize: '0.82rem', marginBottom: 16, textAlign: 'center' }}>{error}</div>}
-        {success && <div style={{ background: '#f0fdf4', color: '#10b981', padding: '10px 14px', borderRadius: 10, fontSize: '0.82rem', marginBottom: 16, textAlign: 'center' }}>{success}</div>}
-
-        {/* STEP 1: Email check */}
-        {mode === 'login' && (
-          <form onSubmit={checkEmailAndProceed}>
-            <div className="form-group"><label>Email</label><input className="form-input" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus /></div>
-            <button type="submit" disabled={submitting} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.92rem', marginTop: 8 }}>
-              {submitting ? 'Checking...' : 'Continue'}
-            </button>
-          </form>
-        )}
-
-        {/* STEP 2: Password (non-admin users) */}
-        {mode === 'password' && (
-          <form onSubmit={handleLogin}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '8px 12px', background: 'rgba(99,102,241,0.05)', borderRadius: 8 }}>
-              <span style={{ fontSize: '0.82rem', color: '#6366f1', fontWeight: 600 }}>{email}</span>
-              <button type="button" onClick={() => { setMode('login'); setError(''); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.72rem', cursor: 'pointer' }}>Change</button>
-            </div>
-            <div className="form-group"><label>Password</label><input className="form-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required autoFocus /></div>
-            <div style={{ textAlign: 'right', marginBottom: 12 }}>
-              <button type="button" onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }} style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>Forgot password?</button>
-            </div>
-            <button type="submit" disabled={submitting} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.92rem' }}>
-              {submitting ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-        )}
-
-        {/* OTP VERIFICATION */}
-        {mode === 'otp' && (
-          <form onSubmit={handleOtpVerify}>
-            <p style={{ fontSize: '0.82rem', color: '#475569', textAlign: 'center', marginBottom: 16 }}>
-              {isAdminOtp ? '🔐 Admin login — ' : ''}We sent a 6-digit code to <strong>{otpEmail}</strong>
-            </p>
-            <div className="form-group">
-              <label>Verification Code</label>
-              <input className="form-input" type="text" placeholder="000000" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} required maxLength={6} style={{ textAlign: 'center', fontSize: '1.3rem', letterSpacing: 8, fontWeight: 700 }} autoFocus />
-            </div>
-            <button type="submit" disabled={submitting || otp.length !== 6} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.92rem' }}>
-              {submitting ? 'Verifying...' : 'Verify & Sign In'}
-            </button>
-            <div style={{ textAlign: 'center', marginTop: 12, fontSize: '0.78rem' }}>
-              <button type="button" onClick={resendOtp} style={{ background: 'none', border: 'none', color: '#6366f1', fontWeight: 600, cursor: 'pointer' }}>Resend Code</button>
-              <span style={{ margin: '0 8px', color: '#e2e8f0' }}>|</span>
-              <button type="button" onClick={() => { setMode('login'); setOtp(''); setError(''); setSuccess(''); }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>Back</button>
-            </div>
-          </form>
-        )}
-
-        {/* REGISTER */}
-        {mode === 'register' && (
-          <form onSubmit={handleRegister}>
-            <div className="form-group"><label>Full Name</label><input className="form-input" placeholder="John Doe" value={regName} onChange={e => setRegName(e.target.value)} required /></div>
-            <div className="form-group"><label>Email</label><input className="form-input" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-            <div className="form-group"><label>Password</label><input className="form-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required /></div>
-            <div className="form-group">
-              <label>Project Allotment</label>
-              <select className="form-input" value={regProjectId} onChange={e => setRegProjectId(e.target.value)} required>
-                <option value="">Select your project...</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}{p.country ? ` — ${p.country}` : ''}</option>
-                ))}
-              </select>
-            </div>
-            <button type="submit" disabled={submitting || !regProjectId} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.92rem', marginTop: 8 }}>
-              {submitting ? 'Creating...' : 'Create Account'}
-            </button>
-          </form>
-        )}
-
-        {/* FORGOT PASSWORD */}
-        {mode === 'forgot' && (
-          <form onSubmit={handleForgot}>
-            <div className="form-group"><label>Email</label><input className="form-input" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-            <button type="submit" disabled={submitting} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '0.92rem', marginTop: 8 }}>
-              {submitting ? 'Sending...' : 'Send Reset Link'}
-            </button>
-          </form>
-        )}
-
-        {/* Toggle links */}
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: '0.82rem', color: '#94a3b8' }}>
-          {(mode === 'login' || mode === 'password') && <>Don't have an account? <button onClick={() => { setMode('register'); setError(''); setSuccess(''); }} style={{ color: '#6366f1', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>Sign Up</button></>}
-          {mode === 'register' && <>Already have an account? <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }} style={{ color: '#6366f1', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>Sign In</button></>}
-          {mode === 'forgot' && <><button onClick={() => { setMode('login'); setError(''); setSuccess(''); }} style={{ color: '#6366f1', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>← Back to Sign In</button></>}
-        </div>
-      </div>
       </div>
     </div>
   );
