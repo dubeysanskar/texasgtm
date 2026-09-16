@@ -40,7 +40,7 @@ PGPASSWORD="${DB_PASS}" psql -h 127.0.0.1 -U "${DB_USER}" -d "${DB_NAME}" -tAc "
 
 echo "[4/4] Done."
 echo
-echo "Add this line to /var/www/texasgtm/.env (replace the old Supabase DATABASE_URL):"
+echo "Add this line to /var/www/texasgtm/.env (replacing any old DATABASE_URL):"
 echo
 echo "DATABASE_URL=postgresql://${DB_USER}:${DB_PASS}@127.0.0.1:5432/${DB_NAME}"
 echo

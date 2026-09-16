@@ -1,5 +1,5 @@
 // GTM CRM — Bootstrap a brand-new database from scratch.
-// Use this after creating a fresh Postgres (e.g. a new Supabase project) and setting DATABASE_URL in .env.
+// Use this on a fresh database: SQLite (no DATABASE_URL needed) or PostgreSQL (DATABASE_URL in .env).
 //
 //   node scripts/bootstrap-db.js              # schema + projects + super admins + Russian project/admins + seeds (if files present)
 //   node scripts/bootstrap-db.js --no-seed    # skip templates / leads seeding
