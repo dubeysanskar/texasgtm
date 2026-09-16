@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 const { queryAll } = require('@/lib/db');
-const { getUserFromRequest, isAdmin } = require('@/lib/auth');
+const { getUserFromRequest, isManager } = require('@/lib/auth');
 const { SECTOR_LABELS, STATUS_LABELS, PRIORITY_LABELS } = require('@/lib/lead-fields');
 
 const HEADERS = {
@@ -15,7 +15,7 @@ const SHEETS = { en: ['All Leads', 'HOT Leads'], ru: ['Все лиды', 'Гор
  */
 export async function POST(request) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const XLSX = require('xlsx');
 

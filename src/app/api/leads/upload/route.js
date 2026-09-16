@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 const XLSX = require('xlsx');
 const { queryOne, queryAll, query } = require('@/lib/db');
-const { getUserFromRequest, isAdmin } = require('@/lib/auth');
+const { getUserFromRequest, isManager } = require('@/lib/auth');
 
 const { autoMapColumns, normalizeLeadValues, validateRow, MSG } = require('@/lib/lead-fields');
 
@@ -10,7 +10,7 @@ const { autoMapColumns, normalizeLeadValues, validateRow, MSG } = require('@/lib
  */
 export async function POST(request) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   let lang = 'en';
 
   try {
@@ -96,7 +96,7 @@ export async function POST(request) {
  */
 export async function PUT(request) {
   const user = getUserFromRequest(request);
-  if (!user || !isAdmin(user.role)) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { leads, project_id, skipDuplicates, lang: reqLang } = await request.json();
