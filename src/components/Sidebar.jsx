@@ -58,9 +58,12 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div className="sidebar-logo">
-          <img src="/logo.png" alt="GTM CRM" style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover' }} />
+          <img src="/logo.png" alt="Taha Airwaves" style={{ width: 36, height: 36, objectFit: 'contain', display: 'block' }} />
         </div>
-        <span className="sidebar-title">GTM CRM</span>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+          <span className="sidebar-title">GTM CRM</span>
+          <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#a5b4fc', letterSpacing: '0.4px' }}>Taha Airwaves</span>
+        </div>
       </div>
 
       {/* ═══ PROJECT SWITCHER ═══ */}

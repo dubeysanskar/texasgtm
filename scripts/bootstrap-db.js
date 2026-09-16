@@ -27,7 +27,6 @@ const PROJECTS = [
 const SUPER_ADMINS = [
   { name: 'Developer Admin', email: 'sanskarbat@gmail.com', language: 'en' },
   { name: 'Super Admin', email: 'tahaofin@gmail.com', language: 'en' },
-  { name: 'Sachin', email: 'sachin.dmcoi.marketing@gmail.com', language: 'en' },
 ];
 
 async function ensureProject(p) {
