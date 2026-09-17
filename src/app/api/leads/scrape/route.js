@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-const { queryOne, queryAll, query } = require('@/lib/db');
+const { queryOne, queryAll, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isAdmin } = require('@/lib/auth');
 const {
   search2GIS, parse2GISItem, scrapeWebsiteContacts, searchWebForCompanies,
@@ -105,6 +105,7 @@ export async function POST(request) {
 
     // Insert leads with dedup
     let added = 0, skipped = 0;
+    let seq = await nextProjectSeq(project_id || null);
     const GARBAGE_NAME = /^(captcha|работа\b|вакансии?\b|свежие|поиск|найти|резюме|error|404|403|access denied|page not found|verify|hh\.ru|superjob|indeed|avito|duckduckgo|google|yandex|untitled|home|index|главная)/i;
     for (const lead of leads) {
       if (!lead.company_name?.trim()) { skipped++; continue; }
@@ -114,9 +115,10 @@ export async function POST(request) {
       if (existing) { skipped++; continue; }
       try {
         await query(
-          `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, company_size, pain_point, decision_maker_title, phone, email, source_url, find_instructions, notes, scraped_from, dedup_key, created_by, project_id) VALUES ($1,$2,$3,$4,'not_contacted',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-          [lead.company_name, lead.domain || '', lead.sector || 'manufacturing', lead.priority || 'MEDIUM', lead.city || '', lead.company_size || '', lead.pain_point || '', lead.decision_maker_title || '', lead.phone || '', lead.email || '', lead.source_url || '', lead.find_instructions || '', lead.notes || '', lead.scraped_from || source, dedupKey, user.id, project_id || null]
+          `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, company_size, pain_point, decision_maker_title, phone, email, source_url, find_instructions, notes, scraped_from, dedup_key, created_by, project_id, project_seq) VALUES ($1,$2,$3,$4,'not_contacted',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          [lead.company_name, lead.domain || '', lead.sector || 'manufacturing', lead.priority || 'MEDIUM', lead.city || '', lead.company_size || '', lead.pain_point || '', lead.decision_maker_title || '', lead.phone || '', lead.email || '', lead.source_url || '', lead.find_instructions || '', lead.notes || '', lead.scraped_from || source, dedupKey, user.id, project_id || null, seq]
         );
+        seq++;
         added++;
       } catch (e) {
         if (e.message?.includes('duplicate') || e.message?.includes('unique')) skipped++;

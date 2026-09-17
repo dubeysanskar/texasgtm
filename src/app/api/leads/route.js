@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-const { queryAll, queryOne, query } = require('@/lib/db');
+const { queryAll, queryOne, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isManager } = require('@/lib/auth');
 
 export async function GET(request) {
@@ -12,7 +12,7 @@ export async function GET(request) {
   const status = searchParams.get('status'); if (status) { params.push(status); sql += ` AND status = $${params.length}`; }
   const priority = searchParams.get('priority'); if (priority) { params.push(priority); sql += ` AND priority = $${params.length}`; }
   const sector = searchParams.get('sector'); if (sector) { params.push(sector); sql += ` AND sector = $${params.length}`; }
-  const search = searchParams.get('search'); if (search) { params.push(`%${search}%`); sql += ` AND (company_name ILIKE $${params.length} OR city ILIKE $${params.length} OR email ILIKE $${params.length} OR CAST(id AS TEXT) ILIKE $${params.length})`; }
+  const search = searchParams.get('search'); if (search) { params.push(`%${search}%`); sql += ` AND (company_name ILIKE $${params.length} OR city ILIKE $${params.length} OR email ILIKE $${params.length} OR CAST(project_seq AS TEXT) ILIKE $${params.length})`; }
 
   // Pagination
   const page = parseInt(searchParams.get('page') || '1');
@@ -42,14 +42,15 @@ export async function POST(request) {
   const existing = await queryOne('SELECT id FROM gtm_leads WHERE dedup_key = $1', [dedup]);
   if (existing) return NextResponse.json({ error: 'Duplicate lead' }, { status: 409 });
 
+  const seq = await nextProjectSeq(b.project_id || null);
   const result = await query(
-    `INSERT INTO gtm_leads (company_name,domain,sector,priority,status,city,region,country,company_size,pain_point,decision_maker_title,phone,email,contact_method,source_url,find_instructions,notes,dedup_key,created_by,project_id,mobile_personal) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`,
-    [b.company_name.trim(),b.domain||'',b.sector||'other',b.priority||'MEDIUM',b.status||'not_contacted',b.city||'',b.region||'',b.country||'',b.company_size||'',b.pain_point||'',b.decision_maker_title||'',b.phone||'',b.email||'',b.contact_method||'',b.source_url||'',b.find_instructions||'',b.notes||'',dedup,user.id,b.project_id||null,b.mobile_personal||'']
+    `INSERT INTO gtm_leads (company_name,domain,sector,priority,status,city,region,country,company_size,pain_point,decision_maker_title,phone,email,contact_method,source_url,find_instructions,notes,dedup_key,created_by,project_id,mobile_personal,project_seq) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id`,
+    [b.company_name.trim(),b.domain||'',b.sector||'other',b.priority||'MEDIUM',b.status||'not_contacted',b.city||'',b.region||'',b.country||'',b.company_size||'',b.pain_point||'',b.decision_maker_title||'',b.phone||'',b.email||'',b.contact_method||'',b.source_url||'',b.find_instructions||'',b.notes||'',dedup,user.id,b.project_id||null,b.mobile_personal||'',seq]
   );
   await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
     [user.id, user.name, user.role, `Added lead "${b.company_name}"`, 'lead', 'lead', result.rows[0].id, b.project_id || null]);
 
-  return NextResponse.json({ id: result.rows[0].id });
+  return NextResponse.json({ id: result.rows[0].id, project_seq: seq });
 }
 
 // Bulk status / template update

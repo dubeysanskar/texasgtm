@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 const XLSX = require('xlsx');
-const { queryOne, queryAll, query } = require('@/lib/db');
+const { queryOne, queryAll, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isManager } = require('@/lib/auth');
 
 const { autoMapColumns, normalizeLeadValues, validateRow, MSG } = require('@/lib/lead-fields');
@@ -104,6 +104,7 @@ export async function PUT(request) {
     if (!leads || !leads.length) return NextResponse.json({ error: lang === 'ru' ? 'Нет лидов для импорта' : 'No leads provided' }, { status: 400 });
 
     let added = 0, skipped = 0, errors = 0, firstError = null;
+    let seq = await nextProjectSeq(project_id || null);
 
     for (const rawLead of leads) {
       const lead = normalizeLeadValues(rawLead);
@@ -119,8 +120,8 @@ export async function PUT(request) {
         if (existing) { skipped++; continue; }
 
         await query(
-          `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, company_size, pain_point, decision_maker_title, contact_person, phone, email, source_url, notes, scraped_from, dedup_key, created_by, project_id, mobile_personal, find_instructions)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+          `INSERT INTO gtm_leads (company_name, domain, sector, priority, status, city, company_size, pain_point, decision_maker_title, contact_person, phone, email, source_url, notes, scraped_from, dedup_key, created_by, project_id, mobile_personal, find_instructions, project_seq)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
           [
             companyName,
             lead.domain || '',
@@ -142,8 +143,10 @@ export async function PUT(request) {
             project_id || null,
             lead.mobile_personal || '',
             lead.find_instructions || '',
+            seq,
           ]
         );
+        seq++;
         added++;
       } catch (err) {
         console.error('Insert error:', err.message);

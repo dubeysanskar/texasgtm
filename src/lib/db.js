@@ -490,6 +490,7 @@ async function initSchema() {
     ['gtm_leads', 'contact_person', "TEXT DEFAULT ''"],
     ['gtm_leads', 'last_template_id', 'INTEGER'],
     ['gtm_leads', 'mobile_personal', "TEXT DEFAULT ''"],
+    ['gtm_leads', 'project_seq', 'INTEGER'],
     ['gtm_projects', 'language', "TEXT DEFAULT 'en'"],
     ['gtm_projects', 'scraper_config', "JSONB DEFAULT '{}'"],
     ['gtm_users', 'language', "TEXT DEFAULT 'en'"],
@@ -507,7 +508,10 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gtm_tasks_project ON gtm_tasks(project_id);
     CREATE INDEX IF NOT EXISTS idx_gtm_templates_project ON gtm_templates(project_id);
     CREATE INDEX IF NOT EXISTS idx_gtm_campaigns_project ON gtm_email_campaigns(project_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_leads_project_seq ON gtm_leads(project_id, project_seq);
   `);
+
+  await backfillProjectSeq();
 
   // Seed default settings
   const defaults = [
@@ -525,10 +529,35 @@ async function initSchema() {
   console.log(`[db] GTM CRM schema initialized (${DRIVER})`);
 }
 
+/**
+ * Per-project lead numbering (#1, #2, … inside each project, independent of the global id).
+ * nextProjectSeq() is used on insert; backfillProjectSeq() numbers any rows that still lack one.
+ */
+async function nextProjectSeq(projectId) {
+  const row = projectId
+    ? await queryOne('SELECT COALESCE(MAX(project_seq), 0) + 1 AS n FROM gtm_leads WHERE project_id = $1', [projectId])
+    : await queryOne('SELECT COALESCE(MAX(project_seq), 0) + 1 AS n FROM gtm_leads WHERE project_id IS NULL');
+  return Number(row?.n || 1);
+}
+
+async function backfillProjectSeq() {
+  const missing = await queryAll('SELECT id, project_id FROM gtm_leads WHERE project_seq IS NULL ORDER BY project_id, id');
+  if (!missing.length) return 0;
+  const counters = {};
+  for (const l of missing) {
+    const key = l.project_id == null ? 'null' : String(l.project_id);
+    if (counters[key] === undefined) counters[key] = (await nextProjectSeq(l.project_id)) - 1;
+    counters[key] += 1;
+    await query('UPDATE gtm_leads SET project_seq = $1 WHERE id = $2', [counters[key], l.id]);
+  }
+  console.log(`[db] numbered ${missing.length} leads per project`);
+  return missing.length;
+}
+
 /** Close connections (used by scripts). */
 async function close() {
   if (pool) { await pool.end(); pool = null; }
   if (sqlite) { sqlite.close(); sqlite = null; }
 }
 
-module.exports = { query, queryOne, queryAll, getPool, initSchema, ensureColumn, close, DRIVER };
+module.exports = { query, queryOne, queryAll, getPool, initSchema, ensureColumn, close, DRIVER, nextProjectSeq, backfillProjectSeq };

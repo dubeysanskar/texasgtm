@@ -117,7 +117,7 @@ export default function LeadsPage() {
   function handleRangeSelect() {
     const from = parseInt(rangeFrom), to = parseInt(rangeTo);
     if (isNaN(from) || isNaN(to) || from > to) return;
-    const ids = leads.filter(l => l.id >= from && l.id <= to).map(l => l.id);
+    const ids = leads.filter(l => (l.project_seq ?? l.id) >= from && (l.project_seq ?? l.id) <= to).map(l => l.id);
     setSelected(new Set(ids));
     setRangeFrom(''); setRangeTo('');
   }
@@ -309,7 +309,7 @@ export default function LeadsPage() {
                     <td style={{ padding:'8px', textAlign:'center' }}>
                       <input type="checkbox" checked={isSel} onChange={() => toggleSelect(l.id)} style={{ cursor:'pointer' }}/>
                     </td>
-                    <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af', borderRight:'1px solid #e5e7eb'}}>{l.id}</td>
+                    <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af', borderRight:'1px solid #e5e7eb'}}>{l.project_seq ?? l.id}</td>
                     <td tabIndex={0} style={{...TD}}>
                       <div style={{ fontWeight:600, fontSize:'0.78rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</div>
                       {l.domain && <div style={{ fontSize:'0.64rem', color:'#9ca3af', marginTop:1, wordBreak:'break-all' }}>{l.domain}</div>}
@@ -805,7 +805,7 @@ function LeadLogModal({ t, lang, lead, onClose }) {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
           <div>
             <h3 style={{ fontSize:'1rem', fontWeight:700 }}><MI name="history" size={18}/> {t('Lead log')}</h3>
-            <div style={{ fontSize:'0.78rem', color:'var(--text-dim)', marginTop:2 }}>#{lead.id} · <strong>{lead.company_name}</strong>{lead.city ? ` · ${lead.city}` : ''}</div>
+            <div style={{ fontSize:'0.78rem', color:'var(--text-dim)', marginTop:2 }}>#{lead.project_seq ?? lead.id} · <strong>{lead.company_name}</strong>{lead.city ? ` · ${lead.city}` : ''}</div>
           </div>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#94a3b8' }}>✕</button>
         </div>

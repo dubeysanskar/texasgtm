@@ -86,6 +86,8 @@ async function run() {
       runScript('seed-excel.js', [leadsXlsx]);
       const r = await db.query('UPDATE gtm_leads SET project_id = $1 WHERE project_id IS NULL', [projects['russia-gtm'].id]);
       console.log(`  ✓ assigned ${r.rowCount} seeded leads to Russia GTM (#${projects['russia-gtm'].id})`);
+      await db.query('UPDATE gtm_leads SET project_seq = NULL WHERE project_id = $1', [projects['russia-gtm'].id]);
+      await db.backfillProjectSeq();
     } else console.log('\n(skip leads: XLSX file not found)');
   }
 

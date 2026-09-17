@@ -28,7 +28,7 @@ export async function POST(request) {
     const placeholders = body.leadIds.map((_, i) => `$${i + 1}`).join(',');
     leads = await queryAll(`SELECT * FROM gtm_leads WHERE id IN (${placeholders}) ORDER BY priority, created_at DESC`, body.leadIds);
   } else if (body.project_id) {
-    leads = await queryAll('SELECT * FROM gtm_leads WHERE project_id = $1 ORDER BY priority, created_at DESC', [body.project_id]);
+    leads = await queryAll('SELECT * FROM gtm_leads WHERE project_id = $1 ORDER BY project_seq ASC, id ASC', [body.project_id]);
   } else {
     leads = await queryAll('SELECT * FROM gtm_leads ORDER BY priority, created_at DESC');
   }
@@ -39,7 +39,7 @@ export async function POST(request) {
   const date = (v) => v ? new Date(v).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB') : '';
 
   const toRow = (lead, i) => [
-    i + 1, lead.company_name, lead.domain || '',
+    lead.project_seq ?? (i + 1), lead.company_name, lead.domain || '',
     sector(lead.sector),
     [lead.city, lead.region].filter(Boolean).join(', '),
     lead.company_size || '', lead.pain_point || '', lead.decision_maker_title || '', lead.mobile_personal || '',
