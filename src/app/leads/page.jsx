@@ -90,7 +90,11 @@ export default function LeadsPage() {
   useEffect(() => { setPage(1); }, [filters, perPage]);
 
   // Every change goes through a comment prompt; the comment is saved in the lead's log.
-  const put = (id, body) => fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const put = async (id, body) => {
+    const r = await fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(t(d.error || (r.status >= 500 ? 'Server error — the database may be unavailable. Please try again shortly.' : 'Failed'))); }
+    return r;
+  };
   const leadName = (id) => leads.find(l => l.id === id)?.company_name || '';
 
   function handleTemplateChange(leadId, tplId) {
@@ -414,11 +418,15 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
     e.preventDefault(); setErr('');
     if (isEdit && !comment.trim()) { setErr(t('Please enter a comment describing this change')); return; }
     setSaving(true);
-    const r = isEdit
-      ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment }) })
-      : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId }) });
-    if (r.ok) onDone(); else { const d = await r.json(); setErr(t(d.error||'Failed')); }
-    setSaving(false);
+    try {
+      const r = isEdit
+        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment }) })
+        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId }) });
+      if (r.ok) { onDone(); return; }
+      const d = await r.json().catch(() => ({}));
+      setErr(t(d.error || (r.status >= 500 ? 'Server error — the database may be unavailable. Please try again shortly.' : 'Failed')));
+    } catch (e) { setErr(t('Cannot reach the server. Check your connection and try again.')); }
+    finally { setSaving(false); }
   }
   const SL2 = { construction:'Construction', manufacturing:'Manufacturing', warehouse_logistics:'Warehouse/Logistics', food_processing:'Food Processing', metallurgy:'Metallurgy', mining:'Mining', chemicals:'Chemicals', automotive:'Automotive', hospitality:'Hospitality', retail:'Retail', agency_partner:'Agency Partner', industry_association:'Industry Association', other:'Other' };
   return (
@@ -890,7 +898,9 @@ function CommentPrompt({ t, title, detail, onCancel, onConfirm }) {
   async function confirm(e) {
     e?.preventDefault();
     if (!comment.trim()) { setErr(t('Please enter a comment describing this change')); return; }
-    setBusy(true); await onConfirm(comment.trim());
+    setBusy(true);
+    try { await onConfirm(comment.trim()); }
+    catch (e) { setErr(t('Cannot reach the server. Check your connection and try again.')); setBusy(false); }
   }
   return (
     <div className="leads-modal-overlay" onClick={onCancel}>
