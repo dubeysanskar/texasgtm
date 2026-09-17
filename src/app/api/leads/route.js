@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 const { queryAll, queryOne, query, nextProjectSeq } = require('@/lib/db');
-const { getUserFromRequest, isManager } = require('@/lib/auth');
+const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 
 export async function GET(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const showDeleted = searchParams.get('deleted') === '1';
+  if (showDeleted && !isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
   let sql = `SELECT * FROM gtm_leads WHERE deleted_at IS ${showDeleted ? 'NOT NULL' : 'NULL'}`;
   const params = [];
   const projectId = searchParams.get('project_id'); if (projectId) { params.push(projectId); sql += ` AND project_id = $${params.length}`; }

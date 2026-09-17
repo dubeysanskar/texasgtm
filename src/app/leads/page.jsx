@@ -122,6 +122,14 @@ export default function LeadsPage() {
         fetchLeads(); fetchStats();
       } });
   }
+  function handlePurge(id) {
+    setPending({ title: t('Delete permanently'), detail: `${leadName(id)} — ${t('This cannot be undone.')}`, danger: true,
+      run: async (comment) => {
+        const r = await fetch(`/api/leads/${id}?permanent=1`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment }) });
+        if (!r.ok) { const d = await r.json().catch(() => ({})); alert(t(d.error || 'Failed')); }
+        fetchLeads(); fetchStats();
+      } });
+  }
   function handleRestore(id) {
     setPending({ title: t('Restore lead'), detail: leadName(id),
       run: async (comment) => {
@@ -192,7 +200,7 @@ export default function LeadsPage() {
           {viewDeleted ? (
             <button onClick={() => setViewDeleted(false)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="arrow_back" size={14}/> {t('Back to leads')}</button>
           ) : (
-            <button onClick={() => setViewDeleted(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #dc2626', color:'#dc2626' }}><MI name="delete_sweep" size={14}/> {t('Deleted leads')}</button>
+            isAdmin && <button onClick={() => setViewDeleted(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #dc2626', color:'#dc2626' }}><MI name="delete_sweep" size={14}/> {t('Deleted leads')}</button>
           )}
           {!viewDeleted && <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> {t('Bulk Lookup')}</button>}
           {!viewDeleted && <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>}
@@ -258,7 +266,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Range Selector + Bulk Actions Bar */}
-      {viewDeleted && <div style={{ padding:'8px 14px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, marginBottom:12, fontSize:'0.78rem', color:'#991b1b' }}><MI name="info" size={14}/> {t('Deleted leads are kept here with their full history. Restore brings a lead back to the main list.')}</div>}
+      {viewDeleted && <div style={{ padding:'8px 14px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, marginBottom:12, fontSize:'0.78rem', color:'#991b1b' }}><MI name="info" size={14}/> {t('Deleted leads are kept here with their full history. Restore brings a lead back to the main list; Delete permanently erases it for good.')}</div>}
       {!viewDeleted && <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: selected.size > 0 ? 0 : 12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.72rem', color:'#6b7280' }}>
           <span style={{ fontWeight:600 }}>{t('Select Range')}:</span>
@@ -396,9 +404,10 @@ export default function LeadsPage() {
                       </button>
                     </td>
                     <td style={{padding:'8px 4px', textAlign:'center', whiteSpace:'nowrap'}}>
-                      {viewDeleted ? (
+                      {viewDeleted ? (<>
                         <button onClick={() => handleRestore(l.id)} title={t('Restore')} style={{ background:'none', border:'none', cursor:'pointer', color:'#059669' }}><MI name="restore_from_trash" size={16}/></button>
-                      ) : (<>
+                        <button onClick={() => handlePurge(l.id)} title={t('Delete permanently')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete_forever" size={16}/></button>
+                      </>) : (<>
                       <button onClick={() => setEditLead(l)} title={t('Edit')} style={{ background:'none', border:'none', cursor:'pointer', color:'#2563eb' }}><MI name="edit" size={15}/></button>
                       <button onClick={() => handleDelete(l.id)} title={t('Delete')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
                       </>)}
@@ -868,7 +877,7 @@ function LeadLogModal({ t, lang, lead, onClose }) {
   const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
   // Merge status history, activity log and email sends into one timeline
   const created = data && !data.logs.some(l => /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: '', icon: 'add', text: `${t('Lead created')}${lead.scraped_from ? ` (${t(lead.scraped_from)})` : ''}` }] : [];
-  const ICONS = { status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash' };
+  const ICONS = { status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
@@ -876,6 +885,7 @@ function LeadLogModal({ t, lang, lead, onClose }) {
     if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
     if (l.kind === 'delete') return t('Lead deleted');
     if (l.kind === 'restore') return t('Lead restored');
+    if (l.kind === 'purge') return t('Permanently deleted');
     if (/^Added lead/.test(l.action)) return t('Lead created');
     return l.action;
   };

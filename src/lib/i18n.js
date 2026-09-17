@@ -169,7 +169,9 @@ export const RU = {
   'Deleted leads': 'Удалённые лиды', '{n} deleted leads': 'Удалённых лидов: {n}', 'Back to leads': 'К лидам', 'Delete lead': 'Удалить лид',
   'Restore lead': 'Восстановить лид', 'Restore': 'Восстановить', 'Deleted by': 'Удалил(а)', 'No deleted leads': 'Удалённых лидов нет',
   'Lead deleted': 'Лид удалён', 'Lead restored': 'Лид восстановлен',
-  'Deleted leads are kept here with their full history. Restore brings a lead back to the main list.': 'Удалённые лиды хранятся здесь со всей историей. «Восстановить» возвращает лид в основной список.',
+  'Deleted leads are kept here with their full history. Restore brings a lead back to the main list; Delete permanently erases it for good.': 'Удалённые лиды хранятся здесь со всей историей. «Восстановить» возвращает лид в список; «Удалить навсегда» стирает его безвозвратно.',
+  'Delete permanently': 'Удалить навсегда', 'This cannot be undone.': 'Это действие необратимо.', 'Permanently deleted': 'Удалён навсегда',
+  'Move the lead to Deleted leads first': 'Сначала переместите лид в «Удалённые лиды»',
   'Restored. Note: a live lead with the same company already exists.': 'Восстановлено. Обратите внимание: активный лид с такой же компанией уже существует.',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
