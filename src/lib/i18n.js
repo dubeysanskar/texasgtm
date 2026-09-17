@@ -163,6 +163,9 @@ export const RU = {
   'Decision maker name': 'Имя ЛПР', 'Comment': 'Комментарий', 'Telephone': 'Телефон', 'Logs': 'Журнал', 'View log': 'Журнал',
   'Lead log': 'Журнал лида', 'No log entries yet': 'Записей пока нет', 'Created': 'Создан', 'Last Contacted': 'Последний контакт',
   'e.g. exhibition, LinkedIn, referral': 'напр. выставка, LinkedIn, рекомендация', 'bulk': 'массово',
+  'Comment for this change': 'Комментарий к изменению', 'Why are you making this change?': 'Почему вы вносите это изменение?',
+  'Please enter a comment describing this change': 'Введите комментарий к изменению', 'Save change': 'Сохранить изменение',
+  'Edit lead': 'Редактировать лид', 'Save changes': 'Сохранить изменения', 'Edited': 'Изменено', 'System': 'Система',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

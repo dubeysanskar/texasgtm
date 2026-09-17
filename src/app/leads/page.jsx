@@ -57,6 +57,8 @@ export default function LeadsPage() {
   const [showBulkTpl, setShowBulkTpl] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [logLead, setLogLead] = useState(null);
+  const [editLead, setEditLead] = useState(null);
+  const [pending, setPending] = useState(null); // { title, detail, run(comment) } — comment prompt for a change
 
   useEffect(() => { if (!authLoading && !user) router.push('/'); }, [user, authLoading, router]);
 
@@ -87,32 +89,46 @@ export default function LeadsPage() {
   useEffect(() => { if (user) { fetchLeads(); fetchStats(); fetchTemplates(); } }, [user, fetchLeads, fetchStats, fetchTemplates]);
   useEffect(() => { setPage(1); }, [filters, perPage]);
 
-  async function handleTemplateChange(leadId, tplId) {
-    await fetch(`/api/leads/${leadId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ last_template_id: tplId || null }) });
-    fetchLeads();
-  }
+  // Every change goes through a comment prompt; the comment is saved in the lead's log.
+  const put = (id, body) => fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const leadName = (id) => leads.find(l => l.id === id)?.company_name || '';
 
-  async function handleStatusChange(id, s) {
-    await fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: s }) });
-    fetchLeads(); fetchStats();
+  function handleTemplateChange(leadId, tplId) {
+    const tpl = templates.find(x => x.id === tplId);
+    setPending({ title: t('Template'), detail: `${leadName(leadId)}: ${tpl ? tpl.name : t('Clear template')}`,
+      run: async (comment) => { await put(leadId, { last_template_id: tplId || null, comment }); fetchLeads(); } });
   }
-  async function handlePriorityChange(id, p) {
-    await fetch(`/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority: p }) });
-    fetchLeads(); fetchStats();
+  function handleStatusChange(id, s) {
+    const lead = leads.find(l => l.id === id);
+    setPending({ title: t('Status'), detail: `${lead?.company_name}: ${t(SC[lead?.status]?.label || '')} → ${t(SC[s]?.label || s)}`,
+      run: async (comment) => { await put(id, { status: s, comment }); fetchLeads(); fetchStats(); } });
+  }
+  function handlePriorityChange(id, p) {
+    const lead = leads.find(l => l.id === id);
+    setPending({ title: t('Priority'), detail: `${lead?.company_name}: ${t(PC[lead?.priority]?.label || '')} → ${t(PC[p]?.label || p)}`,
+      run: async (comment) => { await put(id, { priority: p, comment }); fetchLeads(); fetchStats(); } });
   }
   async function handleDelete(id) {
     if (!confirm(t('Delete this lead?'))) return;
     await fetch(`/api/leads/${id}`, { method: 'DELETE' }); fetchLeads(); fetchStats();
   }
-  async function handleBulkStatus() {
+  function handleBulkStatus() {
     if (!selected.size || !bulkStatus) return;
-    await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], status: bulkStatus }) });
-    setSelected(new Set()); setBulkStatus(''); fetchLeads(); fetchStats();
+    setPending({ title: t('Status'), detail: `${t('{n} selected', { n: selected.size })} → ${t(SC[bulkStatus]?.label || bulkStatus)}`,
+      run: async (comment) => {
+        await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], status: bulkStatus, comment }) });
+        setSelected(new Set()); setBulkStatus(''); fetchLeads(); fetchStats();
+      } });
   }
-  async function handleBulkTemplate(tplId) {
+  function handleBulkTemplate(tplId) {
     if (!selected.size || !tplId) return;
-    await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], template_id: parseInt(tplId) }) });
-    setShowBulkTpl(false); setBulkTplSearch(''); fetchLeads();
+    const tpl = templates.find(x => x.id === parseInt(tplId));
+    setShowBulkTpl(false); setBulkTplSearch('');
+    setPending({ title: t('Template'), detail: `${t('{n} selected', { n: selected.size })} → ${tpl?.name || tplId}`,
+      run: async (comment) => {
+        await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], template_id: parseInt(tplId), comment }) });
+        fetchLeads();
+      } });
   }
   function handleRangeSelect() {
     const from = parseInt(rangeFrom), to = parseInt(rangeTo);
@@ -296,7 +312,7 @@ export default function LeadsPage() {
                 <th style={{...TH, width:'8%'}}>{t('Comment')}</th>
                 <th style={{...TH, width:'9%'}}>{t('Template Used')}</th>
                 <th style={{...TH, width:'6%'}}>{t('Logs')}</th>
-                <th style={{width:30}}></th>
+                <th style={{width:62}}></th>
               </tr>
             </thead>
             <tbody>
@@ -344,7 +360,8 @@ export default function LeadsPage() {
                         <MI name="history" size={13}/> {t('View log')}
                       </button>
                     </td>
-                    <td style={{padding:'8px 4px', textAlign:'center'}}>
+                    <td style={{padding:'8px 4px', textAlign:'center', whiteSpace:'nowrap'}}>
+                      <button onClick={() => setEditLead(l)} title={t('Edit')} style={{ background:'none', border:'none', cursor:'pointer', color:'#2563eb' }}><MI name="edit" size={15}/></button>
                       <button onClick={() => handleDelete(l.id)} title={t('Delete')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
                     </td>
                   </tr>
@@ -373,7 +390,9 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {showAddModal && <AddModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
+      {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
+      {editLead && <LeadFormModal t={t} projectId={projectId} lead={editLead} onClose={() => setEditLead(null)} onDone={() => { fetchLeads(); fetchStats(); setEditLead(null); }} />}
+      {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} onCancel={() => setPending(null)} onConfirm={async (comment) => { const run = pending.run; setPending(null); await run(comment); }} />}
       {logLead && <LeadLogModal t={t} lang={lang} lead={logLead} onClose={() => setLogLead(null)} />}
       {showUploadModal && <BulkUploadModal t={t} lang={lang} onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
     </div>
@@ -384,13 +403,20 @@ const TH = { padding:'10px 8px', textAlign:'left', fontSize:'0.7rem', fontWeight
 const TD = { padding:'8px', fontSize:'0.75rem', color:'#4b5563' };
 const PB = { width:32, height:32, borderRadius:8, border:'1px solid var(--border)', background:'#fff', cursor:'pointer', fontSize:'0.78rem', display:'flex', alignItems:'center', justifyContent:'center' };
 
-function AddModal({ t, projectId, onClose, onDone }) {
-  const [f, setF] = useState({ company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', notes:'' });
+function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
+  const isEdit = !!lead;
+  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', notes:'' };
+  const [f, setF] = useState(() => isEdit ? Object.fromEntries(Object.keys(empty).map(k => [k, lead[k] ?? ''])) : empty);
+  const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   async function save(e) {
-    e.preventDefault(); setSaving(true); setErr('');
-    const r = await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId }) });
+    e.preventDefault(); setErr('');
+    if (isEdit && !comment.trim()) { setErr(t('Please enter a comment describing this change')); return; }
+    setSaving(true);
+    const r = isEdit
+      ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment }) })
+      : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId }) });
     if (r.ok) onDone(); else { const d = await r.json(); setErr(t(d.error||'Failed')); }
     setSaving(false);
   }
@@ -399,7 +425,7 @@ function AddModal({ t, projectId, onClose, onDone }) {
     <div className="leads-modal-overlay" onClick={onClose}>
       <div className="leads-modal" onClick={e => e.stopPropagation()}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <h3 style={{ fontSize:'1rem', fontWeight:700 }}>{t('Add New Lead')}</h3>
+          <h3 style={{ fontSize:'1rem', fontWeight:700 }}>{isEdit ? `${t('Edit lead')} · #${lead.project_seq ?? lead.id}` : t('Add New Lead')}</h3>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#94a3b8' }}>✕</button>
         </div>
         {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'8px 12px', borderRadius:8, fontSize:'0.78rem', marginBottom:12 }}>{err}</div>}
@@ -419,10 +445,16 @@ function AddModal({ t, projectId, onClose, onDone }) {
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Source of lead')}</label><input value={f.find_instructions} onChange={e => setF({...f, find_instructions:e.target.value})} placeholder={t('e.g. exhibition, LinkedIn, referral')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Requirement needed')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Comment')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
+            {isEdit && (
+              <div className="leads-form-field" style={{gridColumn:'1/-1', padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8 }}>
+                <label style={{ color:'#92400e' }}>{t('Comment for this change')} *</label>
+                <textarea rows={2} value={comment} onChange={e => setComment(e.target.value)} placeholder={t('Why are you making this change?')} style={{ fontFamily:'inherit' }} />
+              </div>
+            )}
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
             <button type="button" onClick={onClose} className="btn btn-ghost">{t('Cancel')}</button>
-            <button type="submit" disabled={saving} className="btn btn-primary">{saving ? t('Saving…') : t('Add Lead')}</button>
+            <button type="submit" disabled={saving} className="btn btn-primary">{saving ? t('Saving…') : isEdit ? t('Save changes') : t('Add Lead')}</button>
           </div>
         </form>
       </div>
@@ -793,10 +825,20 @@ function LeadLogModal({ t, lang, lead, onClose }) {
   const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
   // Merge status history, activity log and email sends into one timeline
   const created = data && !data.logs.some(l => /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: '', icon: 'add', text: `${t('Lead created')}${lead.scraped_from ? ` (${t(lead.scraped_from)})` : ''}` }] : [];
+  const ICONS = { status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note' };
+  const describe = (l) => {
+    if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
+    if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
+    if (l.kind === 'template') return `${t('Template')}: ${l.template || t('Clear template')}${l.bulk ? ` (${t('bulk')})` : ''}`;
+    if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
+    if (/^Added lead/.test(l.action)) return t('Lead created');
+    return l.action;
+  };
   const entries = data ? [
     ...created,
-    ...data.history.map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}${h.note ? ` (${t(h.note)})` : ''}` })),
-    ...data.logs.map(l => ({ at: l.created_at, who: l.user_name, icon: 'edit_note', text: l.action })),
+    // status history rows only for legacy entries that have no matching activity log (new changes are logged with a comment)
+    ...data.history.filter(h => !data.logs.some(l => l.kind === 'status' && Math.abs(new Date(l.created_at) - new Date(h.changed_at)) < 5000)).map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}`, comment: h.note && h.note !== 'bulk' ? h.note : '' })),
+    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || 'edit_note', text: describe(l), comment: l.comment || '', changes: l.changes })),
     ...data.sends.map(sd => ({ at: sd.sent_at || sd.created_at, who: t('Auto Email'), icon: 'mail', text: `${t('Email')}: "${sd.subject}" — ${t(sd.status)}${sd.opened_at ? ` · ${t('Opened')} ${fmt(sd.opened_at)}` : ''}` })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at)) : [];
   return (
@@ -825,12 +867,46 @@ function LeadLogModal({ t, lang, lead, onClose }) {
                 <span style={{ width:28, height:28, borderRadius:8, background:'#eef2ff', color:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><MI name={e.icon} size={16}/></span>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:'0.8rem', color:'var(--text)', wordBreak:'break-word' }}>{e.text}</div>
-                  <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', marginTop:2 }}>{e.who || '—'} · {fmt(e.at)}</div>
+                  {e.changes && <div style={{ fontSize:'0.7rem', color:'var(--text-dim)', marginTop:3 }}>{Object.entries(e.changes).map(([f, c]) => <div key={f}><strong>{t(FIELD_NAMES[f] || f)}:</strong> <span style={{ textDecoration:'line-through', opacity:0.6 }}>{String(c.from || '—')}</span> → {String(c.to || '—')}</div>)}</div>}
+                  {e.comment && <div style={{ fontSize:'0.76rem', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:6, padding:'4px 8px', marginTop:4, whiteSpace:'pre-wrap' }}>💬 {e.comment}</div>}
+                  <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', marginTop:3 }}><strong>{e.who || t('System')}</strong> · {fmt(e.at)}</div>
                 </div>
               </div>
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Human names for lead fields (used in the log)
+const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
+
+function CommentPrompt({ t, title, detail, onCancel, onConfirm }) {
+  const [comment, setComment] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function confirm(e) {
+    e?.preventDefault();
+    if (!comment.trim()) { setErr(t('Please enter a comment describing this change')); return; }
+    setBusy(true); await onConfirm(comment.trim());
+  }
+  return (
+    <div className="leads-modal-overlay" onClick={onCancel}>
+      <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <form onSubmit={confirm}>
+          <h3 style={{ fontSize:'1rem', fontWeight:700, display:'flex', alignItems:'center', gap:8 }}><MI name="edit_note" size={20}/> {t('Comment for this change')}</h3>
+          <div style={{ fontSize:'0.8rem', color:'var(--text-dim)', margin:'6px 0 12px' }}><strong>{title}</strong> — {detail}</div>
+          {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'6px 10px', borderRadius:8, fontSize:'0.76rem', marginBottom:8 }}>{err}</div>}
+          <div className="leads-form-field">
+            <textarea autoFocus rows={3} value={comment} onChange={e => { setComment(e.target.value); setErr(''); }} placeholder={t('Why are you making this change?')} style={{ fontFamily:'inherit', fontSize:'0.84rem' }} />
+          </div>
+          <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:14 }}>
+            <button type="button" onClick={onCancel} className="btn btn-ghost">{t('Cancel')}</button>
+            <button type="submit" disabled={busy} className="btn btn-primary">{busy ? t('Saving…') : t('Save change')}</button>
+          </div>
+        </form>
       </div>
     </div>
   );

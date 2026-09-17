@@ -57,7 +57,8 @@ export async function POST(request) {
 export async function PATCH(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { ids, status, template_id } = await request.json();
+  const { ids, status, template_id, comment: rawComment } = await request.json();
+  const comment = typeof rawComment === 'string' ? rawComment.trim().slice(0, 1000) : '';
   if (!ids?.length) return NextResponse.json({ error: 'ids required' }, { status: 400 });
   if (!status && template_id === undefined) return NextResponse.json({ error: 'status or template_id required' }, { status: 400 });
 
@@ -68,7 +69,11 @@ export async function PATCH(request) {
     const before = await queryAll(`SELECT id, status FROM gtm_leads WHERE id IN (${placeholders})`, ids);
     await query(`UPDATE gtm_leads SET status = $${ids.length + 1}, updated_at = NOW() WHERE id IN (${placeholders})`, [...ids, status]);
     for (const l of before) {
-      if (l.status !== status) await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)', [l.id, l.status, status, user.id, user.name, 'bulk']);
+      if (l.status !== status) {
+        await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)', [l.id, l.status, status, user.id, user.name, comment]);
+        await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+          [user.id, user.name, user.role, `Changed status: ${l.status} → ${status} (bulk)`, 'lead', 'lead', l.id, JSON.stringify({ kind: 'status', comment, from: l.status, to: status, bulk: true })]);
+      }
     }
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',
       [user.id, user.name, user.role, `Bulk updated ${ids.length} leads to "${status}"`, 'lead', 'lead']);
@@ -76,6 +81,11 @@ export async function PATCH(request) {
   
   if (template_id !== undefined) {
     await query(`UPDATE gtm_leads SET last_template_id = $${ids.length + 1}, updated_at = NOW() WHERE id IN (${placeholders})`, [...ids, template_id]);
+    const tpl = template_id ? await queryOne('SELECT name FROM gtm_templates WHERE id = $1', [template_id]) : null;
+    for (const lid of ids) {
+      await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [user.id, user.name, user.role, tpl ? `Assigned template "${tpl.name}" (bulk)` : 'Cleared template (bulk)', 'lead', 'lead', lid, JSON.stringify({ kind: 'template', comment, template: tpl?.name || null, bulk: true })]);
+    }
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',
       [user.id, user.name, user.role, `Bulk assigned template to ${ids.length} leads`, 'lead', 'lead']);
   }
