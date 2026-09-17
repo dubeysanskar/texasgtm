@@ -60,7 +60,7 @@ export default function Sidebar() {
         <div className="sidebar-logo">
           <img src="/logo.png" alt="Taha Airwaves" style={{ width: 36, height: 36, objectFit: 'contain', display: 'block' }} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+        <div className="sb-text" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
           <span className="sidebar-title">GTM CRM</span>
           <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#a5b4fc', letterSpacing: '0.4px' }}>Taha Airwaves</span>
         </div>
@@ -68,7 +68,7 @@ export default function Sidebar() {
 
       {/* ═══ PROJECT SWITCHER ═══ */}
       {projects.length > 0 && (
-        <div style={{ padding: '4px 12px 8px', position: 'relative' }}>
+        <div className="sidebar-project" style={{ padding: '4px 12px 8px', position: 'relative' }}>
           {/* Single project for non-admin: just show the name */}
           {!isAdmin && projects.length <= 1 ? (
             <div style={{
@@ -78,7 +78,7 @@ export default function Sidebar() {
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: activeProject?.color || '#3B82F6', flexShrink: 0 }} />
-              <span style={{ flex: 1, textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="sb-text" style={{ flex: 1, textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {activeProject?.name || t('My Project')}
               </span>
             </div>
@@ -99,16 +99,16 @@ export default function Sidebar() {
                 background: activeProject?.color || '#3B82F6',
                 flexShrink: 0,
               }} />
-              <span style={{
+              <span className="sb-text" style={{
                 flex: 1, textAlign: 'left', fontSize: '0.78rem', fontWeight: 700,
                 color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
                 {activeProject?.name || t('Select Project')}
               </span>
-              <span style={{ fontSize: '0.6rem', color: '#9ca3af' }}>
+              <span className="sb-text" style={{ fontSize: '0.6rem', color: '#9ca3af' }}>
                 {activeProject?.lead_count || 0}
               </span>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#9ca3af' }}>
+              <span className="material-symbols-outlined sb-text" style={{ fontSize: 16, color: '#9ca3af' }}>
                 {showProjectDropdown ? 'expand_less' : 'expand_more'}
               </span>
             </button>
@@ -240,14 +240,14 @@ export default function Sidebar() {
           <Link key={item.href} href={item.href}
             className={`sidebar-link ${pathname === item.href || pathname.startsWith(item.href + '/') ? 'active' : ''}`}>
             <span className="material-symbols-outlined">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="sb-text">{item.label}</span>
           </Link>
         ))}
       </nav>
 
       <div className="sidebar-footer">
         {/* Language switch */}
-        <div className="sidebar-lang" role="group" aria-label={t('Language')}>
+        <div className="sidebar-lang sb-text" role="group" aria-label={t('Language')}>
           <button type="button" className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
           <button type="button" className={lang === 'ru' ? 'active' : ''} onClick={() => setLang('ru')}>RU</button>
         </div>
@@ -255,15 +255,15 @@ export default function Sidebar() {
           <div className="sidebar-avatar" style={{ background: roleColor }}>
             {user.name?.charAt(0)?.toUpperCase()}
           </div>
-          <div className="sidebar-user-info">
+          <div className="sidebar-user-info sb-text">
             <span className="sidebar-user-name">{user.name}</span>
             <span className="sidebar-user-role" style={{ color: roleColor }}>{t(roleLabel)}</span>
           </div>
-          <NotificationBell />
+          <div className="sb-text"><NotificationBell /></div>
         </div>
         <button onClick={logout} className="sidebar-logout">
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>
-          <span>{t('Sign Out')}</span>
+          <span className="sb-text">{t('Sign Out')}</span>
         </button>
       </div>
     </aside>

@@ -31,23 +31,35 @@ body {
 
 /* ═══ App Layout ═══ */
 .app-layout { display: flex; min-height: 100vh; }
-.main-content { flex: 1; min-width: 0; margin-left: 240px; min-height: 100vh; overflow-x: hidden; }
+/* Sidebar is collapsed to icons by default (72px) and expands over the page on hover */
+.main-content { flex: 1; min-width: 0; margin-left: 72px; min-height: 100vh; overflow-x: hidden; }
 
 /* ═══ Sidebar ═══ */
 .sidebar {
-  width: 240px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 100;
+  width: 72px; height: 100vh; position: fixed; top: 0; left: 0; z-index: 100;
   background: #1e1b4b; display: flex; flex-direction: column;
   border-right: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden; transition: width 0.18s ease, box-shadow 0.18s ease;
 }
+.sidebar:hover, .sidebar:focus-within { width: 240px; box-shadow: 8px 0 32px rgba(0,0,0,0.25); }
+/* Text-only parts are hidden while collapsed and fade in on hover */
+.sidebar .sb-text { opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; pointer-events: none; transition: opacity 0.15s ease 0.05s; }
+.sidebar:hover .sb-text, .sidebar:focus-within .sb-text { opacity: 1; max-width: 220px; pointer-events: auto; }
+.sidebar .sidebar-lang.sb-text { display: none; }
+.sidebar:hover .sidebar-lang.sb-text, .sidebar:focus-within .sidebar-lang.sb-text { display: flex; }
+.sidebar-project > div, .sidebar-project > button { min-height: 36px; }
+.sidebar:not(:hover):not(:focus-within) .sidebar-project > div,
+.sidebar:not(:hover):not(:focus-within) .sidebar-project > button { justify-content: center; padding-left: 0 !important; padding-right: 0 !important; }
 .sidebar-brand {
-  display: flex; align-items: center; gap: 10px; padding: 20px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; gap: 10px; padding: 16px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.08); min-height: 70px;
 }
 .sidebar-logo { color: #a5b4fc; }
 .sidebar-title { font-size: 1.1rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
-.sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; }
+.sidebar-link .sb-text { overflow: hidden; text-overflow: ellipsis; }
 .sidebar-link {
-  display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+  display: flex; align-items: center; gap: 10px; padding: 9px 18px; white-space: nowrap;
   border-radius: 10px; color: #c7d2fe; text-decoration: none;
   font-size: 0.82rem; font-weight: 500; transition: all 0.15s;
 }
@@ -56,6 +68,8 @@ body {
 .sidebar-link .material-symbols-outlined { font-size: 20px; }
 .sidebar-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
 .sidebar-user { display: flex; align-items: center; gap: 8px; padding: 8px 4px; }
+.sidebar:not(:hover):not(:focus-within) .sidebar-user { justify-content: center; }
+.sidebar:not(:hover):not(:focus-within) .sidebar-logout { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar-avatar {
   width: 32px; height: 32px; border-radius: 50%; display: flex;
   align-items: center; justify-content: center; color: #fff;
@@ -777,10 +791,7 @@ table td[style*="cursor: cell"] { -webkit-user-select: text; user-select: text; 
   .ae-analytics-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
-  .sidebar { width: 60px; } .sidebar-title, .sidebar-link span:last-child, .sidebar-user-info, .sidebar-logout span:last-child { display: none; }
-  .sidebar-lang { flex-direction: column; }
-  .sidebar-brand { justify-content: center; padding: 16px 8px; } .sidebar-nav { padding: 8px 4px; }
-  .sidebar-link { justify-content: center; padding: 10px; } .main-content { margin-left: 60px; }
+  .sidebar-nav { padding: 8px 4px; }
   .messaging-container { flex-direction: column; } .contacts-panel { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
   .ae-analytics-grid { grid-template-columns: 1fr 1fr; }
   .ae-form-grid, .ae-form-grid-3 { grid-template-columns: 1fr; }
