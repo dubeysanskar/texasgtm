@@ -73,15 +73,15 @@ export default function TemplatesPage() {
   // Group templates by base name (remove " — Touch N")
   const grouped = {};
   templates.forEach(t => {
-    const base = t.name.replace(/ — Touch \d$/, '');
+    const base = t.name.replace(/ — (?:Touch|Касание) \d$/, '');
     if (!grouped[base]) grouped[base] = { name: base, touches: [] };
-    const touchMatch = t.name.match(/Touch (\d)$/);
+    const touchMatch = t.name.match(/(?:Touch|Касание) (\d)$/);
     grouped[base].touches.push({ ...t, touchNum: touchMatch ? parseInt(touchMatch[1]) : 0 });
   });
   Object.values(grouped).forEach(g => g.touches.sort((a, b) => a.touchNum - b.touchNum));
   const groups = Object.values(grouped);
   // Ungrouped (no touch pattern)
-  const ungrouped = templates.filter(t => !/ — Touch \d$/.test(t.name));
+  const ungrouped = templates.filter(t => !/ — (?:Touch|Касание) \d$/.test(t.name));
 
   if (authLoading || !user) return <div className="page-loading">{t('Loading...')}</div>;
   if (!isManager) return <div className="page-content"><p>{t('Access denied')}</p></div>;

@@ -81,7 +81,12 @@ async function run() {
     const tplMd = ['Taha_Airwaves_Cold_Email_Templates_EN_RU_DE_AR.md'].map(f => path.join(root, f)).concat([path.join(root, '..', 'Taha_Airwaves_Cold_Email_Templates_EN_RU_DE_AR.md')]).find(f => fs.existsSync(f));
     const leadsXlsx = [path.join(root, 'Taha_Airwaves_Russia_FULL_605_Leads.xlsx'), path.join(root, '..', 'Taha_Airwaves_Russia_FULL_605_Leads.xlsx')].find(f => fs.existsSync(f));
 
-    if (tplMd) runScript('seed-templates.js', [tplMd]); else console.log('\n(skip templates: MD file not found)');
+    if (tplMd) {
+      runScript('seed-templates.js', [tplMd]);
+      const r = await db.query('UPDATE gtm_templates SET project_id = $1 WHERE project_id IS NULL', [projects['russia-gtm'].id]);
+      console.log(`  ✓ assigned ${r.rowCount} seeded templates to Russia GTM (#${projects['russia-gtm'].id})`);
+      runScript('copy-templates.js', ['--from=russia-gtm', '--to=taha-airwaves-russia', '--lang=ru']);
+    } else console.log('\n(skip templates: MD file not found)');
     if (leadsXlsx) {
       runScript('seed-excel.js', [leadsXlsx]);
       const r = await db.query('UPDATE gtm_leads SET project_id = $1 WHERE project_id IS NULL', [projects['russia-gtm'].id]);
