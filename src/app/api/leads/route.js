@@ -6,7 +6,8 @@ export async function GET(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { searchParams } = new URL(request.url);
-  let sql = 'SELECT * FROM gtm_leads WHERE 1=1';
+  const showDeleted = searchParams.get('deleted') === '1';
+  let sql = `SELECT * FROM gtm_leads WHERE deleted_at IS ${showDeleted ? 'NOT NULL' : 'NULL'}`;
   const params = [];
   const projectId = searchParams.get('project_id'); if (projectId) { params.push(projectId); sql += ` AND project_id = $${params.length}`; }
   const status = searchParams.get('status'); if (status) { params.push(status); sql += ` AND status = $${params.length}`; }
@@ -25,7 +26,7 @@ export async function GET(request) {
   const total = parseInt(countRes?.c || 0);
 
   const sortOrder = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
-  sql += ` ORDER BY created_at ${sortOrder}`;
+  sql += showDeleted ? ' ORDER BY deleted_at DESC' : ` ORDER BY created_at ${sortOrder}`;
   params.push(limit); sql += ` LIMIT $${params.length}`;
   params.push(offset); sql += ` OFFSET $${params.length}`;
 
@@ -39,7 +40,7 @@ export async function POST(request) {
   const b = await request.json();
   if (!b.company_name?.trim()) return NextResponse.json({ error: 'Company name required' }, { status: 400 });
   const dedup = `${b.company_name.trim().toLowerCase()}_${(b.city||'').toLowerCase()}`;
-  const existing = await queryOne('SELECT id FROM gtm_leads WHERE dedup_key = $1', [dedup]);
+  const existing = await queryOne('SELECT id FROM gtm_leads WHERE dedup_key = $1 AND deleted_at IS NULL', [dedup]);
   if (existing) return NextResponse.json({ error: 'Duplicate lead' }, { status: 409 });
 
   const seq = await nextProjectSeq(b.project_id || null);

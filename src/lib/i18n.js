@@ -166,6 +166,11 @@ export const RU = {
   'Comment for this change': 'Комментарий к изменению', 'Why are you making this change?': 'Почему вы вносите это изменение?',
   'Please enter a comment describing this change': 'Введите комментарий к изменению', 'Save change': 'Сохранить изменение',
   'Edit lead': 'Редактировать лид', 'Save changes': 'Сохранить изменения', 'Edited': 'Изменено', 'System': 'Система',
+  'Deleted leads': 'Удалённые лиды', '{n} deleted leads': 'Удалённых лидов: {n}', 'Back to leads': 'К лидам', 'Delete lead': 'Удалить лид',
+  'Restore lead': 'Восстановить лид', 'Restore': 'Восстановить', 'Deleted by': 'Удалил(а)', 'No deleted leads': 'Удалённых лидов нет',
+  'Lead deleted': 'Лид удалён', 'Lead restored': 'Лид восстановлен',
+  'Deleted leads are kept here with their full history. Restore brings a lead back to the main list.': 'Удалённые лиды хранятся здесь со всей историей. «Восстановить» возвращает лид в основной список.',
+  'Restored. Note: a live lead with the same company already exists.': 'Восстановлено. Обратите внимание: активный лид с такой же компанией уже существует.',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

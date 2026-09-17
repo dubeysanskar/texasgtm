@@ -23,7 +23,7 @@ async function getEligibleLeads(campaignId) {
 
   let sql = `
     SELECT l.* FROM gtm_leads l
-    WHERE l.email IS NOT NULL AND l.email != ''
+    WHERE l.deleted_at IS NULL AND l.email IS NOT NULL AND l.email != ''
       AND l.email NOT IN (SELECT email FROM gtm_email_unsubscribes)
       AND l.id NOT IN (
         SELECT lead_id FROM gtm_email_sends
@@ -70,7 +70,7 @@ async function getEligibleLeads(campaignId) {
 async function countEligibleLeads(filters) {
   let sql = `
     SELECT COUNT(*) as c FROM gtm_leads l
-    WHERE l.email IS NOT NULL AND l.email != ''
+    WHERE l.deleted_at IS NULL AND l.email IS NOT NULL AND l.email != ''
       AND l.email NOT IN (SELECT email FROM gtm_email_unsubscribes)
   `;
   const params = [];

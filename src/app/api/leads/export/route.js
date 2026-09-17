@@ -26,11 +26,11 @@ export async function POST(request) {
   let leads;
   if (body.leadIds && body.leadIds.length) {
     const placeholders = body.leadIds.map((_, i) => `$${i + 1}`).join(',');
-    leads = await queryAll(`SELECT * FROM gtm_leads WHERE id IN (${placeholders}) ORDER BY priority, created_at DESC`, body.leadIds);
+    leads = await queryAll(`SELECT * FROM gtm_leads WHERE deleted_at IS NULL AND id IN (${placeholders}) ORDER BY priority, created_at DESC`, body.leadIds);
   } else if (body.project_id) {
-    leads = await queryAll('SELECT * FROM gtm_leads WHERE project_id = $1 ORDER BY project_seq ASC, id ASC', [body.project_id]);
+    leads = await queryAll('SELECT * FROM gtm_leads WHERE deleted_at IS NULL AND project_id = $1 ORDER BY project_seq ASC, id ASC', [body.project_id]);
   } else {
-    leads = await queryAll('SELECT * FROM gtm_leads ORDER BY priority, created_at DESC');
+    leads = await queryAll('SELECT * FROM gtm_leads WHERE deleted_at IS NULL ORDER BY priority, created_at DESC');
   }
 
   const sector = (v) => SECTOR_LABELS[lang][v] || SECTOR_LABELS.en[v] || v || '';

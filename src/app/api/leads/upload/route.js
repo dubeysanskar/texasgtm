@@ -55,8 +55,8 @@ export async function POST(request) {
 
     // Check duplicates against DB
     const existingLeads = projectId
-      ? await queryAll('SELECT company_name, domain FROM gtm_leads WHERE project_id = $1', [projectId])
-      : await queryAll('SELECT company_name, domain FROM gtm_leads');
+      ? await queryAll('SELECT company_name, domain FROM gtm_leads WHERE deleted_at IS NULL AND project_id = $1', [projectId])
+      : await queryAll('SELECT company_name, domain FROM gtm_leads WHERE deleted_at IS NULL');
     
     const existingKeys = new Set(existingLeads.map(l => 
       (l.company_name || '').toLowerCase().replace(/[^a-zA-Zа-яА-Я0-9]/g, '') + (l.domain || '').toLowerCase()

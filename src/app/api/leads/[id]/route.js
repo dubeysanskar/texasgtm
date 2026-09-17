@@ -63,14 +63,39 @@ export async function GET(request, { params }) {
   return NextResponse.json({ lead, history, logs, sends });
 }
 
+// DELETE /api/leads/[id] — soft delete (kept in "Deleted leads", restorable). Body: { comment }
 export async function DELETE(request, { params }) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  const lead = await queryOne('SELECT company_name FROM gtm_leads WHERE id = $1', [id]);
-  await query('DELETE FROM gtm_leads WHERE id = $1', [id]);
-  // Activity log
-  await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-    [user.id, user.name, user.role, `Deleted lead "${lead?.company_name || id}"`, 'lead', 'lead', id]);
+  let body = {}; try { body = await request.json(); } catch {}
+  const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 1000) : '';
+  const lead = await queryOne('SELECT id, company_name, project_id, dedup_key, deleted_at FROM gtm_leads WHERE id = $1', [id]);
+  if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (lead.deleted_at) return NextResponse.json({ success: true });
+  // Free the dedup key so the same company can be added again while this copy sits in the bin
+  await query("UPDATE gtm_leads SET deleted_at = NOW(), deleted_by = $1, deleted_by_name = $2, delete_comment = $3, dedup_key = dedup_key || '__deleted_' || CAST(id AS TEXT), updated_at = NOW() WHERE id = $4",
+    [user.id, user.name, comment, id]);
+  await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [user.id, user.name, user.role, `Deleted lead "${lead.company_name}"`, 'lead', 'lead', id, lead.project_id || null, JSON.stringify({ kind: 'delete', comment })]);
   return NextResponse.json({ success: true });
+}
+
+// POST /api/leads/[id] — restore a deleted lead. Body: { comment }
+export async function POST(request, { params }) {
+  const user = getUserFromRequest(request);
+  if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
+  let body = {}; try { body = await request.json(); } catch {}
+  const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 1000) : '';
+  const lead = await queryOne('SELECT id, company_name, project_id, dedup_key, deleted_at FROM gtm_leads WHERE id = $1', [id]);
+  if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!lead.deleted_at) return NextResponse.json({ success: true });
+  const originalKey = String(lead.dedup_key || '').replace(/__deleted_\d+$/, '');
+  const clash = originalKey ? await queryOne('SELECT id FROM gtm_leads WHERE dedup_key = $1 AND deleted_at IS NULL', [originalKey]) : null;
+  await query("UPDATE gtm_leads SET deleted_at = NULL, deleted_by = NULL, deleted_by_name = '', delete_comment = '', dedup_key = $1, updated_at = NOW() WHERE id = $2",
+    [clash ? lead.dedup_key : originalKey, id]);
+  await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [user.id, user.name, user.role, `Restored lead "${lead.company_name}"`, 'lead', 'lead', id, lead.project_id || null, JSON.stringify({ kind: 'restore', comment })]);
+  return NextResponse.json({ success: true, duplicate_of_live_lead: !!clash });
 }

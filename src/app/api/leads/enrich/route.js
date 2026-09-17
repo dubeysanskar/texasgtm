@@ -27,32 +27,32 @@ export async function POST(request) {
   if (mode === 'selected' && leadIds?.length) {
     // Specific lead IDs
     const placeholders = leadIds.map((_, i) => `$${i + 1}`).join(',');
-    leads = await queryAll(`SELECT * FROM gtm_leads WHERE id IN (${placeholders})`, leadIds);
+    leads = await queryAll(`SELECT * FROM gtm_leads WHERE deleted_at IS NULL AND id IN (${placeholders})`, leadIds);
 
   } else if (rangeFrom && rangeTo) {
     // Range filter: leads between ID rangeFrom and rangeTo
     if (mode === 'force_all') {
       leads = await queryAll(
-        `SELECT * FROM gtm_leads WHERE id >= $1 AND id <= $2 ORDER BY id LIMIT $3`,
+        `SELECT * FROM gtm_leads WHERE deleted_at IS NULL AND id >= $1 AND id <= $2 ORDER BY id LIMIT $3`,
         [rangeFrom, rangeTo, maxLeads]
       );
     } else {
       leads = await queryAll(
-        `SELECT * FROM gtm_leads WHERE id >= $1 AND id <= $2 AND (email IS NULL OR email = '' OR phone IS NULL OR phone = '') ORDER BY id LIMIT $3`,
+        `SELECT * FROM gtm_leads WHERE deleted_at IS NULL AND id >= $1 AND id <= $2 AND (email IS NULL OR email = '' OR phone IS NULL OR phone = '') ORDER BY id LIMIT $3`,
         [rangeFrom, rangeTo, maxLeads]
       );
     }
 
   } else if (mode === 'force_all') {
     leads = await queryAll(
-      `SELECT * FROM gtm_leads ORDER BY id LIMIT $1`,
+      `SELECT * FROM gtm_leads WHERE deleted_at IS NULL ORDER BY id LIMIT $1`,
       [maxLeads]
     );
 
   } else {
     // Only missing
     leads = await queryAll(
-      `SELECT * FROM gtm_leads WHERE (email IS NULL OR email = '' OR phone IS NULL OR phone = '') ORDER BY id LIMIT $1`,
+      `SELECT * FROM gtm_leads WHERE deleted_at IS NULL AND (email IS NULL OR email = '' OR phone IS NULL OR phone = '') ORDER BY id LIMIT $1`,
       [maxLeads]
     );
   }
@@ -145,14 +145,14 @@ export async function GET(request) {
   const pid = searchParams.get('project_id');
   const pf = pid ? ` AND project_id = ${parseInt(pid)}` : '';
 
-  const total = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE 1=1${pf}`);
-  const missingEmail = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE (email IS NULL OR email = '')${pf}`);
-  const missingPhone = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE (phone IS NULL OR phone = '')${pf}`);
-  const missingBoth = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE (email IS NULL OR email = '') AND (phone IS NULL OR phone = '')${pf}`);
-  const hasEmail = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE email IS NOT NULL AND email != ''${pf}`);
-  const hasPhone = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE phone IS NOT NULL AND phone != ''${pf}`);
-  const minId = await queryOne(`SELECT MIN(id) as v FROM gtm_leads WHERE 1=1${pf}`);
-  const maxId = await queryOne(`SELECT MAX(id) as v FROM gtm_leads WHERE 1=1${pf}`);
+  const total = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL${pf}`);
+  const missingEmail = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND (email IS NULL OR email = '')${pf}`);
+  const missingPhone = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND (phone IS NULL OR phone = '')${pf}`);
+  const missingBoth = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND (email IS NULL OR email = '') AND (phone IS NULL OR phone = '')${pf}`);
+  const hasEmail = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND email IS NOT NULL AND email != ''${pf}`);
+  const hasPhone = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND phone IS NOT NULL AND phone != ''${pf}`);
+  const minId = await queryOne(`SELECT MIN(id) as v FROM gtm_leads WHERE deleted_at IS NULL${pf}`);
+  const maxId = await queryOne(`SELECT MAX(id) as v FROM gtm_leads WHERE deleted_at IS NULL${pf}`);
 
   return NextResponse.json({
     total: parseInt(total?.c || 0),

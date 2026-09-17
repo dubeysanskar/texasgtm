@@ -10,7 +10,7 @@ export async function GET(request) {
   if (isAdmin(user.role)) {
     // Super admins see all projects
     const projects = await queryAll(
-      'SELECT p.*, (SELECT COUNT(*) FROM gtm_leads WHERE project_id = p.id) as lead_count FROM gtm_projects p WHERE p.is_active = true ORDER BY p.created_at ASC'
+      'SELECT p.*, (SELECT COUNT(*) FROM gtm_leads WHERE project_id = p.id AND deleted_at IS NULL) as lead_count FROM gtm_projects p WHERE p.is_active = true ORDER BY p.created_at ASC'
     );
     return NextResponse.json(projects);
   }
@@ -21,7 +21,7 @@ export async function GET(request) {
 
   const placeholders = projectIds.map((_, i) => `$${i + 1}`).join(',');
   const projects = await queryAll(
-    `SELECT p.*, (SELECT COUNT(*) FROM gtm_leads WHERE project_id = p.id) as lead_count
+    `SELECT p.*, (SELECT COUNT(*) FROM gtm_leads WHERE project_id = p.id AND deleted_at IS NULL) as lead_count
      FROM gtm_projects p
      WHERE p.is_active = true AND p.id IN (${placeholders})
      ORDER BY p.created_at ASC`,

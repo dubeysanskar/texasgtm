@@ -58,7 +58,8 @@ export default function LeadsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [logLead, setLogLead] = useState(null);
   const [editLead, setEditLead] = useState(null);
-  const [pending, setPending] = useState(null); // { title, detail, run(comment) } — comment prompt for a change
+  const [pending, setPending] = useState(null);
+  const [viewDeleted, setViewDeleted] = useState(false); // recycle bin view // { title, detail, run(comment) } — comment prompt for a change
 
   useEffect(() => { if (!authLoading && !user) router.push('/'); }, [user, authLoading, router]);
 
@@ -71,13 +72,14 @@ export default function LeadsPage() {
     if (filters.search) p.set('search', filters.search);
     p.set('page', page); p.set('limit', perPage); p.set('order', sortOrder);
     if (projectId) p.set('project_id', projectId);
+    if (viewDeleted) p.set('deleted', '1');
     try {
       const res = await fetch(`/api/leads?${p}`);
       const d = await res.json();
       setLeads(d.leads || []); setTotal(d.total || 0); setTotalPages(d.totalPages || 1);
     } catch { setLeads([]); }
     setLoading(false);
-  }, [filters, page, perPage, sortOrder, projectId]);
+  }, [filters, page, perPage, sortOrder, projectId, viewDeleted]);
 
   const fetchStats = useCallback(async () => {
     try { const r = await fetch(`/api/leads/stats${projectId ? '?project_id=' + projectId : ''}`); setStats(await r.json()); } catch {}
@@ -87,7 +89,7 @@ export default function LeadsPage() {
   }, [projectId]);
 
   useEffect(() => { if (user) { fetchLeads(); fetchStats(); fetchTemplates(); } }, [user, fetchLeads, fetchStats, fetchTemplates]);
-  useEffect(() => { setPage(1); }, [filters, perPage]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [filters, perPage, viewDeleted]);
 
   // Every change goes through a comment prompt; the comment is saved in the lead's log.
   const put = async (id, body) => {
@@ -112,9 +114,22 @@ export default function LeadsPage() {
     setPending({ title: t('Priority'), detail: `${lead?.company_name}: ${t(PC[lead?.priority]?.label || '')} → ${t(PC[p]?.label || p)}`,
       run: async (comment) => { await put(id, { priority: p, comment }); fetchLeads(); fetchStats(); } });
   }
-  async function handleDelete(id) {
-    if (!confirm(t('Delete this lead?'))) return;
-    await fetch(`/api/leads/${id}`, { method: 'DELETE' }); fetchLeads(); fetchStats();
+  function handleDelete(id) {
+    setPending({ title: t('Delete lead'), detail: leadName(id), danger: true,
+      run: async (comment) => {
+        const r = await fetch(`/api/leads/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment }) });
+        if (!r.ok) { const d = await r.json().catch(() => ({})); alert(t(d.error || 'Failed')); }
+        fetchLeads(); fetchStats();
+      } });
+  }
+  function handleRestore(id) {
+    setPending({ title: t('Restore lead'), detail: leadName(id),
+      run: async (comment) => {
+        const r = await fetch(`/api/leads/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) alert(t(d.error || 'Failed')); else if (d.duplicate_of_live_lead) alert(t('Restored. Note: a live lead with the same company already exists.'));
+        fetchLeads(); fetchStats();
+      } });
   }
   function handleBulkStatus() {
     if (!selected.size || !bulkStatus) return;
@@ -170,19 +185,24 @@ export default function LeadsPage() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 className="page-title" style={{ marginBottom:2, fontSize:'1.3rem' }}>{t('Lead Management')}</h1>
-          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{t('{n} total leads', { n: total })} • {t('Page')} {page}/{totalPages}</p>
+          <h1 className="page-title" style={{ marginBottom:2, fontSize:'1.3rem' }}>{viewDeleted ? <><MI name="delete_sweep" size={22}/> {t('Deleted leads')}</> : t('Lead Management')}</h1>
+          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{viewDeleted ? t('{n} deleted leads', { n: total }) : t('{n} total leads', { n: total })} • {t('Page')} {page}/{totalPages}</p>
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-          <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> {t('Bulk Lookup')}</button>
-          <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>
-          <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>
-          <button onClick={handleExport} disabled={exporting} className="btn btn-success" style={{ fontSize:'0.75rem' }}><MI name="download" size={14}/> {t('Export')}</button>
+          {viewDeleted ? (
+            <button onClick={() => setViewDeleted(false)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="arrow_back" size={14}/> {t('Back to leads')}</button>
+          ) : (
+            <button onClick={() => setViewDeleted(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #dc2626', color:'#dc2626' }}><MI name="delete_sweep" size={14}/> {t('Deleted leads')}</button>
+          )}
+          {!viewDeleted && <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> {t('Bulk Lookup')}</button>}
+          {!viewDeleted && <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>}
+          {!viewDeleted && <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>}
+          {!viewDeleted && <button onClick={handleExport} disabled={exporting} className="btn btn-success" style={{ fontSize:'0.75rem' }}><MI name="download" size={14}/> {t('Export')}</button>}
         </div>
       </div>
 
       {/* Stats Row */}
-      {stats && (
+      {stats && !viewDeleted && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:8, marginBottom:16 }}>
           {[
             { l:t('Total'), v:stats.total, c:'#3b82f6', i:'groups' },
@@ -201,7 +221,7 @@ export default function LeadsPage() {
       )}
 
       {/* Bulk Lookup Panel */}
-      {showBulkLookup && (
+      {showBulkLookup && !viewDeleted && (
         <div style={{ background:'#f8fafc', border:'1px solid var(--border)', borderRadius:10, padding:14, marginBottom:14 }}>
           <div style={{ fontSize:'0.8rem', fontWeight:600, marginBottom:8 }}>{t('Bulk Lookup — paste IDs or company names')}</div>
           <textarea rows={3} value={bulkLookupText} onChange={e => setBulkLookupText(e.target.value)} placeholder={t('Paste IDs or names separated by comma, space, or newline...')} style={{ width:'100%', padding:8, borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem', resize:'vertical' }}/>
@@ -238,7 +258,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Range Selector + Bulk Actions Bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: selected.size > 0 ? 0 : 12, flexWrap:'wrap' }}>
+      {viewDeleted && <div style={{ padding:'8px 14px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, marginBottom:12, fontSize:'0.78rem', color:'#991b1b' }}><MI name="info" size={14}/> {t('Deleted leads are kept here with their full history. Restore brings a lead back to the main list.')}</div>}
+      {!viewDeleted && <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: selected.size > 0 ? 0 : 12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.72rem', color:'#6b7280' }}>
           <span style={{ fontWeight:600 }}>{t('Select Range')}:</span>
           <input type="number" placeholder={t('From ID')} value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
@@ -246,9 +267,9 @@ export default function LeadsPage() {
           <input type="number" placeholder={t('To ID')} value={rangeTo} onChange={e => setRangeTo(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
           <button onClick={handleRangeSelect} style={{ ...BB, padding:'4px 10px', fontSize:'0.68rem' }}><MI name="select_all" size={13}/> {t('Select')}</button>
         </div>
-      </div>
+      </div>}
 
-      {selected.size > 0 && (
+      {selected.size > 0 && !viewDeleted && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'#eff6ff', borderRadius:10, marginBottom:12, border:'1px solid #bfdbfe', flexWrap:'wrap' }}>
           <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#1e40af' }}>{t('{n} selected', { n: selected.size })}</span>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
@@ -291,14 +312,14 @@ export default function LeadsPage() {
 
       {/* Table */}
       {loading ? <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>{t('Loading…')}</div> : leads.length === 0 ? (
-        <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name="groups" size={40}/><p style={{ marginTop:8 }}>{t('No leads found')}</p></div>
+        <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name={viewDeleted ? 'delete_sweep' : 'groups'} size={40}/><p style={{ marginTop:8 }}>{viewDeleted ? t('No deleted leads') : t('No leads found')}</p></div>
       ) : (
         <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)' }}>
           <table style={{ width:'100%', minWidth: 1700, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
             <thead>
               <tr style={{ background:'#f8fafc', borderBottom:'2px solid var(--border)' }}>
                 <th style={{ padding:'10px 8px', width:36, textAlign:'center' }}>
-                  <input type="checkbox" checked={selected.size === leads.length && leads.length > 0} onChange={toggleSelectAll} style={{ cursor:'pointer' }}/>
+                  {!viewDeleted && <input type="checkbox" checked={selected.size === leads.length && leads.length > 0} onChange={toggleSelectAll} style={{ cursor:'pointer' }}/>}
                 </th>
                 <th style={{...TH, width:40}}>#</th>
                 <th style={{...TH, width:'12%'}}>{t('Company')}</th>
@@ -314,7 +335,7 @@ export default function LeadsPage() {
                 <th style={{...TH, width:'8%'}}>{t('Priority')}</th>
                 <th style={{...TH, width:'10%'}}>{t('Status')}</th>
                 <th style={{...TH, width:'8%'}}>{t('Comment')}</th>
-                <th style={{...TH, width:'9%'}}>{t('Template Used')}</th>
+                <th style={{...TH, width:'9%'}}>{viewDeleted ? t('Deleted by') : t('Template Used')}</th>
                 <th style={{...TH, width:'6%'}}>{t('Logs')}</th>
                 <th style={{width:62}}></th>
               </tr>
@@ -327,7 +348,7 @@ export default function LeadsPage() {
                 return (
                   <tr key={l.id} style={{ backgroundColor: isSel ? '#eff6ff' : sc.row, borderBottom:'1px solid #f1f5f9', transition:'background .15s' }}>
                     <td style={{ padding:'8px', textAlign:'center' }}>
-                      <input type="checkbox" checked={isSel} onChange={() => toggleSelect(l.id)} style={{ cursor:'pointer' }}/>
+                      {!viewDeleted && <input type="checkbox" checked={isSel} onChange={() => toggleSelect(l.id)} style={{ cursor:'pointer' }}/>}
                     </td>
                     <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af', borderRight:'1px solid #e5e7eb'}}>{l.project_seq ?? l.id}</td>
                     <td tabIndex={0} style={{...TD}}>
@@ -344,20 +365,30 @@ export default function LeadsPage() {
                     <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.66rem', wordBreak:'break-all'}}>{l.phone||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.68rem', wordBreak:'break-all'}}>{l.email ? <a href={`mailto:${l.email}`} style={{color:'#2563eb'}}>{l.email}</a> : '—'}</td>
                     <td style={TD}>
+                      {viewDeleted ? <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span> : (
                       <select value={l.priority} onChange={e => handlePriorityChange(l.id, e.target.value)}
                         style={{ padding:'4px 8px', borderRadius:8, border:'1px solid #e5e7eb', fontSize:'0.72rem', fontWeight:700, background:pc.bg, color:pc.text, cursor:'pointer', width:'100%' }}>
                         {Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
-                      </select>
+                      </select>)}
                     </td>
                     <td style={TD}>
+                      {viewDeleted ? <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:600, background:sc.bg, color:sc.text, whiteSpace:'nowrap' }}>{t(sc.label)}</span> : (
                       <select value={l.status} onChange={e => handleStatusChange(l.id, e.target.value)}
                         style={{ padding:'4px 8px', borderRadius:8, border:'1px solid #e5e7eb', fontSize:'0.72rem', fontWeight:600, background:sc.bg, color:sc.text, cursor:'pointer', width:'100%' }}>
                         {Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
-                      </select>
+                      </select>)}
                     </td>
                     <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}>{l.notes||'—'}</td>
                     <td style={{...TD, minWidth:180, position:'relative'}}>
-                      <TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
+                      {viewDeleted ? (
+                        <div style={{ fontSize:'0.7rem' }}>
+                          <div style={{ fontWeight:600, color:'#991b1b' }}>{l.deleted_by_name || '—'}</div>
+                          <div style={{ color:'#9ca3af' }}>{l.deleted_at ? new Date(l.deleted_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : ''}</div>
+                          {l.delete_comment && <div style={{ marginTop:3, color:'#92400e', background:'#fffbeb', borderRadius:6, padding:'2px 6px', whiteSpace:'pre-wrap' }}>💬 {l.delete_comment}</div>}
+                        </div>
+                      ) : (
+                        <TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
+                      )}
                     </td>
                     <td style={{...TD, textAlign:'center'}}>
                       <button onClick={() => setLogLead(l)} style={{ ...BB, padding:'4px 8px', fontSize:'0.66rem', justifyContent:'center', width:'100%' }}>
@@ -365,8 +396,12 @@ export default function LeadsPage() {
                       </button>
                     </td>
                     <td style={{padding:'8px 4px', textAlign:'center', whiteSpace:'nowrap'}}>
+                      {viewDeleted ? (
+                        <button onClick={() => handleRestore(l.id)} title={t('Restore')} style={{ background:'none', border:'none', cursor:'pointer', color:'#059669' }}><MI name="restore_from_trash" size={16}/></button>
+                      ) : (<>
                       <button onClick={() => setEditLead(l)} title={t('Edit')} style={{ background:'none', border:'none', cursor:'pointer', color:'#2563eb' }}><MI name="edit" size={15}/></button>
                       <button onClick={() => handleDelete(l.id)} title={t('Delete')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
+                      </>)}
                     </td>
                   </tr>
                 );
@@ -396,7 +431,7 @@ export default function LeadsPage() {
 
       {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
       {editLead && <LeadFormModal t={t} projectId={projectId} lead={editLead} onClose={() => setEditLead(null)} onDone={() => { fetchLeads(); fetchStats(); setEditLead(null); }} />}
-      {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} onCancel={() => setPending(null)} onConfirm={async (comment) => { const run = pending.run; setPending(null); await run(comment); }} />}
+      {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} danger={pending.danger} onCancel={() => setPending(null)} onConfirm={async (comment) => { const run = pending.run; setPending(null); await run(comment); }} />}
       {logLead && <LeadLogModal t={t} lang={lang} lead={logLead} onClose={() => setLogLead(null)} />}
       {showUploadModal && <BulkUploadModal t={t} lang={lang} onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
     </div>
@@ -833,12 +868,14 @@ function LeadLogModal({ t, lang, lead, onClose }) {
   const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
   // Merge status history, activity log and email sends into one timeline
   const created = data && !data.logs.some(l => /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: '', icon: 'add', text: `${t('Lead created')}${lead.scraped_from ? ` (${t(lead.scraped_from)})` : ''}` }] : [];
-  const ICONS = { status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note' };
+  const ICONS = { status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
     if (l.kind === 'template') return `${t('Template')}: ${l.template || t('Clear template')}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
+    if (l.kind === 'delete') return t('Lead deleted');
+    if (l.kind === 'restore') return t('Lead restored');
     if (/^Added lead/.test(l.action)) return t('Lead created');
     return l.action;
   };
@@ -865,6 +902,12 @@ function LeadLogModal({ t, lang, lead, onClose }) {
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong></div>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last Contacted')}</div><strong>{fmt(lead.last_contacted_at)}</strong></div>
         </div>
+        {lead.deleted_at && (
+          <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#991b1b', padding:'10px 12px', borderRadius:8, fontSize:'0.8rem', marginBottom:12 }}>
+            <strong><MI name="delete" size={14}/> {t('Deleted by')} {lead.deleted_by_name || '—'}</strong> · {fmt(lead.deleted_at)}
+            {lead.delete_comment && <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>💬 {lead.delete_comment}</div>}
+          </div>
+        )}
         {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'8px 12px', borderRadius:8, fontSize:'0.78rem' }}>{err}</div>}
         {!data && !err && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>{t('Loading…')}</div>}
         {data && entries.length === 0 && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)', fontSize:'0.8rem' }}>{t('No log entries yet')}</div>}
@@ -891,7 +934,7 @@ function LeadLogModal({ t, lang, lead, onClose }) {
 // Human names for lead fields (used in the log)
 const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
 
-function CommentPrompt({ t, title, detail, onCancel, onConfirm }) {
+function CommentPrompt({ t, title, detail, danger, onCancel, onConfirm }) {
   const [comment, setComment] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -914,7 +957,7 @@ function CommentPrompt({ t, title, detail, onCancel, onConfirm }) {
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:14 }}>
             <button type="button" onClick={onCancel} className="btn btn-ghost">{t('Cancel')}</button>
-            <button type="submit" disabled={busy} className="btn btn-primary">{busy ? t('Saving…') : t('Save change')}</button>
+            <button type="submit" disabled={busy} className={danger ? 'btn btn-danger' : 'btn btn-primary'}>{busy ? t('Saving…') : danger ? t('Delete') : t('Save change')}</button>
           </div>
         </form>
       </div>

@@ -13,8 +13,8 @@ export async function GET(request) {
   const totalTasks = await queryOne('SELECT COUNT(*) as c FROM gtm_tasks');
   const completedTasks = await queryOne("SELECT COUNT(*) as c FROM gtm_tasks WHERE status = 'complete'");
   const pendingTasks = await queryOne("SELECT COUNT(*) as c FROM gtm_tasks WHERE status = 'pending'");
-  const totalLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE 1=1${pf}`);
-  const hotLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE priority = 'HOT'${pf}`);
+  const totalLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL${pf}`);
+  const hotLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND priority = 'HOT'${pf}`);
   const unreadMsgs = await queryOne('SELECT COUNT(*) as c FROM gtm_messages WHERE receiver_id = $1 AND is_read = 0', [user.id]);
   const totalUsers = isAdmin(user.role) ? await queryOne('SELECT COUNT(*) as c FROM gtm_users') : { c: 0 };
 

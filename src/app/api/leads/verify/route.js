@@ -27,7 +27,7 @@ export async function GET(request) {
   const pid = searchParams.get('project_id');
   const pf = pid ? ` WHERE project_id = ${parseInt(pid)}` : '';
 
-  const leads = await queryAll(`SELECT id, email, domain, company_name FROM gtm_leads${pf} ORDER BY id`);
+  const leads = await queryAll(`SELECT id, email, domain, company_name FROM gtm_leads WHERE deleted_at IS NULL${pf ? pf.replace(' WHERE ', ' AND ') : ''} ORDER BY id`);
 
   const stats = {
     total: leads.length,
@@ -78,7 +78,7 @@ export async function POST(request) {
   const { maxLeads = 100, offset = 0, smtpCheck = false } = await request.json();
 
   const leads = await queryAll(
-    "SELECT id, email, domain, company_name FROM gtm_leads WHERE email IS NOT NULL AND email != '' ORDER BY id LIMIT $1 OFFSET $2",
+    "SELECT id, email, domain, company_name FROM gtm_leads WHERE deleted_at IS NULL AND email IS NOT NULL AND email != '' ORDER BY id LIMIT $1 OFFSET $2",
     [maxLeads, offset]
   );
 
