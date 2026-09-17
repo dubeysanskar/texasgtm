@@ -40,6 +40,10 @@ export async function PUT(request, { params }) {
   fields.forEach(f => { if (b[f] !== undefined) { vals.push(b[f]); updates.push(`${f} = $${vals.length}`); } });
   vals.push(id);
   if (updates.length > 0) await query(`UPDATE gtm_leads SET ${updates.join(',')}, updated_at = NOW() WHERE id = $${vals.length}`, vals);
+  // Any status that implies an actual touch (call, email, meeting, reply…) counts as a contact
+  if (b.status && b.status !== lead.status && !['not_contacted'].includes(b.status) && b.last_contacted_at === undefined) {
+    await query('UPDATE gtm_leads SET last_contacted_at = NOW() WHERE id = $1', [id]);
+  }
 
   return NextResponse.json({ success: true });
 }

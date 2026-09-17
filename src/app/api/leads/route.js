@@ -67,7 +67,7 @@ export async function PATCH(request) {
   if (status) {
     // Per-lead history so each lead's log shows the bulk change
     const before = await queryAll(`SELECT id, status FROM gtm_leads WHERE id IN (${placeholders})`, ids);
-    await query(`UPDATE gtm_leads SET status = $${ids.length + 1}, updated_at = NOW() WHERE id IN (${placeholders})`, [...ids, status]);
+    await query(`UPDATE gtm_leads SET status = $${ids.length + 1}, updated_at = NOW()${status !== 'not_contacted' ? ', last_contacted_at = NOW()' : ''} WHERE id IN (${placeholders})`, [...ids, status]);
     for (const l of before) {
       if (l.status !== status) {
         await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)', [l.id, l.status, status, user.id, user.name, comment]);
