@@ -23,6 +23,8 @@ export default function Sidebar() {
     { href: '/dashboard', label: t('Dashboard'), icon: 'dashboard', show: canSee('dashboard') },
     { href: '/messages', label: t('Messages'), icon: 'chat', show: canSee('messages') },
     { href: '/tasks', label: t('Tasks'), icon: 'task_alt', show: canSee('tasks') },
+    { href: '/todos', label: t('To-Do List'), icon: 'checklist', show: canSee('todos') },
+    { href: '/daily-updates', label: t('Daily Updates'), icon: 'event_note', show: canSee('daily_updates') },
     { href: '/leads', label: t('Lead Management'), icon: 'leaderboard', show: canSee('leads') },
     { href: '/followups', label: t('Follow-ups'), icon: 'event_upcoming', show: canSee('leads') },
     { href: '/lead-scraper', label: t('Lead Scraper'), icon: 'travel_explore', show: canSee('lead_scraper') },

@@ -23,6 +23,8 @@ const NAV_FEATURES = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { key: 'messages', label: 'Messages', icon: 'chat' },
   { key: 'tasks', label: 'Tasks', icon: 'task_alt' },
+  { key: 'todos', label: 'To-Do List', icon: 'checklist' },
+  { key: 'daily_updates', label: 'Daily Updates', icon: 'event_note' },
   { key: 'leads', label: 'Lead Management', icon: 'leaderboard' },
   { key: 'lead_scraper', label: 'Lead Scraper', icon: 'travel_explore' },
   { key: 'templates', label: 'Templates', icon: 'description' },

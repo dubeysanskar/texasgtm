@@ -6,9 +6,9 @@ const AuthContext = createContext(null);
 // Default side-nav feature visibility per role (mirrors the original hardcoded rules).
 // Super admins always see everything — they are not part of this map.
 export const DEFAULT_NAV_FEATURES = {
-  manager: ['dashboard', 'messages', 'tasks', 'leads', 'team', 'documents'],
-  staff: ['dashboard', 'messages', 'tasks', 'documents'],
-  marketing: ['dashboard', 'messages', 'tasks', 'auto_email', 'marketing', 'documents'],
+  manager: ['dashboard', 'messages', 'tasks', 'todos', 'daily_updates', 'leads', 'team', 'documents'],
+  staff: ['dashboard', 'messages', 'tasks', 'todos', 'daily_updates', 'documents'],
+  marketing: ['dashboard', 'messages', 'tasks', 'todos', 'daily_updates', 'auto_email', 'marketing', 'documents'],
   viewer: ['dashboard', 'messages'],
 };
 

@@ -497,6 +497,7 @@ async function initSchema() {
     ['gtm_leads', 'delete_comment', "TEXT DEFAULT ''"],
     ['gtm_projects', 'language', "TEXT DEFAULT 'en'"],
     ['gtm_projects', 'scraper_config', "JSONB DEFAULT '{}'"],
+    ['gtm_projects', 'timezone', "TEXT DEFAULT 'UTC'"],
     ['gtm_users', 'language', "TEXT DEFAULT 'en'"],
     ['gtm_users', 'name_en', "TEXT DEFAULT ''"],
     ['gtm_users', 'job_title', "TEXT DEFAULT ''"],
@@ -562,6 +563,50 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gtm_watch_lead ON gtm_watch_subscriptions(scope, lead_id);
     CREATE INDEX IF NOT EXISTS idx_gtm_watch_user ON gtm_watch_subscriptions(scope, target_user_id);
     CREATE INDEX IF NOT EXISTS idx_gtm_watch_watcher ON gtm_watch_subscriptions(watcher_id);
+  `);
+
+  // Russian-language projects run on Moscow time, so "today" in the daily work log lines up with the
+  // team's actual day; only touches projects that were never explicitly set to something else.
+  await query("UPDATE gtm_projects SET timezone = 'Europe/Moscow' WHERE language = 'ru' AND (timezone IS NULL OR timezone = '' OR timezone = 'UTC')");
+
+  // Daily work log — one team-wide log per project, grouped by day (in the project's timezone).
+  await query(`
+    CREATE TABLE IF NOT EXISTS gtm_daily_updates (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER,
+      user_id INTEGER,
+      user_name TEXT DEFAULT '',
+      work_date TEXT NOT NULL,
+      text TEXT NOT NULL DEFAULT '',
+      translated_text TEXT DEFAULT '',
+      translated_lang TEXT DEFAULT '',
+      created_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_daily_updates_day ON gtm_daily_updates(project_id, work_date);
+    CREATE TABLE IF NOT EXISTS gtm_daily_update_files (
+      id SERIAL PRIMARY KEY,
+      update_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      size INTEGER DEFAULT 0,
+      mime TEXT DEFAULT '',
+      created_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_daily_files_update ON gtm_daily_update_files(update_id);
+  `);
+
+  // Personal to-do checklist, date-based, shown on the owner's dashboard.
+  await query(`
+    CREATE TABLE IF NOT EXISTS gtm_todos (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      todo_date TEXT NOT NULL,
+      status TEXT DEFAULT 'open',
+      done_at TEXT,
+      created_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_todos_user ON gtm_todos(user_id, status, todo_date);
   `);
 
   await backfillProjectSeq();

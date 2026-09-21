@@ -5,6 +5,7 @@ import { useProject } from '@/context/ProjectContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { TONE, bucketOf, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
+import { useTodos, TodoQuickAdd, TodoRow, bucketOf as todoBucketOf, TONE as TODO_TONE, todayStr } from '@/components/Todos';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size, verticalAlign: 'middle' }}>{name}</span>;
 
@@ -24,6 +25,11 @@ export default function DashboardPage() {
   }, [showFollowups, projectId]);
   useEffect(() => { loadFollowups(); }, [loadFollowups]);
   const fu = useFollowUpActions(loadFollowups);
+
+  // My to-do list
+  const showTodos = canSee('todos');
+  const { todos, reload: reloadTodos } = useTodos();
+  const today = todayStr();
 
   useEffect(() => { fetch(`/api/dashboard${projectId ? '?project_id=' + projectId : ''}`).then(r => r.json()).then(setData).finally(() => setLoading(false)); }, [projectId]);
 
@@ -93,6 +99,27 @@ export default function DashboardPage() {
         );
       })()}
       {fu.modals(projectId)}
+
+      {showTodos && (() => {
+        const overdue = todos.filter(td => todoBucketOf(td.todo_date, today) === 'overdue').length;
+        const dueToday = todos.filter(td => todoBucketOf(td.todo_date, today) === 'today').length;
+        return (
+          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
+              <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="checklist" size={18} /> {t('My to-dos')}</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {overdue > 0 && <span style={{ padding: '3px 10px', borderRadius: 20, background: TODO_TONE.overdue.bg, color: TODO_TONE.overdue.text, border: `1px solid ${TODO_TONE.overdue.border}`, fontSize: '0.72rem', fontWeight: 700 }}>{t('Overdue')}: {overdue}</span>}
+                <span style={{ padding: '3px 10px', borderRadius: 20, background: TODO_TONE.today.bg, color: TODO_TONE.today.text, border: `1px solid ${TODO_TONE.today.border}`, fontSize: '0.72rem', fontWeight: 700 }}>{t('Today')}: {dueToday}</span>
+                <Link href="/todos" style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', marginLeft: 6 }}>{t('Open list')} →</Link>
+              </div>
+            </div>
+            <div style={{ padding: '10px 18px 4px' }}><TodoQuickAdd compact onAdded={reloadTodos} /></div>
+            {todos.length === 0
+              ? <p className="no-data" style={{ padding: 24 }}>{t('Nothing on your list. Add your first to-do above.')}</p>
+              : todos.slice(0, 8).map(td => <TodoRow key={td.id} todo={td} today={today} onToggled={reloadTodos} onDeleted={reloadTodos} />)}
+          </div>
+        );
+      })()}
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16, marginBottom: 24 }}>
