@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import { useRouter } from 'next/navigation';
 import { DueChip, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
+import { LeadWatchersPanel } from '@/components/Watchers';
 
 const SC = {
   not_contacted:   { label: 'Not Contacted',   bg: '#F1EFE8', text: '#5F5E5A', dot: '#888780', row: '#ffffff' },
@@ -913,12 +914,12 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
   const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
   // Merge status history, activity log and email sends into one timeline
   // How the lead got into the CRM (scraped_from); a missing value means it was added by hand
-  const SOURCE = { bulk_upload: 'via bulk upload', excel_import: 'via initial data import', google_maps: 'via Lead Scraper (Google Maps)', '2gis': 'via Lead Scraper (2GIS)', web_search: 'via Lead Scraper (web search)', google_dork: 'via Lead Scraper (web search)', 'hh.ru': 'via Lead Scraper (hh.ru)', superjob: 'via Lead Scraper (SuperJob)' };
+  const SOURCE = { manual: 'manually', bulk_upload: 'via bulk upload', excel_import: 'via initial data import', google_maps: 'via Lead Scraper (Google Maps)', '2gis': 'via Lead Scraper (2GIS)', web_search: 'via Lead Scraper (web search)', google_dork: 'via Lead Scraper (web search)', 'hh.ru': 'via Lead Scraper (hh.ru)', superjob: 'via Lead Scraper (SuperJob)' };
   const how = (src) => t(SOURCE[src] || (src ? 'via {src}' : 'manually'), { src });
   const createdBy = data?.lead?.created_by_name || '';
   // Leads added before creation was logged (bulk upload, scraper, initial import) get a synthesized entry
   const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}` }] : [];
-  const ICONS = { create: 'add', note: 'chat', followup: 'event', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
+  const ICONS = { create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
@@ -929,6 +930,11 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
       const when = l.due_at ? new Date(l.due_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined, { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
       const EV = { created: 'Follow-up scheduled', done: 'Follow-up completed', rescheduled: 'Follow-up rescheduled', updated: 'Follow-up updated', deleted: 'Follow-up removed', reopened: 'Follow-up reopened' };
       return `${t(EV[l.event] || 'Follow-up')}: "${l.title}"${when ? ` · ${when}` : ''}${l.assignee ? ` · ${t('Assigned to')} ${l.assignee}` : ''}`;
+    }
+    if (l.kind === 'watch') {
+      if (l.event === 'added') return l.self ? t('Subscribed to notifications') : t('Added {name} as CC', { name: l.watcher });
+      if (l.event === 'removed') return l.self ? t('Unsubscribed from notifications') : t('Removed {name} from CC', { name: l.watcher });
+      return l.action;
     }
     if (l.kind === 'delete') return t('Lead deleted');
     if (l.kind === 'restore') return t('Lead restored');
@@ -959,6 +965,7 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong>{data && <div style={{ color:'var(--text-dim)', marginTop:2 }}>{t('Added by')} {createdBy || t('System')} · {how(lead.scraped_from)}</div>}</div>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last Contacted')}</div><strong>{fmt(lead.last_contacted_at)}</strong></div>
         </div>
+        <LeadWatchersPanel leadId={lead.id} />
         {lead.deleted_at && (
           <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#991b1b', padding:'10px 12px', borderRadius:8, fontSize:'0.8rem', marginBottom:12 }}>
             <strong><MI name="delete" size={14}/> {t('Deleted by')} {lead.deleted_by_name || '—'}</strong> · {fmt(lead.deleted_at)}

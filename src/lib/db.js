@@ -542,6 +542,28 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gtm_followups_remind ON gtm_followups(status, remind_at);
   `);
 
+  // Watch subscriptions — who gets a portal + email notification for lead activity.
+  // scope='lead': notified about everything on that one lead (lead_id set). Anyone who comments on a
+  // lead is auto-subscribed here (source='comment'); a super admin can also CC someone in explicitly
+  // (source='cc'). scope='user': notified about everything a specific team member does on any lead
+  // (target_user_id set) — super-admin only, e.g. "CC me on everything Danil does".
+  await query(`
+    CREATE TABLE IF NOT EXISTS gtm_watch_subscriptions (
+      id SERIAL PRIMARY KEY,
+      watcher_id INTEGER NOT NULL,
+      scope TEXT NOT NULL,
+      lead_id INTEGER,
+      target_user_id INTEGER,
+      source TEXT DEFAULT 'cc',
+      added_by INTEGER,
+      added_by_name TEXT DEFAULT '',
+      created_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_watch_lead ON gtm_watch_subscriptions(scope, lead_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_watch_user ON gtm_watch_subscriptions(scope, target_user_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_watch_watcher ON gtm_watch_subscriptions(watcher_id);
+  `);
+
   await backfillProjectSeq();
 
   // Seed default settings

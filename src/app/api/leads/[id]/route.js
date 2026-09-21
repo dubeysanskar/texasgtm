@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 const { queryOne, query } = require('@/lib/db');
 const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
+const { logLeadActivity } = require('@/lib/watchers');
 
 export async function PUT(request, { params }) {
   const user = getUserFromRequest(request);
@@ -10,10 +11,10 @@ export async function PUT(request, { params }) {
   const lead = await queryOne('SELECT * FROM gtm_leads WHERE id = $1', [id]);
   if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Every change carries the user's comment (why it was made); it is stored with the log entry.
+  // Every change carries the user's comment (why it was made); it is stored with the log entry and
+  // fanned out to anyone watching this lead (CC'd or watching this user).
   const comment = typeof b.comment === 'string' ? b.comment.trim().slice(0, 1000) : '';
-  const log = (action, kind, extra = {}) => query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [user.id, user.name, user.role, action, 'lead', 'lead', id, lead.project_id || null, JSON.stringify({ kind, comment, ...extra })]);
+  const log = (action, kind, extra = {}) => logLeadActivity(user, lead, action, { kind, comment, ...extra });
 
   if (b.status && b.status !== lead.status) {
     await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)',
@@ -78,16 +79,14 @@ export async function DELETE(request, { params }) {
     if (!isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
     if (!lead.deleted_at) return NextResponse.json({ error: 'Move the lead to Deleted leads first' }, { status: 400 });
     await query('DELETE FROM gtm_leads WHERE id = $1', [id]);
-    await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [user.id, user.name, user.role, `Permanently deleted lead #${lead.project_seq ?? lead.id} "${lead.company_name}"`, 'lead', 'lead', id, lead.project_id || null, JSON.stringify({ kind: 'purge', comment })]);
+    await logLeadActivity(user, lead, `Permanently deleted lead #${lead.project_seq ?? lead.id} "${lead.company_name}"`, { kind: 'purge', comment });
     return NextResponse.json({ success: true, permanent: true });
   }
   if (lead.deleted_at) return NextResponse.json({ success: true });
   // Free the dedup key so the same company can be added again while this copy sits in the bin
   await query("UPDATE gtm_leads SET deleted_at = NOW(), deleted_by = $1, deleted_by_name = $2, delete_comment = $3, dedup_key = dedup_key || '__deleted_' || CAST(id AS TEXT), updated_at = NOW() WHERE id = $4",
     [user.id, user.name, comment, id]);
-  await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [user.id, user.name, user.role, `Deleted lead "${lead.company_name}"`, 'lead', 'lead', id, lead.project_id || null, JSON.stringify({ kind: 'delete', comment })]);
+  await logLeadActivity(user, lead, `Deleted lead "${lead.company_name}"`, { kind: 'delete', comment });
   return NextResponse.json({ success: true });
 }
 
@@ -98,14 +97,13 @@ export async function POST(request, { params }) {
   const { id } = await params;
   let body = {}; try { body = await request.json(); } catch {}
   const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 1000) : '';
-  const lead = await queryOne('SELECT id, company_name, project_id, dedup_key, deleted_at FROM gtm_leads WHERE id = $1', [id]);
+  const lead = await queryOne('SELECT id, company_name, project_id, project_seq, dedup_key, deleted_at FROM gtm_leads WHERE id = $1', [id]);
   if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (!lead.deleted_at) return NextResponse.json({ success: true });
   const originalKey = String(lead.dedup_key || '').replace(/__deleted_\d+$/, '');
   const clash = originalKey ? await queryOne('SELECT id FROM gtm_leads WHERE dedup_key = $1 AND deleted_at IS NULL', [originalKey]) : null;
   await query("UPDATE gtm_leads SET deleted_at = NULL, deleted_by = NULL, deleted_by_name = '', delete_comment = '', dedup_key = $1, updated_at = NOW() WHERE id = $2",
     [clash ? lead.dedup_key : originalKey, id]);
-  await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [user.id, user.name, user.role, `Restored lead "${lead.company_name}"`, 'lead', 'lead', id, lead.project_id || null, JSON.stringify({ kind: 'restore', comment })]);
+  await logLeadActivity(user, lead, `Restored lead "${lead.company_name}"`, { kind: 'restore', comment });
   return NextResponse.json({ success: true, duplicate_of_live_lead: !!clash });
 }

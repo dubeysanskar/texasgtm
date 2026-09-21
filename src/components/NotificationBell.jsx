@@ -42,7 +42,7 @@ export default function NotificationBell() {
     setCount(0);
   };
 
-  const ICONS = { task: 'task_alt', message: 'chat', lead: 'leaderboard', system: 'info', general: 'notifications' };
+  const ICONS = { task: 'task_alt', message: 'chat', lead: 'leaderboard', followup: 'event', lead_watch: 'visibility', system: 'info', general: 'notifications' };
 
   return (
     <div style={{ position: 'relative' }}>

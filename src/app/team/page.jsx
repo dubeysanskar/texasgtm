@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
+import { UserWatchModal } from '@/components/Watchers';
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size, verticalAlign: 'middle' }}>{name}</span>;
 
 const ROLE_MAP = {
@@ -42,6 +43,7 @@ export default function TeamPage() {
   }
 
   const isSuperAdmin = user?.role === 'super_admin';
+  const [watchMember, setWatchMember] = useState(null);
 
   if (loading) return <div className="page-content"><div className="skeleton" style={{ height: 300, borderRadius: 12 }} /></div>;
 
@@ -124,10 +126,16 @@ export default function TeamPage() {
                   </span>
                 </div>
               </div>
+              {isSuperAdmin && (
+                <button onClick={() => setWatchMember(m)} title={t('Watch this member’s activity')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-dim)', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <MI name="visibility" size={16} />
+                </button>
+              )}
             </div>
           );
         })}
       </div>
+      {watchMember && <UserWatchModal member={watchMember} onClose={() => setWatchMember(null)} />}
     </div>
   );
 }

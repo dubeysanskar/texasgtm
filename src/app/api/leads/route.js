@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 const { queryAll, queryOne, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
+const { logLeadActivity } = require('@/lib/watchers');
 
 export async function GET(request) {
   const user = getUserFromRequest(request);
@@ -52,8 +53,7 @@ export async function POST(request) {
     [b.company_name.trim(),b.domain||'',b.sector||'other',b.priority||'MEDIUM',b.status||'not_contacted',b.city||'',b.region||'',b.country||'',b.company_size||'',b.pain_point||'',b.decision_maker_title||'',b.phone||'',b.email||'',b.contact_method||'',b.source_url||'',b.find_instructions||'',b.notes||'',dedup,user.id,b.project_id||null,b.mobile_personal||'',seq]
   );
   const comment = typeof b.comment === 'string' ? b.comment.trim().slice(0, 1000) : '';
-  await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [user.id, user.name, user.role, `Added lead "${b.company_name}"`, 'lead', 'lead', result.rows[0].id, b.project_id || null, JSON.stringify({ kind: 'create', comment, source: 'manual' })]);
+  await logLeadActivity(user, { id: result.rows[0].id, company_name: b.company_name.trim(), project_id: b.project_id || null, project_seq: seq }, `Added lead "${b.company_name}"`, { kind: 'create', comment, source: 'manual' });
 
   return NextResponse.json({ id: result.rows[0].id, project_seq: seq });
 }
@@ -70,26 +70,25 @@ export async function PATCH(request) {
   const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
   
   if (status) {
-    // Per-lead history so each lead's log shows the bulk change
-    const before = await queryAll(`SELECT id, status FROM gtm_leads WHERE id IN (${placeholders})`, ids);
+    // Per-lead history so each lead's log (and its watchers) shows the bulk change
+    const before = await queryAll(`SELECT id, status, company_name, project_id, project_seq FROM gtm_leads WHERE id IN (${placeholders})`, ids);
     await query(`UPDATE gtm_leads SET status = $${ids.length + 1}, updated_at = NOW()${status !== 'not_contacted' ? ', last_contacted_at = NOW()' : ''} WHERE id IN (${placeholders})`, [...ids, status]);
     for (const l of before) {
       if (l.status !== status) {
         await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)', [l.id, l.status, status, user.id, user.name, comment]);
-        await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-          [user.id, user.name, user.role, `Changed status: ${l.status} → ${status} (bulk)`, 'lead', 'lead', l.id, JSON.stringify({ kind: 'status', comment, from: l.status, to: status, bulk: true })]);
+        await logLeadActivity(user, l, `Changed status: ${l.status} → ${status} (bulk)`, { kind: 'status', comment, from: l.status, to: status, bulk: true });
       }
     }
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',
       [user.id, user.name, user.role, `Bulk updated ${ids.length} leads to "${status}"`, 'lead', 'lead']);
   }
-  
+
   if (template_id !== undefined) {
+    const leads = await queryAll(`SELECT id, company_name, project_id, project_seq FROM gtm_leads WHERE id IN (${placeholders})`, ids);
     await query(`UPDATE gtm_leads SET last_template_id = $${ids.length + 1}, updated_at = NOW() WHERE id IN (${placeholders})`, [...ids, template_id]);
     const tpl = template_id ? await queryOne('SELECT name FROM gtm_templates WHERE id = $1', [template_id]) : null;
-    for (const lid of ids) {
-      await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-        [user.id, user.name, user.role, tpl ? `Assigned template "${tpl.name}" (bulk)` : 'Cleared template (bulk)', 'lead', 'lead', lid, JSON.stringify({ kind: 'template', comment, template: tpl?.name || null, bulk: true })]);
+    for (const l of leads) {
+      await logLeadActivity(user, l, tpl ? `Assigned template "${tpl.name}" (bulk)` : 'Cleared template (bulk)', { kind: 'template', comment, template: tpl?.name || null, bulk: true });
     }
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',
       [user.id, user.name, user.role, `Bulk assigned template to ${ids.length} leads`, 'lead', 'lead']);

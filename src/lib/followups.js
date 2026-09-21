@@ -6,6 +6,7 @@
  * the time in reminder emails the way the user entered it.
  */
 const { query, queryOne, queryAll } = require('./db');
+const { logLeadActivity } = require('./watchers');
 
 // Offsets offered in the UI (minutes before the due time); null = no email reminder
 const REMIND_OPTIONS = [null, 0, 15, 60, 1440];
@@ -22,12 +23,9 @@ function toIso(v) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/** Write an entry into the lead's log (shown in "View log"). */
+/** Write an entry into the lead's log (shown in "View log") and notify anyone watching it. */
 async function logToLead(user, lead, action, meta) {
-  await query(
-    'INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [user?.id || null, user?.name || 'System', user?.role || 'system', action, 'lead', 'lead', lead.id, lead.project_id || null, JSON.stringify(meta)]
-  );
+  await logLeadActivity(user, lead, action, meta);
 }
 
 function fmtWhen(iso, tz, lang) {
