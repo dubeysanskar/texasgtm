@@ -173,6 +173,11 @@ export const RU = {
   'Delete permanently': 'Удалить навсегда', 'This cannot be undone.': 'Это действие необратимо.', 'Permanently deleted': 'Удалён навсегда',
   'Move the lead to Deleted leads first': 'Сначала переместите лид в «Удалённые лиды»',
   'Restored. Note: a live lead with the same company already exists.': 'Восстановлено. Обратите внимание: активный лид с такой же компанией уже существует.',
+  'Added by': 'Добавил(а):', 'manually': 'вручную', 'via bulk upload': 'через массовую загрузку', 'via initial data import': 'при первичном импорте данных',
+  'via Lead Scraper (Google Maps)': 'через сбор лидов (Google Maps)', 'via Lead Scraper (2GIS)': 'через сбор лидов (2GIS)', 'via Lead Scraper (web search)': 'через сбор лидов (веб-поиск)',
+  'via Lead Scraper (hh.ru)': 'через сбор лидов (hh.ru)', 'via Lead Scraper (SuperJob)': 'через сбор лидов (SuperJob)', 'via {src}': 'через {src}',
+  'Log comment for this lead': 'Комментарий в журнал лида', 'Please enter a comment for this lead': 'Введите комментарий для этого лида',
+  'e.g. met at exhibition, asked for a quote': 'напр. познакомились на выставке, запросили КП',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

@@ -460,12 +460,12 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
   const [err, setErr] = useState('');
   async function save(e) {
     e.preventDefault(); setErr('');
-    if (isEdit && !comment.trim()) { setErr(t('Please enter a comment describing this change')); return; }
+    if (!comment.trim()) { setErr(t(isEdit ? 'Please enter a comment describing this change' : 'Please enter a comment for this lead')); return; }
     setSaving(true);
     try {
       const r = isEdit
         ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment }) })
-        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId }) });
+        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId, comment }) });
       if (r.ok) { onDone(); return; }
       const d = await r.json().catch(() => ({}));
       setErr(t(d.error || (r.status >= 500 ? 'Server error — the database may be unavailable. Please try again shortly.' : 'Failed')));
@@ -497,12 +497,10 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Source of lead')}</label><input value={f.find_instructions} onChange={e => setF({...f, find_instructions:e.target.value})} placeholder={t('e.g. exhibition, LinkedIn, referral')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Requirement needed')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Comment')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
-            {isEdit && (
-              <div className="leads-form-field" style={{gridColumn:'1/-1', padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8 }}>
-                <label style={{ color:'#92400e' }}>{t('Comment for this change')} *</label>
-                <textarea rows={2} value={comment} onChange={e => setComment(e.target.value)} placeholder={t('Why are you making this change?')} style={{ fontFamily:'inherit' }} />
-              </div>
-            )}
+            <div className="leads-form-field" style={{gridColumn:'1/-1', padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8 }}>
+              <label style={{ color:'#92400e' }}>{t(isEdit ? 'Comment for this change' : 'Log comment for this lead')} *</label>
+              <textarea rows={2} value={comment} onChange={e => setComment(e.target.value)} placeholder={t(isEdit ? 'Why are you making this change?' : 'e.g. met at exhibition, asked for a quote')} style={{ fontFamily:'inherit' }} />
+            </div>
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
             <button type="button" onClick={onClose} className="btn btn-ghost">{t('Cancel')}</button>
@@ -876,8 +874,13 @@ function LeadLogModal({ t, lang, lead, onClose }) {
   }, [lead.id]);
   const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
   // Merge status history, activity log and email sends into one timeline
-  const created = data && !data.logs.some(l => /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: '', icon: 'add', text: `${t('Lead created')}${lead.scraped_from ? ` (${t(lead.scraped_from)})` : ''}` }] : [];
-  const ICONS = { status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
+  // How the lead got into the CRM (scraped_from); a missing value means it was added by hand
+  const SOURCE = { bulk_upload: 'via bulk upload', excel_import: 'via initial data import', google_maps: 'via Lead Scraper (Google Maps)', '2gis': 'via Lead Scraper (2GIS)', web_search: 'via Lead Scraper (web search)', google_dork: 'via Lead Scraper (web search)', 'hh.ru': 'via Lead Scraper (hh.ru)', superjob: 'via Lead Scraper (SuperJob)' };
+  const how = (src) => t(SOURCE[src] || (src ? 'via {src}' : 'manually'), { src });
+  const createdBy = data?.lead?.created_by_name || '';
+  // Leads added before creation was logged (bulk upload, scraper, initial import) get a synthesized entry
+  const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}` }] : [];
+  const ICONS = { create: 'add', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
@@ -886,14 +889,14 @@ function LeadLogModal({ t, lang, lead, onClose }) {
     if (l.kind === 'delete') return t('Lead deleted');
     if (l.kind === 'restore') return t('Lead restored');
     if (l.kind === 'purge') return t('Permanently deleted');
-    if (/^Added lead/.test(l.action)) return t('Lead created');
+    if (l.kind === 'create' || /^Added lead/.test(l.action)) return `${t('Lead created')} ${how(l.source || lead.scraped_from)}`;
     return l.action;
   };
   const entries = data ? [
     ...created,
     // status history rows only for legacy entries that have no matching activity log (new changes are logged with a comment)
     ...data.history.filter(h => !data.logs.some(l => l.kind === 'status' && Math.abs(new Date(l.created_at) - new Date(h.changed_at)) < 5000)).map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}`, comment: h.note && h.note !== 'bulk' ? h.note : '' })),
-    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || 'edit_note', text: describe(l), comment: l.comment || '', changes: l.changes })),
+    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || (/^Added lead/.test(l.action) ? 'add' : 'edit_note'), text: describe(l), comment: l.comment || '', changes: l.changes })),
     ...data.sends.map(sd => ({ at: sd.sent_at || sd.created_at, who: t('Auto Email'), icon: 'mail', text: `${t('Email')}: "${sd.subject}" — ${t(sd.status)}${sd.opened_at ? ` · ${t('Opened')} ${fmt(sd.opened_at)}` : ''}` })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at)) : [];
   return (
@@ -909,7 +912,7 @@ function LeadLogModal({ t, lang, lead, onClose }) {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:8, marginBottom:14, fontSize:'0.74rem' }}>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Status')}</div><strong>{t(SC[lead.status]?.label || lead.status)}</strong></div>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Priority')}</div><strong>{t(PC[lead.priority]?.label || lead.priority)}</strong></div>
-          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong></div>
+          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong>{data && <div style={{ color:'var(--text-dim)', marginTop:2 }}>{t('Added by')} {createdBy || t('System')} · {how(lead.scraped_from)}</div>}</div>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last Contacted')}</div><strong>{fmt(lead.last_contacted_at)}</strong></div>
         </div>
         {lead.deleted_at && (

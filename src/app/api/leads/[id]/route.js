@@ -54,7 +54,7 @@ export async function GET(request, { params }) {
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
   const { queryAll } = require('@/lib/db');
-  const lead = await queryOne('SELECT * FROM gtm_leads WHERE id = $1', [id]);
+  const lead = await queryOne('SELECT l.*, u.name AS created_by_name FROM gtm_leads l LEFT JOIN gtm_users u ON u.id = l.created_by WHERE l.id = $1', [id]);
   if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const history = await queryAll('SELECT id, old_status, new_status, changed_by_name, note, changed_at FROM gtm_lead_status_history WHERE lead_id = $1 ORDER BY changed_at DESC', [id]);
   const rawLogs = await queryAll("SELECT id, user_name, user_role, action, metadata, created_at FROM gtm_activity_logs WHERE entity_type = 'lead' AND entity_id = $1 ORDER BY created_at DESC LIMIT 200", [id]);
