@@ -24,6 +24,7 @@ export default function Sidebar() {
     { href: '/messages', label: t('Messages'), icon: 'chat', show: canSee('messages') },
     { href: '/tasks', label: t('Tasks'), icon: 'task_alt', show: canSee('tasks') },
     { href: '/leads', label: t('Lead Management'), icon: 'leaderboard', show: canSee('leads') },
+    { href: '/followups', label: t('Follow-ups'), icon: 'event_upcoming', show: canSee('leads') },
     { href: '/lead-scraper', label: t('Lead Scraper'), icon: 'travel_explore', show: canSee('lead_scraper') },
     { href: '/templates', label: t('Templates'), icon: 'description', show: canSee('templates') },
     { href: '/auto-email', label: t('Auto Email'), icon: 'forward_to_inbox', show: canSee('auto_email') },

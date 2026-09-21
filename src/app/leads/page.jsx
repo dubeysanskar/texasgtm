@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import { useRouter } from 'next/navigation';
+import { DueChip, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
 
 const SC = {
   not_contacted:   { label: 'Not Contacted',   bg: '#F1EFE8', text: '#5F5E5A', dot: '#888780', row: '#ffffff' },
@@ -62,6 +63,14 @@ export default function LeadsPage() {
   const [viewDeleted, setViewDeleted] = useState(false); // recycle bin view // { title, detail, run(comment) } — comment prompt for a change
 
   useEffect(() => { if (!authLoading && !user) router.push('/'); }, [user, authLoading, router]);
+  // /leads?log=<id> (links from Dashboard / Follow-ups) opens that lead's log
+  useEffect(() => {
+    if (!user) return;
+    const id = new URLSearchParams(window.location.search).get('log');
+    if (!id) return;
+    fetch(`/api/leads/${id}`).then(r => r.json()).then(d => { if (d.lead) setLogLead(d.lead); }).catch(() => {});
+    window.history.replaceState(null, '', '/leads');
+  }, [user]);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -97,6 +106,7 @@ export default function LeadsPage() {
     if (!r.ok) { const d = await r.json().catch(() => ({})); alert(t(d.error || (r.status >= 500 ? 'Server error — the database may be unavailable. Please try again shortly.' : 'Failed'))); }
     return r;
   };
+  const leadFu = useFollowUpActions(() => fetchLeads());
   const leadName = (id) => leads.find(l => l.id === id)?.company_name || '';
 
   function handleTemplateChange(leadId, tplId) {
@@ -402,6 +412,9 @@ export default function LeadsPage() {
                       <button onClick={() => setLogLead(l)} style={{ ...BB, padding:'4px 8px', fontSize:'0.66rem', justifyContent:'center', width:'100%' }}>
                         <MI name="history" size={13}/> {t('View log')}
                       </button>
+                      {!viewDeleted && (l.next_followup_at
+                        ? <div style={{ marginTop:4 }}><DueChip compact iso={l.next_followup_at} t={t} lang={lang} onClick={() => setLogLead(l)} /></div>
+                        : <button onClick={() => leadFu.create(l)} title={t('Schedule a follow-up')} style={{ ...BB, marginTop:4, padding:'3px 6px', fontSize:'0.62rem', justifyContent:'center', width:'100%', color:'#64748b' }}><MI name="event" size={12}/> {t('Follow-up')}</button>)}
                     </td>
                     <td style={{padding:'8px 4px', textAlign:'center', whiteSpace:'nowrap'}}>
                       {viewDeleted ? (<>
@@ -441,7 +454,8 @@ export default function LeadsPage() {
       {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
       {editLead && <LeadFormModal t={t} projectId={projectId} lead={editLead} onClose={() => setEditLead(null)} onDone={() => { fetchLeads(); fetchStats(); setEditLead(null); }} />}
       {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} danger={pending.danger} onCancel={() => setPending(null)} onConfirm={async (comment) => { const run = pending.run; setPending(null); await run(comment); }} />}
-      {logLead && <LeadLogModal t={t} lang={lang} lead={logLead} onClose={() => setLogLead(null)} />}
+      {logLead && <LeadLogModal t={t} lang={lang} lead={logLead} projectId={projectId} readOnly={!!logLead.deleted_at} onChanged={() => { fetchLeads(); fetchStats(); }} onClose={() => setLogLead(null)} />}
+      {leadFu.modals(projectId)}
       {showUploadModal && <BulkUploadModal t={t} lang={lang} onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
     </div>
   );
@@ -866,12 +880,36 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
   );
 }
 
-function LeadLogModal({ t, lang, lead, onClose }) {
+function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChanged, onClose }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
-  useEffect(() => {
-    fetch(`/api/leads/${lead.id}`).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); setData(d); }).catch(e => setErr(e.message));
-  }, [lead.id]);
+  const [fus, setFus] = useState([]);
+  const [note, setNote] = useState('');
+  const [newStatus, setNewStatus] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [postErr, setPostErr] = useState('');
+  const lead = data?.lead ? { ...initialLead, ...data.lead } : initialLead;
+  const reload = useCallback(() => {
+    fetch(`/api/leads/${initialLead.id}`).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); setData(d); }).catch(e => setErr(e.message));
+    fetch(`/api/followups?lead_id=${initialLead.id}&status=all`).then(r => r.json()).then(d => setFus(d.followups || [])).catch(() => {});
+  }, [initialLead.id]);
+  useEffect(() => { reload(); }, [reload]);
+  const fu = useFollowUpActions(() => { reload(); onChanged?.(); });
+  // "Add an update": a comment, optionally together with a status change
+  async function postUpdate(e) {
+    e.preventDefault(); setPostErr('');
+    if (!note.trim()) { setPostErr(t('Please enter a comment')); return; }
+    setPosting(true);
+    try {
+      const r = newStatus && newStatus !== lead.status
+        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus, comment: note.trim() }) })
+        : await fetch(`/api/leads/${lead.id}/comment`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment: note.trim() }) });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
+      setNote(''); setNewStatus(''); reload(); onChanged?.();
+    } catch (e2) { setPostErr(t(e2.message)); }
+    finally { setPosting(false); }
+  }
+  const openFus = fus.filter(f => f.status === 'open');
   const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
   // Merge status history, activity log and email sends into one timeline
   // How the lead got into the CRM (scraped_from); a missing value means it was added by hand
@@ -880,12 +918,18 @@ function LeadLogModal({ t, lang, lead, onClose }) {
   const createdBy = data?.lead?.created_by_name || '';
   // Leads added before creation was logged (bulk upload, scraper, initial import) get a synthesized entry
   const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}` }] : [];
-  const ICONS = { create: 'add', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
+  const ICONS = { create: 'add', note: 'chat', followup: 'event', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
     if (l.kind === 'template') return `${t('Template')}: ${l.template || t('Clear template')}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
+    if (l.kind === 'note') return t('Comment');
+    if (l.kind === 'followup') {
+      const when = l.due_at ? new Date(l.due_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined, { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+      const EV = { created: 'Follow-up scheduled', done: 'Follow-up completed', rescheduled: 'Follow-up rescheduled', updated: 'Follow-up updated', deleted: 'Follow-up removed', reopened: 'Follow-up reopened' };
+      return `${t(EV[l.event] || 'Follow-up')}: "${l.title}"${when ? ` · ${when}` : ''}${l.assignee ? ` · ${t('Assigned to')} ${l.assignee}` : ''}`;
+    }
     if (l.kind === 'delete') return t('Lead deleted');
     if (l.kind === 'restore') return t('Lead restored');
     if (l.kind === 'purge') return t('Permanently deleted');
@@ -921,6 +965,28 @@ function LeadLogModal({ t, lang, lead, onClose }) {
             {lead.delete_comment && <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>💬 {lead.delete_comment}</div>}
           </div>
         )}
+        {!readOnly && (
+          <form onSubmit={postUpdate} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:10, marginBottom:12, background:'#fcfcfd' }}>
+            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-dim)', marginBottom:6, display:'flex', alignItems:'center', gap:6 }}><MI name="add_comment" size={15}/> {t('Add an update')}</div>
+            <textarea rows={2} value={note} onChange={e => { setNote(e.target.value); setPostErr(''); }} placeholder={t('e.g. Called, spoke to the director — asked to send a proposal')} style={{ width:'100%', fontFamily:'inherit', fontSize:'0.82rem', border:'1px solid var(--border)', borderRadius:8, padding:'7px 10px', resize:'vertical' }} />
+            {postErr && <div style={{ color:'#dc2626', fontSize:'0.74rem', marginTop:4 }}>{postErr}</div>}
+            <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginTop:6 }}>
+              <select value={newStatus} onChange={e => setNewStatus(e.target.value)} style={{ padding:'6px 8px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.76rem', fontFamily:'inherit' }}>
+                <option value="">{t('Keep status')}: {t(SC[lead.status]?.label || lead.status)}</option>
+                {Object.entries(SC).filter(([v]) => v !== lead.status).map(([v, c]) => <option key={v} value={v}>{t('Change status to')}: {t(c.label)}</option>)}
+              </select>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => fu.create(lead)}><MI name="event" size={15}/> {t('Schedule follow-up')}</button>
+              <button type="submit" disabled={posting} className="btn btn-sm btn-primary" style={{ marginLeft:'auto' }}><MI name="send" size={14}/> {posting ? t('Saving…') : t('Add to log')}</button>
+            </div>
+          </form>
+        )}
+        {openFus.length > 0 && (
+          <div style={{ border:'1px solid #fde68a', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+            <div style={{ padding:'7px 12px', background:'#fffbeb', color:'#92400e', fontWeight:700, fontSize:'0.72rem', display:'flex', alignItems:'center', gap:6 }}><MI name="event_upcoming" size={15}/> {t('Upcoming follow-ups')} ({openFus.length})</div>
+            {openFus.map(f => <FollowUpRow key={f.id} f={f} showLead={false} {...(readOnly ? {} : fu.actions)} />)}
+          </div>
+        )}
+        {fu.modals(projectId)}
         {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'8px 12px', borderRadius:8, fontSize:'0.78rem' }}>{err}</div>}
         {!data && !err && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>{t('Loading…')}</div>}
         {data && entries.length === 0 && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)', fontSize:'0.8rem' }}>{t('No log entries yet')}</div>}

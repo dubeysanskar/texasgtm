@@ -1,16 +1,29 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { TONE, bucketOf, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size, verticalAlign: 'middle' }}>{name}</span>;
 
 export default function DashboardPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, canSee } = useAuth();
+  const router = useRouter();
   const { projectId, activeProject, t } = useProject();
   const [data, setData] = useState({ stats: {} });
   const [loading, setLoading] = useState(true);
+
+  // Follow-ups assigned to me (lead reminders)
+  const showFollowups = canSee('leads');
+  const [followups, setFollowups] = useState([]);
+  const loadFollowups = useCallback(() => {
+    if (!showFollowups) return;
+    fetch(`/api/followups?status=open&mine=1${projectId ? '&project_id=' + projectId : ''}`).then(r => r.json()).then(d => setFollowups(d.followups || [])).catch(() => {});
+  }, [showFollowups, projectId]);
+  useEffect(() => { loadFollowups(); }, [loadFollowups]);
+  const fu = useFollowUpActions(loadFollowups);
 
   useEffect(() => { fetch(`/api/dashboard${projectId ? '?project_id=' + projectId : ''}`).then(r => r.json()).then(setData).finally(() => setLoading(false)); }, [projectId]);
 
@@ -57,6 +70,29 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {showFollowups && (() => {
+        const b = { overdue: [], today: [], week: [] };
+        for (const f of followups) { const k = bucketOf(f.due_at); if (k === 'overdue') b.overdue.push(f); else if (k === 'today') b.today.push(f); else if (k === 'tomorrow' || k === 'week') b.week.push(f); }
+        const upcoming = [...b.overdue, ...b.today, ...b.week].slice(0, 6);
+        return (
+          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
+              <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="event_upcoming" size={18} /> {t('My follow-ups')}</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {[['overdue', t('Overdue'), b.overdue.length], ['today', t('Today'), b.today.length], ['week', t('Next 7 days'), b.week.length]].map(([k, l, n]) => (
+                  <span key={k} style={{ padding: '3px 10px', borderRadius: 20, background: TONE[k].bg, color: TONE[k].text, border: `1px solid ${TONE[k].border}`, fontSize: '0.72rem', fontWeight: 700 }}>{l}: {n}</span>
+                ))}
+                <Link href="/followups" style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', marginLeft: 6 }}>{t('Open calendar')} →</Link>
+              </div>
+            </div>
+            {upcoming.length === 0
+              ? <p className="no-data" style={{ padding: 24 }}>{t('No follow-ups in the next 7 days. Schedule one from a lead or the Follow-ups page.')}</p>
+              : upcoming.map(f => <FollowUpRow key={f.id} f={f} {...fu.actions} onOpenLead={(x) => router.push(`/leads?log=${x.lead_id}`)} />)}
+          </div>
+        );
+      })()}
+      {fu.modals(projectId)}
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16, marginBottom: 24 }}>

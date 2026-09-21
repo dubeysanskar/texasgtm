@@ -26,6 +26,8 @@ export async function GET(request) {
   const countRes = await queryOne(countSql, params);
   const total = parseInt(countRes?.c || 0);
 
+  // Next open follow-up per lead (shown in the table)
+  sql = sql.replace('SELECT *', "SELECT gtm_leads.*, (SELECT MIN(f.due_at) FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open') AS next_followup_at");
   const sortOrder = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
   sql += showDeleted ? ' ORDER BY deleted_at DESC' : ` ORDER BY created_at ${sortOrder}`;
   params.push(limit); sql += ` LIMIT $${params.length}`;

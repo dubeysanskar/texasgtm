@@ -806,3 +806,7 @@ table td[style*="cursor: cell"] { -webkit-user-select: text; user-select: text; 
   .ae-summary-grid { grid-template-columns: 1fr; }
 }
 
+
+/* Follow-ups page: calendar + agenda */
+.followups-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .followups-grid { grid-template-columns: 1fr; } }

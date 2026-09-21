@@ -515,6 +515,33 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gtm_leads_project_seq ON gtm_leads(project_id, project_seq);
   `);
 
+  // Lead follow-ups (calendar reminders). Dates are ISO-8601 UTC strings so both engines compare them the same way.
+  await query(`
+    CREATE TABLE IF NOT EXISTS gtm_followups (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER NOT NULL,
+      project_id INTEGER,
+      title TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      due_at TEXT NOT NULL,
+      remind_at TEXT,
+      tz TEXT DEFAULT '',
+      assigned_to INTEGER,
+      assigned_to_name TEXT DEFAULT '',
+      created_by INTEGER,
+      created_by_name TEXT DEFAULT '',
+      status TEXT DEFAULT 'open',
+      done_at TEXT,
+      done_by_name TEXT DEFAULT '',
+      done_comment TEXT DEFAULT '',
+      reminder_sent_at TEXT,
+      created_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_followups_lead ON gtm_followups(lead_id);
+    CREATE INDEX IF NOT EXISTS idx_gtm_followups_due ON gtm_followups(status, due_at);
+    CREATE INDEX IF NOT EXISTS idx_gtm_followups_remind ON gtm_followups(status, remind_at);
+  `);
+
   await backfillProjectSeq();
 
   // Seed default settings
