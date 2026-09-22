@@ -31,18 +31,28 @@ function dateLabel(dateStr, today, t, lang) {
   return new Date(dateStr).toLocaleDateString(lang === 'ru' ? 'ru-RU' : undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-export function useTodos() {
+// userId: view someone else's list (super admin only — the API enforces this; todos are private
+// between the owner and a super admin otherwise).
+export function useTodos(userId) {
   const { user } = useAuth();
   const [todos, setTodos] = useState([]);
   const [tab, setTab] = useState('open');
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
   const load = useCallback(async (which = tab) => {
-    setLoading(true);
-    try { const r = await fetch(`/api/todos?status=${which}`); const d = await r.json(); setTodos(d.todos || []); } catch { setTodos([]); }
+    setLoading(true); setErr('');
+    try {
+      const p = new URLSearchParams({ status: which });
+      if (userId) p.set('user_id', userId);
+      const r = await fetch(`/api/todos?${p}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Failed');
+      setTodos(d.todos || []);
+    } catch (e) { setTodos([]); setErr(e.message); }
     setLoading(false);
-  }, [tab]);
-  useEffect(() => { if (user) load(tab); }, [user, tab, load]);
-  return { todos, tab, setTab, loading, reload: () => load(tab) };
+  }, [tab, userId]);
+  useEffect(() => { if (user) load(tab); }, [user, tab, userId, load]);
+  return { todos, tab, setTab, loading, err, reload: () => load(tab) };
 }
 
 async function apiAdd(text, todo_date) {
@@ -86,7 +96,7 @@ export function TodoQuickAdd({ onAdded, compact }) {
   );
 }
 
-export function TodoRow({ todo, today, onToggled, onDeleted }) {
+export function TodoRow({ todo, today, onToggled, onDeleted, readOnly }) {
   const { t, lang } = useProject();
   const done = todo.status === 'done';
   const tone = done ? { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', dot: '#22c55e' } : TONE[bucketOf(todo.todo_date, today)];
@@ -101,13 +111,13 @@ export function TodoRow({ todo, today, onToggled, onDeleted }) {
   }
   return (
     <div style={{ display: 'flex', gap: 10, padding: '9px 12px', borderBottom: '1px solid #f1f5f9', alignItems: 'center', borderLeft: `3px solid ${tone.dot}` }}>
-      <button type="button" disabled={busy} onClick={toggle} title={done ? t('Reopen') : t('Mark as done')}
-        style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 7, border: `2px solid ${done ? '#22c55e' : '#cbd5e1'}`, background: done ? '#22c55e' : '#fff', color: done ? '#fff' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+      <button type="button" disabled={busy || readOnly} onClick={toggle} title={readOnly ? '' : done ? t('Reopen') : t('Mark as done')}
+        style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 7, border: `2px solid ${done ? '#22c55e' : '#cbd5e1'}`, background: done ? '#22c55e' : '#fff', color: done ? '#fff' : 'transparent', cursor: readOnly ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, opacity: readOnly && !done ? 0.6 : 1 }}>
         <MI name="check" size={15} />
       </button>
       <div style={{ flex: 1, minWidth: 0, fontSize: '0.84rem', color: done ? 'var(--text-muted)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none', wordBreak: 'break-word' }}>{todo.text}</div>
       <span style={{ padding: '2px 9px', borderRadius: 20, background: tone.bg, color: tone.text, border: `1px solid ${tone.border}`, fontSize: '0.66rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{dateLabel(todo.todo_date, today, t, lang)}</span>
-      <button type="button" onClick={del} title={t('Delete')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', display: 'flex' }}><MI name="close" size={16} /></button>
+      {!readOnly && <button type="button" onClick={del} title={t('Delete')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', display: 'flex' }}><MI name="close" size={16} /></button>}
     </div>
   );
 }

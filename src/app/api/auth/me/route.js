@@ -12,5 +12,9 @@ export async function GET(request) {
   // Include accessible project IDs
   const project_ids = await getUserProjectIds(user.id, user.role);
 
-  return NextResponse.json({ user: { ...user, project_ids } });
+  // While a super admin is "viewing as" this user, surface that (never hidden from the admin, even
+  // though the target user's own account/session is completely untouched).
+  const impersonating = payload.impersonating ? { adminId: payload.adminId, adminName: payload.adminName } : null;
+
+  return NextResponse.json({ user: { ...user, project_ids }, impersonating });
 }

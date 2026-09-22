@@ -127,9 +127,14 @@ export default function TeamPage() {
                 </div>
               </div>
               {isSuperAdmin && (
-                <button onClick={() => setWatchMember(m)} title={t('Watch this member’s activity')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-dim)', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <MI name="visibility" size={16} />
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => setWatchMember(m)} title={t('Watch this member’s activity')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-dim)', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MI name="visibility" size={16} />
+                  </button>
+                  <a href={`/todos?user=${m.id}`} title={t('View their to-do list')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-dim)', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MI name="checklist" size={16} />
+                  </a>
+                </div>
               )}
             </div>
           );

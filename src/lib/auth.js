@@ -16,10 +16,18 @@ function verifyToken(token) {
   catch { return null; }
 }
 
+// Hard cap on an impersonation session, enforced server-side regardless of the token's own JWT
+// expiry (which mirrors a normal login) — belt-and-suspenders so "log in as" can never quietly
+// outlive IMPERSONATION_MAX_SECONDS just because the cookie is still technically valid.
+const IMPERSONATION_MAX_SECONDS = 60 * 60; // 1 hour
+
 function getUserFromRequest(request) {
   const cookie = request.cookies.get('gtm-token');
   if (!cookie) return null;
-  return verifyToken(cookie.value);
+  const payload = verifyToken(cookie.value);
+  if (!payload) return null;
+  if (payload.impersonating && payload.iat && (Date.now() / 1000 - payload.iat) > IMPERSONATION_MAX_SECONDS) return null;
+  return payload;
 }
 
 function isAdmin(role) { return role === 'super_admin'; }
@@ -49,4 +57,4 @@ async function requireProjectAccess(user, projectId) {
   return ids.includes(Number(projectId));
 }
 
-module.exports = { signToken, verifyToken, getUserFromRequest, isAdmin, isManager, isStaff, getUserProjectIds, requireProjectAccess };
+module.exports = { signToken, verifyToken, getUserFromRequest, isAdmin, isManager, isStaff, getUserProjectIds, requireProjectAccess, IMPERSONATION_MAX_SECONDS };

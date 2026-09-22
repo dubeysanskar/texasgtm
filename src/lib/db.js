@@ -595,6 +595,24 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gtm_daily_files_update ON gtm_daily_update_files(update_id);
   `);
 
+  // Impersonation audit trail — every "log in as" a super admin starts/ends is recorded here,
+  // independent of whether the target ever finds out. Never deleted by the app.
+  await query(`
+    CREATE TABLE IF NOT EXISTS gtm_impersonation_sessions (
+      id SERIAL PRIMARY KEY,
+      admin_id INTEGER NOT NULL,
+      admin_name TEXT DEFAULT '',
+      target_user_id INTEGER NOT NULL,
+      target_user_name TEXT DEFAULT '',
+      target_role TEXT DEFAULT '',
+      ip TEXT DEFAULT '',
+      started_at TEXT NOT NULL,
+      ended_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_imp_admin ON gtm_impersonation_sessions(admin_id, ended_at);
+    CREATE INDEX IF NOT EXISTS idx_gtm_imp_target ON gtm_impersonation_sessions(target_user_id);
+  `);
+
   // Personal to-do checklist, date-based, shown on the owner's dashboard.
   await query(`
     CREATE TABLE IF NOT EXISTS gtm_todos (

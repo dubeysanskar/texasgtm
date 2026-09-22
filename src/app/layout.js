@@ -1,5 +1,6 @@
 import { AuthProvider } from '@/context/AuthContext';
 import { ProjectProvider } from '@/context/ProjectContext';
+import ImpersonationBanner from '@/components/ImpersonationBanner';
 import './globals.css';
 
 export const metadata = {
@@ -20,7 +21,7 @@ export default function RootLayout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
       </head>
       <body>
-        <AuthProvider><ProjectProvider>{children}</ProjectProvider></AuthProvider>
+        <AuthProvider><ProjectProvider><ImpersonationBanner />{children}</ProjectProvider></AuthProvider>
       </body>
     </html>
   );

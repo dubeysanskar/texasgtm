@@ -12,19 +12,51 @@ export const DEFAULT_NAV_FEATURES = {
   viewer: ['dashboard', 'messages'],
 };
 
+function hasImpersonationCookie() {
+  return typeof document !== 'undefined' && document.cookie.split('; ').includes('gtm-imp=1');
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [impersonating, setImpersonating] = useState(null); // { adminId, adminName } | null
+
+  const fetchMe = useCallback(async () => {
+    const res = await fetch('/api/auth/me');
+    if (res.ok) return res.json();
+    // The impersonation token's 1-hour cap was hit (or it was cleared) — if we were mid-"view as",
+    // silently fall back to the admin's own session instead of just logging them out.
+    if (res.status === 401 && hasImpersonationCookie()) {
+      await fetch('/api/admin/impersonate/exit', { method: 'POST' });
+      const retry = await fetch('/api/auth/me');
+      if (retry.ok) return retry.json();
+    }
+    return null;
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem('gtm-user');
     if (stored) { try { setUser(JSON.parse(stored)); } catch { localStorage.removeItem('gtm-user'); } }
 
-    fetch('/api/auth/me')
-      .then(res => { if (!res.ok) { localStorage.removeItem('gtm-user'); setUser(null); return null; } return res.json(); })
-      .then(data => { if (data?.user) { setUser(data.user); localStorage.setItem('gtm-user', JSON.stringify(data.user)); } })
+    fetchMe()
+      .then(data => {
+        if (data?.user) { setUser(data.user); localStorage.setItem('gtm-user', JSON.stringify(data.user)); setImpersonating(data.impersonating || null); }
+        else { localStorage.removeItem('gtm-user'); setUser(null); setImpersonating(null); }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [fetchMe]);
+
+  const startImpersonation = useCallback(async (userId) => {
+    const res = await fetch('/api/admin/impersonate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    window.location.href = '/dashboard'; // full reload — every context re-derives from the new session
+  }, []);
+
+  const exitImpersonation = useCallback(async () => {
+    await fetch('/api/admin/impersonate/exit', { method: 'POST' });
+    window.location.href = '/admin';
   }, []);
 
   const login = useCallback(async (email, password) => {
@@ -89,6 +121,7 @@ export function AuthProvider({ children }) {
       isAdmin, isManager, isStaff, isMarketing,
       roleLabel, roleColor, roleLabels, roleColors,
       navFeatures, canSee,
+      impersonating, startImpersonation, exitImpersonation,
     }}>
       {children}
     </AuthContext.Provider>

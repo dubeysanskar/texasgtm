@@ -10,6 +10,7 @@ const TABS = [
   { id: 'project_access', label: 'Project Access', icon: 'lock_person' },
   { id: 'features', label: 'Features', icon: 'toggle_on' },
   { id: 'smtp', label: 'Email / SMTP', icon: 'mail' },
+  { id: 'security', label: 'Security', icon: 'shield_person' },
   { id: 'settings', label: 'Settings', icon: 'tune' },
 ];
 
@@ -36,9 +37,18 @@ const NAV_FEATURES = [
 ];
 
 export default function AdminPage() {
-  const { user, isAdmin, roleLabels, roleColors } = useAuth();
+  const { user, isAdmin, roleLabels, roleColors, startImpersonation } = useAuth();
   const { t, lang, refreshProjects } = useProject();
   const [activeTab, setActiveTab] = useState('users');
+  const [impBusyId, setImpBusyId] = useState(null);
+  const [impSessions, setImpSessions] = useState([]);
+  async function loginAsUser(u) {
+    if (!window.confirm(t('View the portal as {name}? This is logged and visible to every super admin.', { name: u.name }))) return;
+    setImpBusyId(u.id); setError('');
+    try { await startImpersonation(u.id); }
+    catch (e) { setError(t(e.message)); setImpBusyId(null); }
+  }
+  useEffect(() => { if (activeTab === 'security') fetch('/api/admin/impersonate/sessions').then(r => r.json()).then(d => setImpSessions(d.sessions || [])).catch(() => {}); }, [activeTab]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -410,6 +420,11 @@ export default function AdminPage() {
                                 <MI name={u.is_active ? 'block' : 'check_circle'} size={14} />
                               </button>
                               <button className="btn btn-sm btn-ghost" onClick={() => { const pw = prompt(t('New password:')); if (pw) updateUser(u.id, { password: pw }); }} title={t('Reset password')}><MI name="lock_reset" size={14} /></button>
+                              {u.role !== 'super_admin' && (
+                                <button className="btn btn-sm btn-ghost" style={{ color: '#7c2d12' }} disabled={impBusyId === u.id} onClick={() => loginAsUser(u)} title={t('View the portal as this user')}>
+                                  <MI name="visibility" size={14} />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -696,6 +711,42 @@ export default function AdminPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ════ SECURITY TAB — "view as" audit trail ════ */}
+      {activeTab === 'security' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}><MI name="shield_person" size={20} /> {t('"View as" audit trail')}</h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('Every time any super admin views the portal as another user — who, as whom, when, and for how long. Sessions auto-expire after 1 hour.')}</p>
+          </div>
+          <div className="table-container" style={{ border: 'none' }}>
+            <table>
+              <thead><tr><th>{t('Super Admin')}</th><th>{t('Viewed as')}</th><th>{t('Role')}</th><th>{t('Started')}</th><th>{t('Duration')}</th><th>{t('Status')}</th></tr></thead>
+              <tbody>
+                {impSessions.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>{t('No "view as" sessions yet.')}</td></tr>}
+                {impSessions.map(s => {
+                  const started = new Date(s.started_at);
+                  const ended = s.ended_at ? new Date(s.ended_at) : null;
+                  const mins = Math.max(0, Math.round(((ended || new Date()) - started) / 60000));
+                  return (
+                    <tr key={s.id}>
+                      <td><strong>{s.admin_name}</strong></td>
+                      <td>{s.target_user_name}</td>
+                      <td><span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20, background: `${roleColors[s.target_role]}15`, color: roleColors[s.target_role] }}>{t(roleLabels[s.target_role] || s.target_role)}</span></td>
+                      <td style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{started.toLocaleString(lang === 'ru' ? 'ru-RU' : undefined)}</td>
+                      <td style={{ fontSize: '0.76rem' }}>{mins} {t('min')}</td>
+                      <td>{ended
+                        ? <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#6b7280' }}>{t('Ended')}</span>
+                        : <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#dc2626' }}>● {t('Active')}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
