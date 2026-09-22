@@ -16,9 +16,10 @@ export async function POST(request) {
     }
   }
 
+  const opts = { secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 0, path: '/' };
   const res = NextResponse.json({ success: true });
-  res.cookies.set('gtm-token', '', { httpOnly: true, maxAge: 0, path: '/' });
-  res.cookies.set('gtm-admin-token', '', { httpOnly: true, maxAge: 0, path: '/' });
-  res.cookies.set('gtm-imp', '', { maxAge: 0, path: '/' });
+  res.cookies.set('gtm-token', '', { ...opts, httpOnly: true });
+  res.cookies.set('gtm-admin-token', '', { ...opts, httpOnly: true });
+  res.cookies.set('gtm-imp', '', opts);
   return res;
 }
