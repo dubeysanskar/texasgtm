@@ -325,6 +325,12 @@ export const RU = {
   'min': 'мин',
   'No "view as" sessions yet.': 'Сеансов «от имени пользователя» пока не было.',
   'Ended': 'Завершён',
+  // ── Messengers / dashboard ──
+  'Max Messenger': 'Мессенджер Max',
+  '@username or phone': '@юзернейм или телефон',
+  'username or link': 'юзернейм или ссылка',
+  'click to copy': 'нажмите, чтобы скопировать',
+  'Team follow-ups': 'Follow-up команды',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

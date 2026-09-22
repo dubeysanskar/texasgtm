@@ -30,6 +30,40 @@ const PC = {
 const SL = { construction:'Construction', manufacturing:'Manufacturing', warehouse_logistics:'Warehouse/Logistics', food_processing:'Food Processing', metallurgy:'Metallurgy', mining:'Mining', chemicals:'Chemicals', automotive:'Automotive', hospitality:'Hospitality', retail:'Retail', agency_partner:'Agency Partner', industry_association:'Industry Association', other:'Other' };
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size }}>{name}</span>;
 
+// Quick-contact links: WhatsApp/Telegram both work from a plain phone number (falls back to the
+// personal mobile, then the office phone); Telegram prefers a stored @username/link if one was given.
+// Max has no reliable universal deep-link scheme, so it's shown as-is (a link if it looks like one).
+function phoneDigits(v) { return String(v || '').replace(/[^\d]/g, ''); }
+function waLink(mobile, phone) { const d = phoneDigits(mobile) || phoneDigits(phone); return d ? `https://wa.me/${d}` : null; }
+function tgLink(telegram, mobile, phone) {
+  const v = String(telegram || '').trim();
+  if (v) return /^https?:\/\//i.test(v) ? v : `https://t.me/${v.replace(/^@/, '')}`;
+  const d = phoneDigits(mobile) || phoneDigits(phone);
+  return d ? `https://t.me/+${d}` : null;
+}
+function ContactBadges({ l, size = 'normal' }) {
+  const { t } = useProject();
+  const wa = waLink(l.mobile_personal, l.phone);
+  const tg = tgLink(l.telegram, l.mobile_personal, l.phone);
+  const max = String(l.max_messenger || '').trim();
+  const maxIsLink = /^https?:\/\//i.test(max);
+  const s = size === 'small' ? { w: 20, f: 9 } : { w: 24, f: 10 };
+  const style = { width: s.w, height: s.w, borderRadius: '50%', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: s.f, fontWeight: 800, textDecoration: 'none', flexShrink: 0, border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' };
+  const badge = (href, label, bg, title) => (
+    <a key={label} href={href} target="_blank" rel="noreferrer" title={title} onClick={e => e.stopPropagation()} style={{ ...style, background: bg }}>{label}</a>
+  );
+  if (!wa && !tg && !max) return null;
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+      {wa && badge(wa, 'W', '#25D366', 'WhatsApp')}
+      {tg && badge(tg, 'T', '#229ED9', 'Telegram')}
+      {max && (maxIsLink ? badge(max, 'M', '#8b5cf6', `Max: ${max}`) : (
+        <button key="max" type="button" title={`Max: ${max} (${t('click to copy')})`} onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(max); }} style={{ ...style, background: '#8b5cf6' }}>M</button>
+      ))}
+    </div>
+  );
+}
+
 export default function LeadsPage() {
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { projectId, t, lang } = useProject();
@@ -382,7 +416,10 @@ export default function LeadsPage() {
                     <td tabIndex={0} style={{...TD, fontSize:'0.68rem', lineHeight:1.4}}>{l.find_instructions||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.66rem', wordBreak:'break-all'}}>{l.mobile_personal||'—'}</td>
                     <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.66rem', wordBreak:'break-all'}}>{l.phone||'—'}</td>
-                    <td tabIndex={0} style={{...TD, fontSize:'0.68rem', wordBreak:'break-all'}}>{l.email ? <a href={`mailto:${l.email}`} style={{color:'#2563eb'}}>{l.email}</a> : '—'}</td>
+                    <td tabIndex={0} style={{...TD, fontSize:'0.68rem', wordBreak:'break-all'}}>
+                      {l.email ? <a href={`mailto:${l.email}`} style={{color:'#2563eb'}}>{l.email}</a> : '—'}
+                      <div style={{ marginTop:4 }}><ContactBadges l={l} size="small" /></div>
+                    </td>
                     <td style={TD}>
                       {viewDeleted ? <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span> : (
                       <select value={l.priority} onChange={e => handlePriorityChange(l.id, e.target.value)}
@@ -468,7 +505,7 @@ const PB = { width:32, height:32, borderRadius:8, border:'1px solid var(--border
 
 function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
   const isEdit = !!lead;
-  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', notes:'' };
+  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', telegram:'', max_messenger:'', notes:'' };
   const [f, setF] = useState(() => isEdit ? Object.fromEntries(Object.keys(empty).map(k => [k, lead[k] ?? ''])) : empty);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
@@ -509,6 +546,8 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
             <div className="leads-form-field"><label>{t('Mobile number (personal)')}</label><input value={f.mobile_personal} onChange={e => setF({...f, mobile_personal:e.target.value})} placeholder="+7 916 000-00-00"/></div>
             <div className="leads-form-field"><label>{t('Telephone')}</label><input value={f.phone} onChange={e => setF({...f, phone:e.target.value})} placeholder="+7 495 123-45-67"/></div>
             <div className="leads-form-field"><label>{t('Email')}</label><input type="email" value={f.email} onChange={e => setF({...f, email:e.target.value})}/></div>
+            <div className="leads-form-field"><label><MI name="send" size={13}/> {t('Telegram')}</label><input value={f.telegram} onChange={e => setF({...f, telegram:e.target.value})} placeholder={t('@username or phone')}/></div>
+            <div className="leads-form-field"><label><MI name="chat" size={13}/> {t('Max Messenger')}</label><input value={f.max_messenger} onChange={e => setF({...f, max_messenger:e.target.value})} placeholder={t('username or link')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Source of lead')}</label><input value={f.find_instructions} onChange={e => setF({...f, find_instructions:e.target.value})} placeholder={t('e.g. exhibition, LinkedIn, referral')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Requirement needed')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Comment')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
@@ -585,7 +624,7 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
   const [uploadHistory, setUploadHistory] = useState([]);
 
   const LEAD_FIELDS = ['company_name','email','phone','mobile_personal','city','domain','sector','company_size','decision_maker_title','pain_point','find_instructions','notes','source_url','priority','status'];
-  const FIELD_LABELS = { company_name:'Company Name', email:'Email', phone:'Telephone', mobile_personal:'Mobile number (personal)', city:'City', domain:'Domain', sector:'Industry', company_size:'Company Size', decision_maker_title:'Decision maker name', pain_point:'Requirement needed', find_instructions:'Source of lead', notes:'Comment', source_url:'Source URL', priority:'Priority', status:'Status', contact_person:'Contact Person' };
+  const FIELD_LABELS = { company_name:'Company Name', email:'Email', telegram:'Telegram', max_messenger:'Max Messenger', phone:'Telephone', mobile_personal:'Mobile number (personal)', city:'City', domain:'Domain', sector:'Industry', company_size:'Company Size', decision_maker_title:'Decision maker name', pain_point:'Requirement needed', find_instructions:'Source of lead', notes:'Comment', source_url:'Source URL', priority:'Priority', status:'Status', contact_person:'Contact Person' };
 
   async function handleFile(file) {
     if (!file) return;
@@ -956,6 +995,10 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
           <div>
             <h3 style={{ fontSize:'1rem', fontWeight:700 }}><MI name="history" size={18}/> {t('Lead log')}</h3>
             <div style={{ fontSize:'0.78rem', color:'var(--text-dim)', marginTop:2 }}>#{lead.project_seq ?? lead.id} · <strong>{lead.company_name}</strong>{lead.city ? ` · ${lead.city}` : ''}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
+              {lead.email && <a href={`mailto:${lead.email}`} style={{ fontSize:'0.74rem', color:'#2563eb', textDecoration:'none' }}><MI name="mail" size={13}/> {lead.email}</a>}
+              <ContactBadges l={lead} />
+            </div>
           </div>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#94a3b8' }}>✕</button>
         </div>
@@ -1018,7 +1061,7 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
 }
 
 // Human names for lead fields (used in the log)
-const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
+const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', telegram:'Telegram', max_messenger:'Max Messenger', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
 
 function CommentPrompt({ t, title, detail, danger, onCancel, onConfirm }) {
   const [comment, setComment] = useState('');

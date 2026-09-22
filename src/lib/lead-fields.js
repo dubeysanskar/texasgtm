@@ -6,7 +6,7 @@
  */
 
 const LEAD_FIELDS = [
-  'company_name', 'email', 'phone', 'mobile_personal', 'city', 'domain', 'sector',
+  'company_name', 'email', 'telegram', 'max_messenger', 'phone', 'mobile_personal', 'city', 'domain', 'sector',
   'company_size', 'decision_maker_title', 'pain_point', 'find_instructions',
   'notes', 'source_url', 'priority', 'status',
 ];
@@ -17,13 +17,13 @@ const VALID_PRIORITIES = ['HOT','HIGH','MEDIUM','PARTNER'];
 // Column headers written into the downloadable template, per language
 const HEADERS = {
   en: {
-    company_name: 'Company name', email: 'Email', phone: 'Telephone', mobile_personal: 'Mobile number (personal)', city: 'City',
+    company_name: 'Company name', email: 'Email', telegram: 'Telegram', max_messenger: 'Max', phone: 'Telephone', mobile_personal: 'Mobile number (personal)', city: 'City',
     domain: 'Domain', sector: 'Industry', company_size: 'Company size', decision_maker_title: 'Decision maker name',
     pain_point: 'Requirement needed', find_instructions: 'Source of lead', notes: 'Comment', source_url: 'Source URL',
     priority: 'Priority', status: 'Status', contact_person: 'Contact person',
   },
   ru: {
-    company_name: 'Название компании', email: 'Email', phone: 'Телефон', mobile_personal: 'Мобильный (личный)', city: 'Город',
+    company_name: 'Название компании', email: 'Email', telegram: 'Telegram', max_messenger: 'Max', phone: 'Телефон', mobile_personal: 'Мобильный (личный)', city: 'Город',
     domain: 'Сайт (домен)', sector: 'Отрасль', company_size: 'Размер компании', decision_maker_title: 'Имя ЛПР',
     pain_point: 'Требуемая потребность', find_instructions: 'Источник лида', notes: 'Комментарий', source_url: 'Ссылка на источник',
     priority: 'Приоритет', status: 'Статус', contact_person: 'Контактное лицо',
@@ -47,13 +47,13 @@ const STATUS_LABELS = {
 // Sample row for the template, per language
 const SAMPLE_ROW = {
   en: {
-    company_name: 'Acme Construction LLC', email: 'info@acmeconstruction.ae', phone: '+971 4 123 4567', mobile_personal: '+971 50 123 4567',
+    company_name: 'Acme Construction LLC', email: 'info@acmeconstruction.ae', telegram: '@acmeconstruction', max_messenger: '', phone: '+971 4 123 4567', mobile_personal: '+971 50 123 4567',
     city: 'Dubai', domain: 'acmeconstruction.ae', sector: 'construction', company_size: '50-100', decision_maker_title: 'Ahmed Al Maktoum',
     pain_point: 'Needs 40 skilled construction workers', find_instructions: 'Big 5 exhibition, LinkedIn', notes: 'Follow up next week',
     source_url: 'https://acmeconstruction.ae', priority: 'HIGH', status: 'not_contacted',
   },
   ru: {
-    company_name: 'ООО «СтройИнвест»', email: 'info@stroyinvest.ru', phone: '+7 495 123-45-67', mobile_personal: '+7 916 000-00-00',
+    company_name: 'ООО «СтройИнвест»', email: 'info@stroyinvest.ru', telegram: '@stroyinvest', max_messenger: '', phone: '+7 495 123-45-67', mobile_personal: '+7 916 000-00-00',
     city: 'Москва', domain: 'stroyinvest.ru', sector: 'Строительство', company_size: '50-100', decision_maker_title: 'Иван Петров',
     pain_point: 'Нужны 40 квалифицированных строителей', find_instructions: 'Выставка, LinkedIn', notes: 'Перезвонить на следующей неделе',
     source_url: 'https://stroyinvest.ru', priority: 'Высокий', status: 'Не связывались',
@@ -70,6 +70,8 @@ function fieldGuide(lang) {
       ['Поле', 'Обязательно', 'Описание', 'Допустимые значения'],
       [HEADERS.ru.company_name, 'ДА', 'Название компании или организации', 'Любой текст (2–120 символов)'],
       [HEADERS.ru.email, 'Нет', 'Контактный email', 'Корректный адрес email'],
+      [HEADERS.ru.telegram, 'Нет', 'Telegram лида (юзернейм или ссылка)', '@ivanov или https://t.me/ivanov'],
+      [HEADERS.ru.max_messenger, 'Нет', 'Профиль или ссылка в мессенджере Max', 'Свободный текст или ссылка'],
       [HEADERS.ru.phone, 'Нет', 'Рабочий телефон с кодом страны', '+7 495 123-45-67'],
       [HEADERS.ru.mobile_personal, 'Нет', 'Личный мобильный ЛПР', '+7 916 000-00-00'],
       [HEADERS.ru.city, 'Нет', 'Город компании', 'Москва, Санкт-Петербург и т.д.'],
@@ -94,6 +96,8 @@ function fieldGuide(lang) {
       ['Field', 'Required', 'Description', 'Valid Values'],
       [HEADERS.en.company_name, 'YES', 'Company or organization name', 'Any text (2-120 chars)'],
       [HEADERS.en.email, 'No', 'Contact email address', 'Valid email format'],
+      [HEADERS.en.telegram, 'No', "Lead's Telegram (username or link)", '@ivanov or https://t.me/ivanov'],
+      [HEADERS.en.max_messenger, 'No', 'Lead\'s profile or link on the Max messenger', 'Free text or link'],
       [HEADERS.en.phone, 'No', 'Office telephone with country code', '+971 4 123 4567'],
       [HEADERS.en.mobile_personal, 'No', 'Personal mobile of the decision maker', '+971 50 123 4567'],
       [HEADERS.en.city, 'No', 'City where company is located', 'Dubai, Riyadh, etc.'],
@@ -117,6 +121,8 @@ const COLUMN_ALIASES = {
   company_name: ['company_name', 'company', 'company name', 'organization', 'org', 'business', 'business name', 'name',
     'название компании', 'компания', 'название', 'организация', 'наименование', 'наименование компании', 'фирма'],
   email: ['email', 'email address', 'e-mail', 'mail', 'contact email', 'эл. почта', 'электронная почта', 'почта', 'емейл', 'имейл', 'e-mail адрес'],
+  telegram: ['telegram', 'telegram username', 'tg', '@telegram', 'телеграм', 'телеграмм', 'тг'],
+  max_messenger: ['max', 'max messenger', 'мессенджер max', 'макс', 'макс мессенджер'],
   phone: ['phone', 'phone number', 'telephone', 'tel', 'contact phone', 'office phone', 'work phone', 'телефон', 'тел', 'тел.', 'номер телефона', 'рабочий телефон'],
   mobile_personal: ['mobile_personal', 'mobile number (personal)', 'mobile number', 'mobile', 'personal mobile', 'cell', 'cell phone', 'whatsapp',
     'мобильный (личный)', 'мобильный', 'личный мобильный', 'личный телефон', 'мобильный номер', 'сотовый', 'ватсап'],

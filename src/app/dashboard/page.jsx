@@ -16,13 +16,16 @@ export default function DashboardPage() {
   const [data, setData] = useState({ stats: {} });
   const [loading, setLoading] = useState(true);
 
-  // Follow-ups assigned to me (lead reminders)
+  // Follow-ups: a super admin rarely has reminders assigned to themselves, so "mine only" would
+  // almost always show empty for them — show the whole team's open reminders instead. Everyone else
+  // sees just their own, as before.
   const showFollowups = canSee('leads');
   const [followups, setFollowups] = useState([]);
   const loadFollowups = useCallback(() => {
     if (!showFollowups) return;
-    fetch(`/api/followups?status=open&mine=1${projectId ? '&project_id=' + projectId : ''}`).then(r => r.json()).then(d => setFollowups(d.followups || [])).catch(() => {});
-  }, [showFollowups, projectId]);
+    const mine = isAdmin ? '' : '&mine=1';
+    fetch(`/api/followups?status=open${mine}${projectId ? '&project_id=' + projectId : ''}`).then(r => r.json()).then(d => setFollowups(d.followups || [])).catch(() => {});
+  }, [showFollowups, isAdmin, projectId]);
   useEffect(() => { loadFollowups(); }, [loadFollowups]);
   const fu = useFollowUpActions(loadFollowups);
 
@@ -84,7 +87,7 @@ export default function DashboardPage() {
         return (
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
-              <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="event_upcoming" size={18} /> {t('My follow-ups')}</span>
+              <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="event_upcoming" size={18} /> {t(isAdmin ? 'Team follow-ups' : 'My follow-ups')}</span>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {[['overdue', t('Overdue'), b.overdue.length], ['today', t('Today'), b.today.length], ['week', t('Next 7 days'), b.week.length]].map(([k, l, n]) => (
                   <span key={k} style={{ padding: '3px 10px', borderRadius: 20, background: TONE[k].bg, color: TONE[k].text, border: `1px solid ${TONE[k].border}`, fontSize: '0.72rem', fontWeight: 700 }}>{l}: {n}</span>

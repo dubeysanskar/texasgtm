@@ -495,6 +495,8 @@ async function initSchema() {
     ['gtm_leads', 'deleted_by', 'INTEGER'],
     ['gtm_leads', 'deleted_by_name', "TEXT DEFAULT ''"],
     ['gtm_leads', 'delete_comment', "TEXT DEFAULT ''"],
+    ['gtm_leads', 'telegram', "TEXT DEFAULT ''"],
+    ['gtm_leads', 'max_messenger', "TEXT DEFAULT ''"],
     ['gtm_projects', 'language', "TEXT DEFAULT 'en'"],
     ['gtm_projects', 'scraper_config', "JSONB DEFAULT '{}'"],
     ['gtm_projects', 'timezone', "TEXT DEFAULT 'UTC'"],

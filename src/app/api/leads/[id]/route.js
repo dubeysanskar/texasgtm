@@ -29,14 +29,14 @@ export async function PUT(request, { params }) {
     if (b.last_template_id) { const tpl = await queryOne('SELECT name FROM gtm_templates WHERE id = $1', [b.last_template_id]); tplName = tpl?.name || `#${b.last_template_id}`; }
     await log(b.last_template_id ? `Assigned template "${tplName}" to "${lead.company_name}"` : `Cleared template on "${lead.company_name}"`, 'template', { template: tplName || null });
   }
-  const editable = ['company_name','domain','sector','city','region','country','company_size','pain_point','decision_maker_title','phone','mobile_personal','email','contact_method','source_url','find_instructions','notes'];
+  const editable = ['company_name','domain','sector','city','region','country','company_size','pain_point','decision_maker_title','phone','mobile_personal','email','contact_method','source_url','find_instructions','notes','telegram','max_messenger'];
   const changedFields = editable.filter(f => b[f] !== undefined && String(b[f] ?? '') !== String(lead[f] ?? ''));
   if (changedFields.length) {
     const changes = Object.fromEntries(changedFields.map(f => [f, { from: lead[f] ?? '', to: b[f] ?? '' }]));
     await log(`Edited "${lead.company_name}": ${changedFields.join(', ')}`, 'edit', { fields: changedFields, changes });
   }
 
-  const fields = ['company_name','domain','sector','priority','status','city','region','country','company_size','pain_point','decision_maker_title','phone','mobile_personal','email','contact_method','source_url','find_instructions','notes','last_contacted_at','next_followup_at','contacted_by','last_template_id'];
+  const fields = ['company_name','domain','sector','priority','status','city','region','country','company_size','pain_point','decision_maker_title','phone','mobile_personal','email','contact_method','source_url','find_instructions','notes','last_contacted_at','next_followup_at','contacted_by','last_template_id','telegram','max_messenger'];
   const updates = []; const vals = [];
   fields.forEach(f => { if (b[f] !== undefined) { vals.push(b[f]); updates.push(`${f} = $${vals.length}`); } });
   vals.push(id);
