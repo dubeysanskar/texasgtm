@@ -17,7 +17,9 @@ export default function FollowUpsPage() {
   const { user, isAdmin } = useAuth();
   const { projectId, t, lang } = useProject();
   const router = useRouter();
-  const [scope, setScope] = useState('mine');   // mine | all
+  // Super admins rarely have follow-ups assigned to themselves, so default them to the whole team's
+  // list — matches the Dashboard's "Team follow-ups" widget, which does the same for the same reason.
+  const [scope, setScope] = useState(isAdmin ? 'all' : 'mine');
   const [tab, setTab] = useState('open');       // open | done
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
