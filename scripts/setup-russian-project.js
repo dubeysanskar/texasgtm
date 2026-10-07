@@ -74,6 +74,11 @@ async function run() {
       console.log(`✓ Created project #${project.id} "${project.name}" (language: ru)`);
     }
   }
+  // Russian-language projects run on Moscow time (daily work log "today" lines up with the team's
+  // actual day). initSchema()'s own backfill only catches projects that already existed at schema-init
+  // time, which misses a project created by this script on a fresh install — so set it explicitly here
+  // too, same "don't touch it if already customized" rule.
+  await db.query("UPDATE gtm_projects SET timezone = 'Europe/Moscow' WHERE id = $1 AND (timezone IS NULL OR timezone = '' OR timezone = 'UTC')", [project.id]);
 
   // ── Admin users ──────────────────────────────────────────────────────────
   let sendInvite = null;

@@ -34,6 +34,15 @@ export default function DashboardPage() {
   const { todos, reload: reloadTodos } = useTodos();
   const today = todayStr();
 
+  // Team overview (super admin only) — what everyone's been up to: to-dos, follow-ups, today's
+  // daily update, last activity. Without this an admin had to open each person's pages one by one.
+  const [team, setTeam] = useState([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  useEffect(() => {
+    if (!isAdmin) { setTeamLoading(false); return; }
+    fetch(`/api/dashboard/team${projectId ? '?project_id=' + projectId : ''}`).then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {}).finally(() => setTeamLoading(false));
+  }, [isAdmin, projectId]);
+
   useEffect(() => { fetch(`/api/dashboard${projectId ? '?project_id=' + projectId : ''}`).then(r => r.json()).then(setData).finally(() => setLoading(false)); }, [projectId]);
 
   if (loading) return (
@@ -65,14 +74,14 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
         {[
-          { label: t('Total Tasks'), value: stats.total_tasks || 0, icon: 'task_alt', color: '#6366f1' },
-          { label: t('Completed'), value: stats.completed_tasks || 0, icon: 'check_circle', color: '#10b981' },
-          { label: t('Pending'), value: stats.pending_tasks || 0, icon: 'schedule', color: '#f59e0b' },
-          { label: t('Total Leads'), value: stats.total_leads || 0, icon: 'leaderboard', color: '#3b82f6' },
-          { label: t('HOT Leads'), value: stats.hot_leads || 0, icon: 'local_fire_department', color: '#ef4444' },
-          ...(isAdmin ? [{ label: t('Team Members'), value: stats.total_users || 0, icon: 'group', color: '#8b5cf6' }] : []),
+          { label: t('Total Tasks'), value: stats.total_tasks || 0, icon: 'task_alt', color: '#6366f1', href: '/tasks' },
+          { label: t('Completed'), value: stats.completed_tasks || 0, icon: 'check_circle', color: '#10b981', href: '/tasks' },
+          { label: t('Pending'), value: stats.pending_tasks || 0, icon: 'schedule', color: '#f59e0b', href: '/tasks' },
+          { label: t('Total Leads'), value: stats.total_leads || 0, icon: 'leaderboard', color: '#3b82f6', href: '/leads' },
+          { label: t('HOT Leads'), value: stats.hot_leads || 0, icon: 'local_fire_department', color: '#ef4444', href: '/leads/priority' },
+          ...(isAdmin ? [{ label: t('Team Members'), value: stats.total_users || 0, icon: 'group', color: '#8b5cf6', href: '/admin' }] : []),
         ].map(m => (
-          <div key={m.label} className="stat-card" style={{ borderTopColor: m.color, cursor: 'pointer' }}>
+          <div key={m.label} className="stat-card" style={{ borderTopColor: m.color, cursor: 'pointer' }} onClick={() => router.push(m.href)}>
             <div className="stat-icon"><MI name={m.icon} size={18} /></div>
             <div className="stat-value" style={{ color: m.color }}>{m.value}</div>
             <div className="stat-label">{m.label}</div>
@@ -123,6 +132,61 @@ export default function DashboardPage() {
           </div>
         );
       })()}
+
+      {isAdmin && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="groups" size={18} /> {t('Team activity')}</span>
+            <Link href="/team" style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>{t('Team')} →</Link>
+          </div>
+          {teamLoading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>{t('Loading…')}</div>
+          ) : team.length === 0 ? (
+            <p className="no-data" style={{ padding: 24 }}>{t('No team members yet.')}</p>
+          ) : (
+            <div className="table-container" style={{ border: 'none' }}>
+              <table>
+                <thead><tr>
+                  <th>{t('Member')}</th><th>{t('Today’s update')}</th><th>{t('To-dos')}</th><th>{t('Follow-ups')}</th><th>{t('Last activity')}</th>
+                </tr></thead>
+                <tbody>
+                  {team.map(m => (
+                    <tr key={m.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 26, height: 26, borderRadius: '50%', background: m.role === 'super_admin' ? '#dc2626' : '#6366f1', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.68rem', flexShrink: 0 }}>{m.name?.charAt(0).toUpperCase()}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{m.name}</div>
+                            {m.job_title && <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{m.job_title}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ maxWidth: 220 }}>
+                        {m.daily_update_today
+                          ? <span style={{ fontSize: '0.74rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: 4 }}><MI name="check_circle" size={14} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.daily_update_today.snippet || t('Posted')}</span></span>
+                          : <span style={{ fontSize: '0.72rem', color: '#cbd5e1' }}>— {t('nothing logged')}</span>}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.76rem', fontWeight: 600 }}>{m.todos_open}</span> <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t('open')}</span>
+                        {m.todos_done_today > 0 && <span style={{ marginLeft: 6, fontSize: '0.68rem', color: '#15803d' }}>· {m.todos_done_today} {t('done today')}</span>}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.76rem', fontWeight: 600 }}>{m.followups_open}</span> <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{t('open')}</span>
+                        {m.followups_overdue > 0 && <span style={{ marginLeft: 6, padding: '1px 7px', borderRadius: 20, background: '#fef2f2', color: '#b91c1c', fontSize: '0.66rem', fontWeight: 700 }}>{m.followups_overdue} {t('overdue')}</span>}
+                      </td>
+                      <td style={{ fontSize: '0.7rem', color: 'var(--text-muted)', maxWidth: 220 }}>
+                        {m.last_active_at ? (
+                          <span title={m.last_action || ''}>{new Date(m.last_active_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16, marginBottom: 24 }}>

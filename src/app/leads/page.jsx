@@ -5,64 +5,11 @@ import { useProject } from '@/context/ProjectContext';
 import { useRouter } from 'next/navigation';
 import { DueChip, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
 import { LeadWatchersPanel } from '@/components/Watchers';
+import CommentPrompt from '@/components/CommentPrompt';
+import ContactBadges from '@/components/LeadContactBadges';
+import { SC, PC, SL } from '@/lib/lead-status';
 
-const SC = {
-  not_contacted:   { label: 'Not Contacted',   bg: '#F1EFE8', text: '#5F5E5A', dot: '#888780', row: '#ffffff' },
-  touch_1:         { label: 'Touch 1',          bg: '#DBEAFE', text: '#1e40af', dot: '#3b82f6', row: '#eff6ff' },
-  touch_2:         { label: 'Touch 2',          bg: '#FEF3C7', text: '#92400e', dot: '#f59e0b', row: '#fffbeb' },
-  touch_3:         { label: 'Touch 3',          bg: '#D1FAE5', text: '#065f46', dot: '#10b981', row: '#ecfdf5' },
-  email_sent:      { label: 'Email Sent',       bg: '#DBEAFE', text: '#185FA5', dot: '#378ADD', row: '#eff6ff' },
-  call_made:       { label: 'Call Made',         bg: '#EEEDFE', text: '#3C3489', dot: '#7F77DD', row: '#f5f3ff' },
-  replied:         { label: 'Replied',           bg: '#E1F5EE', text: '#0F6E56', dot: '#1D9E75', row: '#f0fdf4' },
-  meeting_booked:  { label: 'Meeting Booked',    bg: '#EAF3DE', text: '#3B6D11', dot: '#639922', row: '#ecfdf5' },
-  proposal_sent:   { label: 'Proposal Sent',     bg: '#FAEEDA', text: '#854F0B', dot: '#EF9F27', row: '#fffbeb' },
-  negotiating:     { label: 'Negotiating',       bg: '#FCE4D6', text: '#993C1D', dot: '#D85A30', row: '#fff7ed' },
-  contract_signed: { label: 'Contract Signed ✓', bg: '#9FE1CB', text: '#085041', dot: '#1D9E75', row: '#d1fae5' },
-  not_interested:  { label: 'Not Interested',    bg: '#FCEBEB', text: '#A32D2D', dot: '#E24B4A', row: '#fef2f2' },
-  follow_up_later: { label: 'Follow Up Later',   bg: '#FFF2CC', text: '#7D6608', dot: '#EF9F27', row: '#fefce8' },
-};
-const PC = {
-  HOT: { label: '🔥 HOT', bg: '#FCE4D6', text: '#993C1D' },
-  HIGH: { label: '⚡ HIGH', bg: '#E2F0D9', text: '#3B6D11' },
-  MEDIUM: { label: '● MEDIUM', bg: '#DBEAFE', text: '#185FA5' },
-  PARTNER: { label: '🤝 PARTNER', bg: '#EEEDFE', text: '#3C3489' },
-};
-const SL = { construction:'Construction', manufacturing:'Manufacturing', warehouse_logistics:'Warehouse/Logistics', food_processing:'Food Processing', metallurgy:'Metallurgy', mining:'Mining', chemicals:'Chemicals', automotive:'Automotive', hospitality:'Hospitality', retail:'Retail', agency_partner:'Agency Partner', industry_association:'Industry Association', other:'Other' };
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size }}>{name}</span>;
-
-// Quick-contact links: WhatsApp/Telegram both work from a plain phone number (falls back to the
-// personal mobile, then the office phone); Telegram prefers a stored @username/link if one was given.
-// Max has no reliable universal deep-link scheme, so it's shown as-is (a link if it looks like one).
-function phoneDigits(v) { return String(v || '').replace(/[^\d]/g, ''); }
-function waLink(mobile, phone) { const d = phoneDigits(mobile) || phoneDigits(phone); return d ? `https://wa.me/${d}` : null; }
-function tgLink(telegram, mobile, phone) {
-  const v = String(telegram || '').trim();
-  if (v) return /^https?:\/\//i.test(v) ? v : `https://t.me/${v.replace(/^@/, '')}`;
-  const d = phoneDigits(mobile) || phoneDigits(phone);
-  return d ? `https://t.me/+${d}` : null;
-}
-function ContactBadges({ l, size = 'normal' }) {
-  const { t } = useProject();
-  const wa = waLink(l.mobile_personal, l.phone);
-  const tg = tgLink(l.telegram, l.mobile_personal, l.phone);
-  const max = String(l.max_messenger || '').trim();
-  const maxIsLink = /^https?:\/\//i.test(max);
-  const s = size === 'small' ? { w: 20, f: 9 } : { w: 24, f: 10 };
-  const style = { width: s.w, height: s.w, borderRadius: '50%', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: s.f, fontWeight: 800, textDecoration: 'none', flexShrink: 0, border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' };
-  const badge = (href, label, bg, title) => (
-    <a key={label} href={href} target="_blank" rel="noreferrer" title={title} onClick={e => e.stopPropagation()} style={{ ...style, background: bg }}>{label}</a>
-  );
-  if (!wa && !tg && !max) return null;
-  return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-      {wa && badge(wa, 'W', '#25D366', 'WhatsApp')}
-      {tg && badge(tg, 'T', '#229ED9', 'Telegram')}
-      {max && (maxIsLink ? badge(max, 'M', '#8b5cf6', `Max: ${max}`) : (
-        <button key="max" type="button" title={`Max: ${max} (${t('click to copy')})`} onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(max); }} style={{ ...style, background: '#8b5cf6' }}>M</button>
-      ))}
-    </div>
-  );
-}
 
 export default function LeadsPage() {
   const { user, loading: authLoading, isAdmin } = useAuth();
@@ -524,7 +471,6 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
     } catch (e) { setErr(t('Cannot reach the server. Check your connection and try again.')); }
     finally { setSaving(false); }
   }
-  const SL2 = { construction:'Construction', manufacturing:'Manufacturing', warehouse_logistics:'Warehouse/Logistics', food_processing:'Food Processing', metallurgy:'Metallurgy', mining:'Mining', chemicals:'Chemicals', automotive:'Automotive', hospitality:'Hospitality', retail:'Retail', agency_partner:'Agency Partner', industry_association:'Industry Association', other:'Other' };
   return (
     <div className="leads-modal-overlay" onClick={onClose}>
       <div className="leads-modal" onClick={e => e.stopPropagation()}>
@@ -537,7 +483,7 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
           <div className="leads-form-grid">
             <div className="leads-form-field"><label>{t('Company')} *</label><input required value={f.company_name} onChange={e => setF({...f, company_name:e.target.value})}/></div>
             <div className="leads-form-field"><label>{t('Domain')}</label><input value={f.domain} onChange={e => setF({...f, domain:e.target.value})}/></div>
-            <div className="leads-form-field"><label>{t('Sector')}</label><select value={f.sector} onChange={e => setF({...f, sector:e.target.value})}>{Object.entries(SL2).map(([v,l]) => <option key={v} value={v}>{t(l)}</option>)}</select></div>
+            <div className="leads-form-field"><label>{t('Sector')}</label><select value={f.sector} onChange={e => setF({...f, sector:e.target.value})}>{Object.entries(SL).map(([v,l]) => <option key={v} value={v}>{t(l)}</option>)}</select></div>
             <div className="leads-form-field"><label>{t('Priority')}</label><select value={f.priority} onChange={e => setF({...f, priority:e.target.value})}><option value="HOT">{t('HOT')}</option><option value="HIGH">{t('HIGH')}</option><option value="MEDIUM">{t('MEDIUM')}</option><option value="PARTNER">{t('PARTNER')}</option></select></div>
             <div className="leads-form-field"><label>{t('Status')}</label><select value={f.status} onChange={e => setF({...f, status:e.target.value})}>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}</select></div>
             <div className="leads-form-field"><label>{t('City')}</label><input value={f.city} onChange={e => setF({...f, city:e.target.value})}/></div>
@@ -1063,33 +1009,3 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
 // Human names for lead fields (used in the log)
 const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', telegram:'Telegram', max_messenger:'Max Messenger', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
 
-function CommentPrompt({ t, title, detail, danger, onCancel, onConfirm }) {
-  const [comment, setComment] = useState('');
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
-  async function confirm(e) {
-    e?.preventDefault();
-    if (!comment.trim()) { setErr(t('Please enter a comment describing this change')); return; }
-    setBusy(true);
-    try { await onConfirm(comment.trim()); }
-    catch (e) { setErr(t('Cannot reach the server. Check your connection and try again.')); setBusy(false); }
-  }
-  return (
-    <div className="leads-modal-overlay" onClick={onCancel}>
-      <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-        <form onSubmit={confirm}>
-          <h3 style={{ fontSize:'1rem', fontWeight:700, display:'flex', alignItems:'center', gap:8 }}><MI name="edit_note" size={20}/> {t('Comment for this change')}</h3>
-          <div style={{ fontSize:'0.8rem', color:'var(--text-dim)', margin:'6px 0 12px' }}><strong>{title}</strong> — {detail}</div>
-          {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'6px 10px', borderRadius:8, fontSize:'0.76rem', marginBottom:8 }}>{err}</div>}
-          <div className="leads-form-field">
-            <textarea autoFocus rows={3} value={comment} onChange={e => { setComment(e.target.value); setErr(''); }} placeholder={t('Why are you making this change?')} style={{ fontFamily:'inherit', fontSize:'0.84rem' }} />
-          </div>
-          <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:14 }}>
-            <button type="button" onClick={onCancel} className="btn btn-ghost">{t('Cancel')}</button>
-            <button type="submit" disabled={busy} className={danger ? 'btn btn-danger' : 'btn btn-primary'}>{busy ? t('Saving…') : danger ? t('Delete') : t('Save change')}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}

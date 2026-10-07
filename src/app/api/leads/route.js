@@ -16,6 +16,8 @@ export async function GET(request) {
   const priority = searchParams.get('priority'); if (priority) { params.push(priority); sql += ` AND priority = $${params.length}`; }
   const sector = searchParams.get('sector'); if (sector) { params.push(sector); sql += ` AND sector = $${params.length}`; }
   const search = searchParams.get('search'); if (search) { params.push(`%${search}%`); sql += ` AND (company_name ILIKE $${params.length} OR city ILIKE $${params.length} OR email ILIKE $${params.length} OR CAST(project_seq AS TEXT) ILIKE $${params.length})`; }
+  // The Priority Leads view: only open (not closed) leads, so a "not interested" lead never clutters it
+  if (searchParams.get('exclude_closed') === '1') sql += " AND status != 'not_interested'";
 
   // Pagination
   const page = parseInt(searchParams.get('page') || '1');
@@ -30,7 +32,10 @@ export async function GET(request) {
   // Next open follow-up per lead (shown in the table)
   sql = sql.replace('SELECT *', "SELECT gtm_leads.*, (SELECT MIN(f.due_at) FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open') AS next_followup_at");
   const sortOrder = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
-  sql += showDeleted ? ' ORDER BY deleted_at DESC' : ` ORDER BY created_at ${sortOrder}`;
+  const PRIORITY_RANK = "CASE gtm_leads.priority WHEN 'HOT' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'PARTNER' THEN 3 ELSE 4 END";
+  if (showDeleted) sql += ' ORDER BY deleted_at DESC';
+  else if (searchParams.get('sort') === 'priority') sql += ` ORDER BY ${PRIORITY_RANK} ASC, COALESCE(last_contacted_at, created_at) ASC`;
+  else sql += ` ORDER BY created_at ${sortOrder}`;
   params.push(limit); sql += ` LIMIT $${params.length}`;
   params.push(offset); sql += ` OFFSET $${params.length}`;
 

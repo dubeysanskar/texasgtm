@@ -40,8 +40,8 @@ const PRIORITY_LABELS = {
   ru: { HOT: 'Горячий', HIGH: 'Высокий', MEDIUM: 'Средний', PARTNER: 'Партнёр' },
 };
 const STATUS_LABELS = {
-  en: { not_contacted: 'Not Contacted', touch_1: 'Touch 1', touch_2: 'Touch 2', touch_3: 'Touch 3', email_sent: 'Email Sent', call_made: 'Call Made', replied: 'Replied', meeting_booked: 'Meeting Booked', proposal_sent: 'Proposal Sent', negotiating: 'Negotiating', contract_signed: 'Contract Signed', not_interested: 'Not Interested', follow_up_later: 'Follow Up Later' },
-  ru: { not_contacted: 'Не связывались', touch_1: 'Касание 1', touch_2: 'Касание 2', touch_3: 'Касание 3', email_sent: 'Письмо отправлено', call_made: 'Звонок сделан', replied: 'Ответили', meeting_booked: 'Встреча назначена', proposal_sent: 'КП отправлено', negotiating: 'Переговоры', contract_signed: 'Договор подписан', not_interested: 'Не заинтересованы', follow_up_later: 'Связаться позже' },
+  en: { not_contacted: 'Not Contacted', touch_1: 'Touch 1', touch_2: 'Touch 2', touch_3: 'Touch 3', email_sent: 'Email Sent', call_made: 'Call Made', replied: 'Replied', meeting_booked: 'Meeting Booked', proposal_sent: 'Proposal Sent', negotiating: 'Negotiating', contract_signed: 'Contract Signed', not_interested: 'Not Interested (Closed)', follow_up_later: 'Follow Up Later' },
+  ru: { not_contacted: 'Не связывались', touch_1: 'Касание 1', touch_2: 'Касание 2', touch_3: 'Касание 3', email_sent: 'Письмо отправлено', call_made: 'Звонок сделан', replied: 'Ответили', meeting_booked: 'Встреча назначена', proposal_sent: 'КП отправлено', negotiating: 'Переговоры', contract_signed: 'Договор подписан', not_interested: 'Не заинтересованы (закрыт)', follow_up_later: 'Связаться позже' },
 };
 
 // Sample row for the template, per language
