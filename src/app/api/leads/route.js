@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 const { queryAll, queryOne, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
-const { logLeadActivity } = require('@/lib/watchers');
+const { logLeadActivity, notifyBulk } = require('@/lib/watchers');
 const { searchClause, lookupClause } = require('@/lib/lead-search');
 const { createFollowup } = require('@/lib/followups');
 
@@ -85,28 +85,33 @@ export async function PATCH(request) {
   
   if (status) {
     // Per-lead history so each lead's log (and its watchers) shows the bulk change
-    const before = await queryAll(`SELECT id, status, company_name, project_id, project_seq FROM gtm_leads WHERE id IN (${placeholders})`, ids);
+    const before = await queryAll(`SELECT id, status, company_name, project_id, project_seq, created_by FROM gtm_leads WHERE id IN (${placeholders})`, ids);
+    const changed = [];
     await query(`UPDATE gtm_leads SET status = $${ids.length + 1}, updated_at = NOW()${status !== 'not_contacted' ? ', last_contacted_at = NOW()' : ''} WHERE id IN (${placeholders})`, [...ids, status]);
     for (const l of before) {
       if (l.status !== status) {
         await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)', [l.id, l.status, status, user.id, user.name, comment]);
-        await logLeadActivity(user, l, `Changed status: ${l.status} → ${status} (bulk)`, { kind: 'status', comment, from: l.status, to: status, bulk: true });
+        // logged per lead, but notified once per person below (a digest, not one email per lead)
+        await logLeadActivity(user, l, `Changed status: ${l.status} → ${status} (bulk)`, { kind: 'status', comment, from: l.status, to: status, bulk: true }, { notify: false });
         if (status === 'follow_up_later' && followup_at) {
-          await createFollowup({ user, lead: l, title: followup_title || 'Follow up later', note: comment, dueAt: followup_at, tz });
+          await createFollowup({ user, lead: l, title: followup_title || 'Follow up later', note: comment, dueAt: followup_at, tz, notify: false });
         }
+        changed.push(l);
       }
     }
+    if (changed.length) notifyBulk(user, changed, (l) => ({ kind: 'status', comment, from: l.status, to: status, bulk: true }), 'bulk status');
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',
       [user.id, user.name, user.role, `Bulk updated ${ids.length} leads to "${status}"`, 'lead', 'lead']);
   }
 
   if (template_id !== undefined) {
-    const leads = await queryAll(`SELECT id, company_name, project_id, project_seq FROM gtm_leads WHERE id IN (${placeholders})`, ids);
+    const leads = await queryAll(`SELECT id, company_name, project_id, project_seq, created_by FROM gtm_leads WHERE id IN (${placeholders})`, ids);
     await query(`UPDATE gtm_leads SET last_template_id = $${ids.length + 1}, updated_at = NOW() WHERE id IN (${placeholders})`, [...ids, template_id]);
     const tpl = template_id ? await queryOne('SELECT name FROM gtm_templates WHERE id = $1', [template_id]) : null;
     for (const l of leads) {
-      await logLeadActivity(user, l, tpl ? `Assigned template "${tpl.name}" (bulk)` : 'Cleared template (bulk)', { kind: 'template', comment, template: tpl?.name || null, bulk: true });
+      await logLeadActivity(user, l, tpl ? `Assigned template "${tpl.name}" (bulk)` : 'Cleared template (bulk)', { kind: 'template', comment, template: tpl?.name || null, bulk: true }, { notify: false });
     }
+    if (leads.length) notifyBulk(user, leads, () => ({ kind: 'template', comment, template: tpl?.name || null, bulk: true }), 'bulk template');
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',
       [user.id, user.name, user.role, `Bulk assigned template to ${ids.length} leads`, 'lead', 'lead']);
   }

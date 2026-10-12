@@ -362,6 +362,7 @@ export const RU = {
   'One per line (or comma-separated): lead IDs, company names, contact names, emails, phone numbers, Telegram…': 'По одному в строке (или через запятую): номера лидов, названия компаний, имена контактов, email, телефоны, Telegram…',
   'Bulk Lookup active — {n} matching leads': 'Массовый поиск включён — найдено лидов: {n}',
   'Edit list': 'Изменить список',
+  'Added this lead — gets an email for every change': 'Добавил(а) этот лид — получает письмо о каждом изменении',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

@@ -9,7 +9,11 @@ export async function GET(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const sp = new URL(request.url).searchParams;
-  if (sp.get('lead_id')) return NextResponse.json({ watchers: await listLeadWatchers(Number(sp.get('lead_id'))) });
+  if (sp.get('lead_id')) {
+    // The owner (whoever added the lead) is always notified, so show them alongside the CC list
+    const owner = await queryOne('SELECT u.id, u.name FROM gtm_leads l JOIN gtm_users u ON u.id = l.created_by WHERE l.id = $1', [Number(sp.get('lead_id'))]);
+    return NextResponse.json({ watchers: await listLeadWatchers(Number(sp.get('lead_id'))), owner: owner || null });
+  }
   if (sp.get('target_user_id')) {
     if (!isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
     return NextResponse.json({ watchers: await listUserWatchers(Number(sp.get('target_user_id'))) });
@@ -35,7 +39,7 @@ export async function POST(request) {
     await addWatcher({ scope: 'lead', leadId: lead.id, watcherId, addedBy: user, source: 'cc' });
     const self = watcherId === user.id;
     const action = self ? `${user.name} subscribed to notifications` : `${user.name} added ${watcher.name} as CC`;
-    await logLeadActivity(user, lead, action, { kind: 'watch', event: 'added', watcher: watcher.name, self });
+    await logLeadActivity(user, lead, action, { kind: 'watch', event: 'added', watcher: watcher.name, watcher_id: watcherId, self });
     return NextResponse.json({ ok: true }, { status: 201 });
   }
   if (b.target_user_id) {

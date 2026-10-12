@@ -15,7 +15,10 @@ export async function PUT(request, { params }) {
   // Every change carries the user's comment (why it was made); it is stored with the log entry and
   // fanned out to anyone watching this lead (CC'd or watching this user).
   const comment = typeof b.comment === 'string' ? b.comment.trim().slice(0, 1000) : '';
-  const log = (action, kind, extra = {}) => logLeadActivity(user, lead, action, { kind, comment, ...extra });
+  // Changes are collected here and logged/notified only AFTER the lead row is updated, so the
+  // notification email's "lead now" snapshot shows the new status, not the old one.
+  const toLog = [];
+  const log = async (action, kind, extra = {}) => { toLog.push([action, { kind, comment, ...extra }]); };
 
   if (b.status && b.status !== lead.status) {
     await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)',
@@ -46,6 +49,7 @@ export async function PUT(request, { params }) {
   if (b.status && b.status !== lead.status && !['not_contacted'].includes(b.status) && b.last_contacted_at === undefined) {
     await query('UPDATE gtm_leads SET last_contacted_at = NOW() WHERE id = $1', [id]);
   }
+  for (const [action, meta] of toLog) await logLeadActivity(user, lead, action, meta);
   // "Follow Up Later" comes with a date: schedule it as a follow-up so it lands on the Dashboard / calendar
   if (b.status === 'follow_up_later' && b.followup_at) {
     await createFollowup({ user, lead, title: b.followup_title || 'Follow up later', note: comment, dueAt: b.followup_at, tz: b.tz });
@@ -77,7 +81,7 @@ export async function DELETE(request, { params }) {
   const { id } = await params;
   let body = {}; try { body = await request.json(); } catch {}
   const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 1000) : '';
-  const lead = await queryOne('SELECT id, company_name, project_id, dedup_key, deleted_at, project_seq FROM gtm_leads WHERE id = $1', [id]);
+  const lead = await queryOne('SELECT id, company_name, project_id, dedup_key, deleted_at, project_seq, created_by, city FROM gtm_leads WHERE id = $1', [id]);
   if (!lead) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const { searchParams } = new URL(request.url);
   if (searchParams.get('permanent') === '1') {

@@ -30,13 +30,14 @@ export function LeadWatchersPanel({ leadId }) {
   const { user, isAdmin } = useAuth();
   const { t } = useProject();
   const [watchers, setWatchers] = useState(null);
+  const [owner, setOwner] = useState(null);
   const [team, setTeam] = useState([]);
   const [adding, setAdding] = useState(false);
   const [pick, setPick] = useState('');
   const [err, setErr] = useState('');
 
   const load = useCallback(() => {
-    fetch(`/api/watchers?lead_id=${leadId}`).then(r => r.json()).then(d => setWatchers(d.watchers || [])).catch(() => setWatchers([]));
+    fetch(`/api/watchers?lead_id=${leadId}`).then(r => r.json()).then(d => { setWatchers(d.watchers || []); setOwner(d.owner || null); }).catch(() => setWatchers([]));
   }, [leadId]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (isAdmin) fetch('/api/team').then(r => r.json()).then(d => setTeam((d.members || []).filter(m => m.is_active !== 0 && m.is_active !== false))).catch(() => {}); }, [isAdmin]);
@@ -84,12 +85,17 @@ export function LeadWatchersPanel({ leadId }) {
           <button type="button" onClick={addPicked} disabled={!pick} className="btn btn-sm btn-primary" style={{ fontSize: '0.7rem' }}>{t('Add')}</button>
         </div>
       )}
-      {watchers.length > 0 && (
+      {(owner || watchers.length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {watchers.map(w => <Chip key={w.id} w={w} t={t} canRemove={isAdmin || w.watcher_id === user?.id} onRemove={() => remove(w.watcher_id)} />)}
+          {owner && (
+            <span title={t('Added this lead — gets an email for every change')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: '#ecfdf5', border: '1px solid #a7f3d0', fontSize: '0.72rem', fontWeight: 600, color: '#047857' }}>
+              <MI name="star" size={12} /> {owner.name} <span style={{ fontWeight: 500, opacity: 0.75, fontSize: '0.64rem' }}>{t('owner')}</span>
+            </span>
+          )}
+          {watchers.filter(w => w.watcher_id !== owner?.id).map(w => <Chip key={w.id} w={w} t={t} canRemove={isAdmin || w.watcher_id === user?.id} onRemove={() => remove(w.watcher_id)} />)}
         </div>
       )}
-      {watchers.length === 0 && !adding && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t('No one is CC’d — commenting on this lead subscribes you automatically.')}</div>}
+      {!owner && watchers.length === 0 && !adding && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t('No one is CC’d — commenting on this lead subscribes you automatically.')}</div>}
     </div>
   );
 }

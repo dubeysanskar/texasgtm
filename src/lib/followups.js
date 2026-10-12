@@ -24,8 +24,8 @@ function toIso(v) {
 }
 
 /** Write an entry into the lead's log (shown in "View log") and notify anyone watching it. */
-async function logToLead(user, lead, action, meta) {
-  await logLeadActivity(user, lead, action, meta);
+async function logToLead(user, lead, action, meta, opts) {
+  await logLeadActivity(user, lead, action, meta, opts);
 }
 
 /**
@@ -33,7 +33,7 @@ async function logToLead(user, lead, action, meta) {
  * "Follow Up Later" with a date). Logs it to the lead and notifies the assignee if it's someone else.
  * `lead` needs id, company_name, project_id. Returns the new follow-up id, or null if the date is invalid.
  */
-async function createFollowup({ user, lead, title, note = '', dueAt, remindBefore = 60, tz = '', assignee = null }) {
+async function createFollowup({ user, lead, title, note = '', dueAt, remindBefore = 60, tz = '', assignee = null, notify = true }) {
   const due = toIso(dueAt);
   const cleanTitle = String(title || '').trim().slice(0, 200);
   if (!due || !cleanTitle) return null;
@@ -44,7 +44,7 @@ async function createFollowup({ user, lead, title, note = '', dueAt, remindBefor
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'open',$12) RETURNING id`,
     [lead.id, lead.project_id || null, cleanTitle, cleanNote, due, remindAt(due, remindBefore), String(tz || '').slice(0, 64), who.id, who.name, user.id, user.name, new Date().toISOString()]
   );
-  await logToLead(user, lead, `Scheduled follow-up "${cleanTitle}"`, { kind: 'followup', event: 'created', title: cleanTitle, due_at: due, assignee: who.name, comment: cleanNote });
+  await logToLead(user, lead, `Scheduled follow-up "${cleanTitle}"`, { kind: 'followup', event: 'created', title: cleanTitle, due_at: due, assignee: who.name, comment: cleanNote }, { notify });
   if (who.id !== user.id) {
     await query('INSERT INTO gtm_notifications (user_id, type, title, message, entity_type, entity_id) VALUES ($1,$2,$3,$4,$5,$6)',
       [who.id, 'followup', 'New follow-up assigned', `${user.name}: ${cleanTitle} — ${lead.company_name}`, 'lead', lead.id]).catch(() => {});
