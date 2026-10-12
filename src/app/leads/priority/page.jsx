@@ -37,7 +37,14 @@ export default function PriorityLeadsPage() {
     const q = search.trim().toLowerCase();
     return leads.filter(l => {
       if (tier !== 'all' && l.priority !== tier) return false;
-      if (q && !`${l.company_name} ${l.city} ${l.decision_maker_title} ${l.project_seq}`.toLowerCase().includes(q)) return false;
+      if (q) {
+        // every word must appear somewhere on the lead; phone numbers also match on digits alone
+        const hay = [l.company_name, l.domain, l.city, l.region, l.email, l.phone, l.mobile_personal, l.telegram, l.max_messenger,
+          l.decision_maker_title, l.contact_person, l.pain_point, l.find_instructions, l.notes, l.project_seq].join(' ').toLowerCase();
+        const digits = q.replace(/\D/g, '');
+        const phoneHit = digits.length >= 5 && [l.phone, l.mobile_personal].some(v => String(v || '').replace(/\D/g, '').includes(digits.length > 10 ? digits.slice(-10) : digits));
+        if (!phoneHit && !q.split(/\s+/).every(w => hay.includes(w))) return false;
+      }
       return true;
     });
   }, [leads, tier, search]);
@@ -63,7 +70,8 @@ export default function PriorityLeadsPage() {
     if (newStatus === lead.status) return;
     setPending({
       title: lead.company_name, detail: `${t('Status')}: ${t(SC[lead.status]?.label)} → ${t(SC[newStatus]?.label)}`,
-      run: async (comment) => { await save(lead.id, { status: newStatus, comment }); },
+      askDate: newStatus === 'follow_up_later',
+      run: async (comment, extra = {}) => { await save(lead.id, { status: newStatus, comment, ...extra }); },
     });
   }
   async function save(id, body) {
@@ -94,7 +102,7 @@ export default function PriorityLeadsPage() {
             {t(PC[tr].label)} <span style={{ opacity: 0.6 }}>{counts[tr]}</span>
           </button>
         ))}
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Search by company, city, ID…')}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Search anything — company, name, email, phone, Telegram, city, ID…')}
           style={{ marginLeft: 'auto', minWidth: 220, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', fontSize: '0.82rem', fontFamily: 'inherit' }} />
       </div>
 
@@ -150,9 +158,9 @@ export default function PriorityLeadsPage() {
       ))}
 
       {pending && (
-        <CommentPrompt t={t} title={pending.title} detail={pending.detail}
+        <CommentPrompt t={t} title={pending.title} detail={pending.detail} askDate={pending.askDate}
           onCancel={() => setPending(null)}
-          onConfirm={async (comment) => { const run = pending.run; setPending(null); await run(comment); }} />
+          onConfirm={async (comment, extra) => { const run = pending.run; setPending(null); await run(comment, extra); }} />
       )}
     </div>
   );

@@ -90,22 +90,23 @@ export default function DashboardPage() {
       </div>
 
       {showFollowups && (() => {
-        const b = { overdue: [], today: [], week: [] };
-        for (const f of followups) { const k = bucketOf(f.due_at); if (k === 'overdue') b.overdue.push(f); else if (k === 'today') b.today.push(f); else if (k === 'tomorrow' || k === 'week') b.week.push(f); }
-        const upcoming = [...b.overdue, ...b.today, ...b.week].slice(0, 6);
+        const b = { overdue: [], today: [], week: [], later: [] };
+        for (const f of followups) { const k = bucketOf(f.due_at); if (k === 'overdue') b.overdue.push(f); else if (k === 'today') b.today.push(f); else if (k === 'tomorrow' || k === 'week') b.week.push(f); else b.later.push(f); }
+        // includes "later" ones (e.g. a lead set to Follow Up Later in a month) so nothing scheduled is invisible here
+        const upcoming = [...b.overdue, ...b.today, ...b.week, ...b.later].slice(0, 8);
         return (
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
               <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="event_upcoming" size={18} /> {t(isAdmin ? 'Team follow-ups' : 'My follow-ups')}</span>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {[['overdue', t('Overdue'), b.overdue.length], ['today', t('Today'), b.today.length], ['week', t('Next 7 days'), b.week.length]].map(([k, l, n]) => (
+                {[['overdue', t('Overdue'), b.overdue.length], ['today', t('Today'), b.today.length], ['week', t('Next 7 days'), b.week.length], ['later', t('Later'), b.later.length]].map(([k, l, n]) => (
                   <span key={k} style={{ padding: '3px 10px', borderRadius: 20, background: TONE[k].bg, color: TONE[k].text, border: `1px solid ${TONE[k].border}`, fontSize: '0.72rem', fontWeight: 700 }}>{l}: {n}</span>
                 ))}
                 <Link href="/followups" style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', marginLeft: 6 }}>{t('Open calendar')} →</Link>
               </div>
             </div>
             {upcoming.length === 0
-              ? <p className="no-data" style={{ padding: 24 }}>{t('No follow-ups in the next 7 days. Schedule one from a lead or the Follow-ups page.')}</p>
+              ? <p className="no-data" style={{ padding: 24 }}>{t('No follow-ups scheduled. Schedule one from a lead or the Follow-ups page.')}</p>
               : upcoming.map(f => <FollowUpRow key={f.id} f={f} {...fu.actions} onOpenLead={(x) => router.push(`/leads?log=${x.lead_id}`)} />)}
           </div>
         );

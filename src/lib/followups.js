@@ -28,6 +28,30 @@ async function logToLead(user, lead, action, meta) {
   await logLeadActivity(user, lead, action, meta);
 }
 
+/**
+ * Create a follow-up on a lead (used by POST /api/followups and by the leads API when a lead is set to
+ * "Follow Up Later" with a date). Logs it to the lead and notifies the assignee if it's someone else.
+ * `lead` needs id, company_name, project_id. Returns the new follow-up id, or null if the date is invalid.
+ */
+async function createFollowup({ user, lead, title, note = '', dueAt, remindBefore = 60, tz = '', assignee = null }) {
+  const due = toIso(dueAt);
+  const cleanTitle = String(title || '').trim().slice(0, 200);
+  if (!due || !cleanTitle) return null;
+  const who = assignee || { id: user.id, name: user.name };
+  const cleanNote = String(note || '').trim().slice(0, 2000);
+  const row = await queryOne(
+    `INSERT INTO gtm_followups (lead_id, project_id, title, note, due_at, remind_at, tz, assigned_to, assigned_to_name, created_by, created_by_name, status, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'open',$12) RETURNING id`,
+    [lead.id, lead.project_id || null, cleanTitle, cleanNote, due, remindAt(due, remindBefore), String(tz || '').slice(0, 64), who.id, who.name, user.id, user.name, new Date().toISOString()]
+  );
+  await logToLead(user, lead, `Scheduled follow-up "${cleanTitle}"`, { kind: 'followup', event: 'created', title: cleanTitle, due_at: due, assignee: who.name, comment: cleanNote });
+  if (who.id !== user.id) {
+    await query('INSERT INTO gtm_notifications (user_id, type, title, message, entity_type, entity_id) VALUES ($1,$2,$3,$4,$5,$6)',
+      [who.id, 'followup', 'New follow-up assigned', `${user.name}: ${cleanTitle} — ${lead.company_name}`, 'lead', lead.id]).catch(() => {});
+  }
+  return row.id;
+}
+
 function fmtWhen(iso, tz, lang) {
   try {
     return new Date(iso).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-GB', { timeZone: tz || 'UTC', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + (tz ? '' : ' UTC');
@@ -118,4 +142,4 @@ function startReminderLoop() {
   console.log(`[followups] reminder loop started (every ${Math.round(every / 1000)}s)`);
 }
 
-module.exports = { REMIND_OPTIONS, remindAt, toIso, logToLead, sendDueReminders, startReminderLoop };
+module.exports = { REMIND_OPTIONS, remindAt, toIso, logToLead, createFollowup, sendDueReminders, startReminderLoop };

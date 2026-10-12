@@ -5,7 +5,7 @@ import { useProject } from '@/context/ProjectContext';
 import { useRouter } from 'next/navigation';
 import { DueChip, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
 import { LeadWatchersPanel } from '@/components/Watchers';
-import CommentPrompt from '@/components/CommentPrompt';
+import CommentPrompt, { FollowUpDateFields, followupFields } from '@/components/CommentPrompt';
 import ContactBadges from '@/components/LeadContactBadges';
 import { SC, PC, SL } from '@/lib/lead-status';
 
@@ -18,7 +18,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ sector: '', priority: '', status: '', search: '' });
+  const [filters, setFilters] = useState({ sector: '', priority: '', status: '', search: '', lookup: '' });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -61,6 +61,7 @@ export default function LeadsPage() {
     if (filters.priority) p.set('priority', filters.priority);
     if (filters.status) p.set('status', filters.status);
     if (filters.search) p.set('search', filters.search);
+    if (filters.lookup) p.set('lookup', filters.lookup);
     p.set('page', page); p.set('limit', perPage); p.set('order', sortOrder);
     if (projectId) p.set('project_id', projectId);
     if (viewDeleted) p.set('deleted', '1');
@@ -99,7 +100,8 @@ export default function LeadsPage() {
   function handleStatusChange(id, s) {
     const lead = leads.find(l => l.id === id);
     setPending({ title: t('Status'), detail: `${lead?.company_name}: ${t(SC[lead?.status]?.label || '')} → ${t(SC[s]?.label || s)}`,
-      run: async (comment) => { await put(id, { status: s, comment }); fetchLeads(); fetchStats(); } });
+      askDate: s === 'follow_up_later',
+      run: async (comment, extra = {}) => { await put(id, { status: s, comment, ...extra }); fetchLeads(); fetchStats(); } });
   }
   function handlePriorityChange(id, p) {
     const lead = leads.find(l => l.id === id);
@@ -134,8 +136,9 @@ export default function LeadsPage() {
   function handleBulkStatus() {
     if (!selected.size || !bulkStatus) return;
     setPending({ title: t('Status'), detail: `${t('{n} selected', { n: selected.size })} → ${t(SC[bulkStatus]?.label || bulkStatus)}`,
-      run: async (comment) => {
-        await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], status: bulkStatus, comment }) });
+      askDate: bulkStatus === 'follow_up_later',
+      run: async (comment, extra = {}) => {
+        await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], status: bulkStatus, comment, ...extra }) });
         setSelected(new Set()); setBulkStatus(''); fetchLeads(); fetchStats();
       } });
   }
@@ -165,10 +168,13 @@ export default function LeadsPage() {
     } catch (e) { alert(t('Export failed')); }
     setExporting(false);
   }
+  // Bulk Lookup sends the pasted list as-is; the API splits it per line / comma and returns a lead if it
+  // matches ANY value (ID, company, contact name, email, phone, Telegram…)
   function handleBulkLookup() {
-    const ids = bulkLookupText.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
-    if (ids.length) { setFilters(f => ({ ...f, search: ids.join(' ') })); setShowBulkLookup(false); }
+    const text = bulkLookupText.trim();
+    if (text) { setFilters(f => ({ ...f, lookup: text })); setShowBulkLookup(false); }
   }
+  function clearBulkLookup() { setBulkLookupText(''); setFilters(f => ({ ...f, lookup: '' })); }
   function toggleSelect(id) { setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function toggleSelectAll() { if (selected.size === leads.length) setSelected(new Set()); else setSelected(new Set(leads.map(l => l.id))); }
 
@@ -223,18 +229,26 @@ export default function LeadsPage() {
       {/* Bulk Lookup Panel */}
       {showBulkLookup && !viewDeleted && (
         <div style={{ background:'#f8fafc', border:'1px solid var(--border)', borderRadius:10, padding:14, marginBottom:14 }}>
-          <div style={{ fontSize:'0.8rem', fontWeight:600, marginBottom:8 }}>{t('Bulk Lookup — paste IDs or company names')}</div>
-          <textarea rows={3} value={bulkLookupText} onChange={e => setBulkLookupText(e.target.value)} placeholder={t('Paste IDs or names separated by comma, space, or newline...')} style={{ width:'100%', padding:8, borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem', resize:'vertical' }}/>
+          <div style={{ fontSize:'0.8rem', fontWeight:600, marginBottom:4 }}>{t('Bulk Lookup — paste a list to find many leads at once')}</div>
+          <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:8 }}>{t('One per line (or comma-separated): lead IDs, company names, contact names, emails, phone numbers, Telegram…')}</div>
+          <textarea rows={4} value={bulkLookupText} onChange={e => setBulkLookupText(e.target.value)} placeholder={'12\nООО «Ромашка»\nivanov@mail.ru\n+7 916 000-00-00'} style={{ width:'100%', padding:8, borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem', resize:'vertical', fontFamily:'inherit' }}/>
           <div style={{ display:'flex', gap:6, marginTop:8 }}>
             <button onClick={handleBulkLookup} className="btn btn-primary" style={{ fontSize:'0.72rem' }}>{t('Search')}</button>
-            <button onClick={() => { setShowBulkLookup(false); setBulkLookupText(''); setFilters(f => ({...f, search:''})); }} className="btn btn-ghost" style={{ fontSize:'0.72rem' }}>{t('Clear')}</button>
+            <button onClick={() => { setShowBulkLookup(false); clearBulkLookup(); }} className="btn btn-ghost" style={{ fontSize:'0.72rem' }}>{t('Clear')}</button>
           </div>
+        </div>
+      )}
+      {filters.lookup && !showBulkLookup && !viewDeleted && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:'#eef2ff', border:'1px solid #c7d2fe', color:'#3730a3', borderRadius:10, padding:'8px 12px', marginBottom:14, fontSize:'0.76rem' }}>
+          <MI name="manage_search" size={16}/> {t('Bulk Lookup active — {n} matching leads', { n: total })}
+          <button onClick={() => setShowBulkLookup(true)} className="btn btn-sm btn-ghost" style={{ marginLeft:'auto', fontSize:'0.7rem' }}>{t('Edit list')}</button>
+          <button onClick={clearBulkLookup} className="btn btn-sm btn-ghost" style={{ fontSize:'0.7rem' }}><MI name="close" size={14}/> {t('Clear')}</button>
         </div>
       )}
 
       {/* Filters */}
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}>
-        <input type="text" placeholder={t('Search company, city, email, ID…')} value={filters.search}
+        <input type="text" placeholder={t('Search anything — company, name, email, phone, Telegram, city, ID…')} value={filters.search}
           onChange={e => setFilters(f => ({...f, search: e.target.value}))} style={{ flex:1, minWidth:180, padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem' }}/>
         <select value={filters.priority} onChange={e => setFilters(f => ({...f, priority: e.target.value}))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem' }}>
           <option value="">{t('All priorities')}</option>{Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
@@ -252,8 +266,8 @@ export default function LeadsPage() {
           style={{ padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.72rem', cursor:'pointer', background: sortOrder === 'asc' ? '#eff6ff' : '#fff', color: sortOrder === 'asc' ? '#2563eb' : '#6b7280', fontWeight:600, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
           <MI name={sortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward'} size={14}/> {sortOrder === 'desc' ? t('Newest') : t('Oldest')}
         </button>
-        {(filters.search||filters.priority||filters.sector||filters.status) && (
-          <button onClick={() => setFilters({sector:'',priority:'',status:'',search:''})} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ {t('Clear')}</button>
+        {(filters.search||filters.priority||filters.sector||filters.status||filters.lookup) && (
+          <button onClick={() => { setFilters({sector:'',priority:'',status:'',search:'',lookup:''}); setBulkLookupText(''); }} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ {t('Clear')}</button>
         )}
       </div>
 
@@ -438,7 +452,7 @@ export default function LeadsPage() {
 
       {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
       {editLead && <LeadFormModal t={t} projectId={projectId} lead={editLead} onClose={() => setEditLead(null)} onDone={() => { fetchLeads(); fetchStats(); setEditLead(null); }} />}
-      {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} danger={pending.danger} onCancel={() => setPending(null)} onConfirm={async (comment) => { const run = pending.run; setPending(null); await run(comment); }} />}
+      {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} danger={pending.danger} askDate={pending.askDate} onCancel={() => setPending(null)} onConfirm={async (comment, extra) => { const run = pending.run; setPending(null); await run(comment, extra); }} />}
       {logLead && <LeadLogModal t={t} lang={lang} lead={logLead} projectId={projectId} readOnly={!!logLead.deleted_at} onChanged={() => { fetchLeads(); fetchStats(); }} onClose={() => setLogLead(null)} />}
       {leadFu.modals(projectId)}
       {showUploadModal && <BulkUploadModal t={t} lang={lang} onClose={() => setShowUploadModal(false)} projectId={projectId} onImportDone={() => { fetchLeads(); fetchStats(); }} />}
@@ -457,14 +471,24 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  // Moving a lead into "Follow Up Later" asks when — the API schedules a follow-up for that date
+  const askFu = f.status === 'follow_up_later' && (!isEdit || lead.status !== 'follow_up_later');
+  const [fuDate, setFuDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  const [fuTime, setFuTime] = useState('10:00');
   async function save(e) {
     e.preventDefault(); setErr('');
     if (!comment.trim()) { setErr(t(isEdit ? 'Please enter a comment describing this change' : 'Please enter a comment for this lead')); return; }
+    let extra = {};
+    if (askFu) {
+      const fu = followupFields(fuDate, fuTime);
+      if (!fu) { setErr(t('Pick a date and time')); return; }
+      extra = { ...fu, followup_title: t('Follow up later') };
+    }
     setSaving(true);
     try {
       const r = isEdit
-        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment }) })
-        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId, comment }) });
+        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment, ...extra }) })
+        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId, comment, ...extra }) });
       if (r.ok) { onDone(); return; }
       const d = await r.json().catch(() => ({}));
       setErr(t(d.error || (r.status >= 500 ? 'Server error — the database may be unavailable. Please try again shortly.' : 'Failed')));
@@ -486,6 +510,7 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
             <div className="leads-form-field"><label>{t('Sector')}</label><select value={f.sector} onChange={e => setF({...f, sector:e.target.value})}>{Object.entries(SL).map(([v,l]) => <option key={v} value={v}>{t(l)}</option>)}</select></div>
             <div className="leads-form-field"><label>{t('Priority')}</label><select value={f.priority} onChange={e => setF({...f, priority:e.target.value})}><option value="HOT">{t('HOT')}</option><option value="HIGH">{t('HIGH')}</option><option value="MEDIUM">{t('MEDIUM')}</option><option value="PARTNER">{t('PARTNER')}</option></select></div>
             <div className="leads-form-field"><label>{t('Status')}</label><select value={f.status} onChange={e => setF({...f, status:e.target.value})}>{Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}</select></div>
+            {askFu && <div style={{ gridColumn:'1/-1' }}><FollowUpDateFields t={t} date={fuDate} time={fuTime} setDate={setFuDate} setTime={setFuTime} /></div>}
             <div className="leads-form-field"><label>{t('City')}</label><input value={f.city} onChange={e => setF({...f, city:e.target.value})}/></div>
             <div className="leads-form-field"><label>{t('Size')}</label><input value={f.company_size} onChange={e => setF({...f, company_size:e.target.value})} placeholder="50-100"/></div>
             <div className="leads-form-field"><label>{t('Decision maker name')}</label><input value={f.decision_maker_title} onChange={e => setF({...f, decision_maker_title:e.target.value})}/></div>
@@ -872,6 +897,9 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
   const [fus, setFus] = useState([]);
   const [note, setNote] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  // "Follow Up Later" in the composer also asks when (default: tomorrow 10:00)
+  const [fuDate, setFuDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  const [fuTime, setFuTime] = useState('10:00');
   const [posting, setPosting] = useState(false);
   const [postErr, setPostErr] = useState('');
   const lead = data?.lead ? { ...initialLead, ...data.lead } : initialLead;
@@ -885,10 +913,16 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
   async function postUpdate(e) {
     e.preventDefault(); setPostErr('');
     if (!note.trim()) { setPostErr(t('Please enter a comment')); return; }
+    let extra = {};
+    if (newStatus === 'follow_up_later') {
+      const f = followupFields(fuDate, fuTime);
+      if (!f) { setPostErr(t('Pick a date and time')); return; }
+      extra = { ...f, followup_title: t('Follow up later') };
+    }
     setPosting(true);
     try {
       const r = newStatus && newStatus !== lead.status
-        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus, comment: note.trim() }) })
+        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus, comment: note.trim(), ...extra }) })
         : await fetch(`/api/leads/${lead.id}/comment`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment: note.trim() }) });
       if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
       setNote(''); setNewStatus(''); reload(); onChanged?.();
@@ -974,6 +1008,7 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => fu.create(lead)}><MI name="event" size={15}/> {t('Schedule follow-up')}</button>
               <button type="submit" disabled={posting} className="btn btn-sm btn-primary" style={{ marginLeft:'auto' }}><MI name="send" size={14}/> {posting ? t('Saving…') : t('Add to log')}</button>
             </div>
+            {newStatus === 'follow_up_later' && <div style={{ marginTop:8 }}><FollowUpDateFields t={t} date={fuDate} time={fuTime} setDate={setFuDate} setTime={setFuTime} /></div>}
           </form>
         )}
         {openFus.length > 0 && (

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 const { queryAll, queryOne, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 const { logLeadActivity } = require('@/lib/watchers');
+const { searchClause, lookupClause } = require('@/lib/lead-search');
+const { createFollowup } = require('@/lib/followups');
 
 export async function GET(request) {
   const user = getUserFromRequest(request);
@@ -15,7 +17,9 @@ export async function GET(request) {
   const status = searchParams.get('status'); if (status) { params.push(status); sql += ` AND status = $${params.length}`; }
   const priority = searchParams.get('priority'); if (priority) { params.push(priority); sql += ` AND priority = $${params.length}`; }
   const sector = searchParams.get('sector'); if (sector) { params.push(sector); sql += ` AND sector = $${params.length}`; }
-  const search = searchParams.get('search'); if (search) { params.push(`%${search}%`); sql += ` AND (company_name ILIKE $${params.length} OR city ILIKE $${params.length} OR email ILIKE $${params.length} OR CAST(project_seq AS TEXT) ILIKE $${params.length})`; }
+  // Search box: every word matched across all lead fields (+ phone digits); Bulk Lookup: a pasted list, any match
+  sql += searchClause(searchParams.get('search'), params);
+  sql += lookupClause(searchParams.get('lookup'), params);
   // The Priority Leads view: only open (not closed) leads, so a "not interested" lead never clutters it
   if (searchParams.get('exclude_closed') === '1') sql += " AND status != 'not_interested'";
 
@@ -58,7 +62,12 @@ export async function POST(request) {
     [b.company_name.trim(),b.domain||'',b.sector||'other',b.priority||'MEDIUM',b.status||'not_contacted',b.city||'',b.region||'',b.country||'',b.company_size||'',b.pain_point||'',b.decision_maker_title||'',b.phone||'',b.email||'',b.contact_method||'',b.source_url||'',b.find_instructions||'',b.notes||'',dedup,user.id,b.project_id||null,b.mobile_personal||'',seq,b.telegram||'',b.max_messenger||'']
   );
   const comment = typeof b.comment === 'string' ? b.comment.trim().slice(0, 1000) : '';
-  await logLeadActivity(user, { id: result.rows[0].id, company_name: b.company_name.trim(), project_id: b.project_id || null, project_seq: seq }, `Added lead "${b.company_name}"`, { kind: 'create', comment, source: 'manual' });
+  const created = { id: result.rows[0].id, company_name: b.company_name.trim(), project_id: b.project_id || null, project_seq: seq };
+  await logLeadActivity(user, created, `Added lead "${b.company_name}"`, { kind: 'create', comment, source: 'manual' });
+  // Added straight into "Follow Up Later" with a date: schedule the follow-up too
+  if (b.status === 'follow_up_later' && b.followup_at) {
+    await createFollowup({ user, lead: created, title: b.followup_title || 'Follow up later', note: comment, dueAt: b.followup_at, tz: b.tz });
+  }
 
   return NextResponse.json({ id: result.rows[0].id, project_seq: seq });
 }
@@ -67,7 +76,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { ids, status, template_id, comment: rawComment } = await request.json();
+  const { ids, status, template_id, comment: rawComment, followup_at, followup_title, tz } = await request.json();
   const comment = typeof rawComment === 'string' ? rawComment.trim().slice(0, 1000) : '';
   if (!ids?.length) return NextResponse.json({ error: 'ids required' }, { status: 400 });
   if (!status && template_id === undefined) return NextResponse.json({ error: 'status or template_id required' }, { status: 400 });
@@ -82,6 +91,9 @@ export async function PATCH(request) {
       if (l.status !== status) {
         await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)', [l.id, l.status, status, user.id, user.name, comment]);
         await logLeadActivity(user, l, `Changed status: ${l.status} → ${status} (bulk)`, { kind: 'status', comment, from: l.status, to: status, bulk: true });
+        if (status === 'follow_up_later' && followup_at) {
+          await createFollowup({ user, lead: l, title: followup_title || 'Follow up later', note: comment, dueAt: followup_at, tz });
+        }
       }
     }
     await query('INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type) VALUES ($1,$2,$3,$4,$5,$6)',

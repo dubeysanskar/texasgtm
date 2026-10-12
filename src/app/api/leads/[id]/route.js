@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 const { queryOne, query } = require('@/lib/db');
 const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 const { logLeadActivity } = require('@/lib/watchers');
+const { createFollowup } = require('@/lib/followups');
 
 export async function PUT(request, { params }) {
   const user = getUserFromRequest(request);
@@ -44,6 +45,10 @@ export async function PUT(request, { params }) {
   // Any status that implies an actual touch (call, email, meeting, reply…) counts as a contact
   if (b.status && b.status !== lead.status && !['not_contacted'].includes(b.status) && b.last_contacted_at === undefined) {
     await query('UPDATE gtm_leads SET last_contacted_at = NOW() WHERE id = $1', [id]);
+  }
+  // "Follow Up Later" comes with a date: schedule it as a follow-up so it lands on the Dashboard / calendar
+  if (b.status === 'follow_up_later' && b.followup_at) {
+    await createFollowup({ user, lead, title: b.followup_title || 'Follow up later', note: comment, dueAt: b.followup_at, tz: b.tz });
   }
 
   return NextResponse.json({ success: true });
