@@ -810,3 +810,7 @@ table td[style*="cursor: cell"] { -webkit-user-select: text; user-select: text; 
 /* Follow-ups page: calendar + agenda */
 .followups-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .followups-grid { grid-template-columns: 1fr; } }
+
+/* Team performance report: two charts per row, stacking on narrow screens */
+.perf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1000px) { .perf-grid { grid-template-columns: 1fr; } }

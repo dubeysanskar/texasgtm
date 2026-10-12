@@ -16,6 +16,10 @@ export async function POST(request) {
     }
   }
 
+  // Close the login session of whoever really is signing out (the super admin, if they were "viewing as")
+  const realUser = (adminCookie && verifyToken(adminCookie.value)) || verifyToken(request.cookies.get('gtm-token')?.value || '');
+  if (realUser && !realUser.impersonating) await require('@/lib/sessions').endSession(realUser.id).catch(() => {});
+
   const opts = { secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 0, path: '/' };
   const res = NextResponse.json({ success: true });
   res.cookies.set('gtm-token', '', { ...opts, httpOnly: true });

@@ -50,6 +50,9 @@ export async function PUT(request) {
     const token = signToken({ id: user.id, name: user.name, email: user.email, role: user.role });
     const userData = { id: user.id, name: user.name, email: user.email, role: user.role, language: user.language || 'en' };
 
+    // Start a login session (Team Performance: login time, active hours) — never blocks the login itself
+    await require('@/lib/sessions').startSession(user.id, 'otp', request).catch(e => console.error('[sessions] start failed:', e.message));
+
     const res = NextResponse.json({ user: userData, verified: true });
     res.cookies.set('gtm-token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 7 * 24 * 60 * 60, path: '/' });
     return res;

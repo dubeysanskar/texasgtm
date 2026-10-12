@@ -35,6 +35,7 @@ export default function Sidebar() {
     { href: '/marketing', label: t('Marketing'), icon: 'campaign', show: canSee('marketing') },
     { href: '/shared-docs', label: t('Documents'), icon: 'folder_shared', show: canSee('documents') },
     { href: '/logs', label: t('Activity Logs'), icon: 'history', show: canSee('logs') },
+    { href: '/performance', label: t('Team performance'), icon: 'monitoring', show: isAdmin },
     { href: '/admin', label: t('Admin Panel'), icon: 'settings', show: isAdmin },
     { href: '/profile', label: t('My Profile'), icon: 'person', show: true },
   ];

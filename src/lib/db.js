@@ -615,6 +615,26 @@ async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_gtm_imp_target ON gtm_impersonation_sessions(target_user_id);
   `);
 
+  // Login sessions + active time, for the Team Performance report. A session starts at login (or when a
+  // user comes back after being away), heartbeats from the open app extend it, and active_seconds only
+  // grows while the person is actually interacting with the CRM (tab visible + recent input).
+  await query(`
+    CREATE TABLE IF NOT EXISTS gtm_user_sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      started_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      ended_at TEXT,
+      active_seconds INTEGER DEFAULT 0,
+      ended_reason TEXT DEFAULT '',
+      login_method TEXT DEFAULT '',
+      ip TEXT DEFAULT '',
+      user_agent TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_gtm_sessions_user ON gtm_user_sessions(user_id, started_at);
+    CREATE INDEX IF NOT EXISTS idx_gtm_logs_user_time ON gtm_activity_logs(user_id, created_at);
+  `);
+
   // Personal to-do checklist, date-based, shown on the owner's dashboard.
   await query(`
     CREATE TABLE IF NOT EXISTS gtm_todos (
