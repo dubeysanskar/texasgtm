@@ -325,10 +325,12 @@ export default function LeadsPage() {
       )}
 
       {/* Table */}
-      {loading ? <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>{t('Loading…')}</div> : leads.length === 0 ? (
+      {/* The placeholder only shows on the first load; a refresh after a save keeps the current rows on
+          screen and swaps them in place, so the page stays scrolled where the person was working. */}
+      {loading && leads.length === 0 ? <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>{t('Loading…')}</div> : leads.length === 0 ? (
         <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name={viewDeleted ? 'delete_sweep' : 'groups'} size={40}/><p style={{ marginTop:8 }}>{viewDeleted ? t('No deleted leads') : t('No leads found')}</p></div>
       ) : (
-        <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)' }}>
+        <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)', opacity: loading ? 0.65 : 1, transition:'opacity .15s' }}>
           <table style={{ width:'100%', minWidth: 1700, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
             <thead>
               <tr style={{ background:'#f8fafc', borderBottom:'2px solid var(--border)' }}>

@@ -106,7 +106,7 @@ export default function PriorityLeadsPage() {
           style={{ marginLeft: 'auto', minWidth: 220, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', fontSize: '0.82rem', fontFamily: 'inherit' }} />
       </div>
 
-      {loading ? (
+      {loading && leads.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>{t('Loading…')}</div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
