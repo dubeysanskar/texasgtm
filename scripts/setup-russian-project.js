@@ -45,7 +45,8 @@ const ADMINS = [
     email: 'maria.sitnikova@tahaairwaves.ru',
   },
 ];
-const ROLE = 'super_admin';
+// Manager (not super admin) — matches production. Existing users keep whatever role they already have.
+const ROLE = 'manager';
 
 async function run() {
   console.log('▶ Ensuring schema…');
