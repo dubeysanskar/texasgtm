@@ -72,7 +72,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+      <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
         {[
           { label: t('Total Tasks'), value: stats.total_tasks || 0, icon: 'task_alt', color: '#6366f1', href: '/tasks' },
           { label: t('Completed'), value: stats.completed_tasks || 0, icon: 'check_circle', color: '#10b981', href: '/tasks' },
@@ -190,7 +190,7 @@ export default function DashboardPage() {
       )}
 
       {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16, marginBottom: 24 }}>
         {/* Completion Ring */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>{t('Task Completion')}</div>

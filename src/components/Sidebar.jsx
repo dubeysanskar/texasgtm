@@ -4,12 +4,19 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import NotificationBell from './NotificationBell';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useIsMobile } from '@/lib/useMediaQuery';
+
+// Bottom tab bar on phones: the first four of these the person can see, plus "Menu"
+const TAB_ORDER = ['/dashboard', '/leads', '/followups', '/todos', '/messages', '/tasks', '/profile'];
+const TAB_SHORT = { '/dashboard': 'Home', '/leads': 'Leads', '/followups': 'Follow-ups', '/todos': 'To-do', '/messages': 'Chat', '/tasks': 'Tasks', '/profile': 'Profile' };
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, isAdmin, logout, roleLabel, roleColor, canSee } = useAuth();
   const { projects, activeProject, setActiveProject, createProject, lang, setLang, t } = useProject();
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', country: '', color: '#3B82F6', language: 'en' });
@@ -40,7 +47,21 @@ export default function Sidebar() {
     { href: '/profile', label: t('My Profile'), icon: 'person', show: true },
   ];
 
+  // Close the phone menu when navigating, and stop the page behind it from scrolling while it's open
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!isMobile || !drawerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isMobile, drawerOpen]);
+
   if (!user) return null;
+
+  const visible = navItems.filter(i => i.show);
+  const isActive = (href) => pathname === href || (pathname.startsWith(href + '/') && !visible.some(i => i.href !== href && i.href.startsWith(href + '/') && pathname.startsWith(i.href)));
+  const current = [...visible].sort((a, b) => b.href.length - a.href.length).find(i => pathname === i.href || pathname.startsWith(i.href + '/'));
+  const tabs = TAB_ORDER.map(h => visible.find(i => i.href === h)).filter(Boolean).slice(0, 4);
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
@@ -60,7 +81,26 @@ export default function Sidebar() {
   const inputStyle = { width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.74rem', marginBottom: 6, outline: 'none', background: '#fff', color: '#1f2937' };
 
   return (
-    <aside className="sidebar">
+    <>
+    {isMobile && (
+      <header className="m-topbar">
+        <button type="button" className="m-icon-btn" onClick={() => setDrawerOpen(true)} aria-label={t('Menu')}>
+          <span className="material-symbols-outlined">menu</span>
+        </button>
+        <div className="m-topbar-title">
+          <span className="m-topbar-page">{current?.label || 'GTM CRM'}</span>
+          {activeProject && <span className="m-topbar-project"><span style={{ background: activeProject.color || '#3B82F6' }} />{activeProject.name}</span>}
+        </div>
+        <NotificationBell />
+      </header>
+    )}
+    {isMobile && drawerOpen && <div className="m-drawer-overlay" onClick={() => setDrawerOpen(false)} />}
+    <aside className={`sidebar${drawerOpen ? ' open' : ''}`} aria-hidden={isMobile && !drawerOpen ? true : undefined}>
+      {isMobile && (
+        <button type="button" className="m-icon-btn m-drawer-close" onClick={() => setDrawerOpen(false)} aria-label={t('Close')}>
+          <span className="material-symbols-outlined">close</span>
+        </button>
+      )}
       <div className="sidebar-brand">
         <div className="sidebar-logo">
           <img src="/logo.png" alt="Taha Airwaves" style={{ width: 36, height: 36, objectFit: 'contain', display: 'block' }} />
@@ -241,9 +281,9 @@ export default function Sidebar() {
       )}
 
       <nav className="sidebar-nav">
-        {navItems.filter(i => i.show).map(item => (
+        {visible.map(item => (
           <Link key={item.href} href={item.href}
-            className={`sidebar-link ${pathname === item.href || pathname.startsWith(item.href + '/') ? 'active' : ''}`}>
+            className={`sidebar-link ${isActive(item.href) ? 'active' : ''}`}>
             <span className="material-symbols-outlined">{item.icon}</span>
             <span className="sb-text">{item.label}</span>
           </Link>
@@ -264,7 +304,7 @@ export default function Sidebar() {
             <span className="sidebar-user-name">{user.name}</span>
             <span className="sidebar-user-role" style={{ color: roleColor }}>{t(roleLabel)}</span>
           </div>
-          <div className="sb-text"><NotificationBell /></div>
+          {!isMobile && <div className="sb-text"><NotificationBell /></div>}
         </div>
         <button onClick={logout} className="sidebar-logout">
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>
@@ -272,5 +312,20 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    {isMobile && (
+      <nav className="m-tabbar" aria-label={t('Main')}>
+        {tabs.map(item => (
+          <Link key={item.href} href={item.href} className={`m-tab${isActive(item.href) ? ' active' : ''}`}>
+            <span className="material-symbols-outlined">{item.icon}</span>
+            <span className="m-tab-label">{t(TAB_SHORT[item.href] || item.label)}</span>
+          </Link>
+        ))}
+        <button type="button" className={`m-tab${drawerOpen || (current && !tabs.includes(current)) ? ' active' : ''}`} onClick={() => setDrawerOpen(true)}>
+          <span className="material-symbols-outlined">apps</span>
+          <span className="m-tab-label">{t('Menu')}</span>
+        </button>
+      </nav>
+    )}
+    </>
   );
 }

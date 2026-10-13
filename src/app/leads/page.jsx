@@ -8,6 +8,7 @@ import { LeadWatchersPanel } from '@/components/Watchers';
 import CommentPrompt, { FollowUpDateFields, followupFields } from '@/components/CommentPrompt';
 import ContactBadges from '@/components/LeadContactBadges';
 import { SC, PC, SL } from '@/lib/lead-status';
+import { useIsMobile } from '@/lib/useMediaQuery';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size }}>{name}</span>;
 
@@ -15,6 +16,8 @@ export default function LeadsPage() {
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { projectId, t, lang } = useProject();
   const router = useRouter();
+  const isMobile = useIsMobile();
+  const [showFilters, setShowFilters] = useState(false); // phone: filters fold away behind a button
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -191,10 +194,10 @@ export default function LeadsPage() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 className="page-title" style={{ marginBottom:2, fontSize:'1.3rem' }}>{viewDeleted ? <><MI name="delete_sweep" size={22}/> {t('Deleted leads')}</> : t('Lead Management')}</h1>
+          <h1 className={`page-title${viewDeleted ? ' m-keep' : ''}`} style={{ marginBottom:2, fontSize:'1.3rem' }}>{viewDeleted ? <><MI name="delete_sweep" size={22}/> {t('Deleted leads')}</> : t('Lead Management')}</h1>
           <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{viewDeleted ? t('{n} deleted leads', { n: total }) : t('{n} total leads', { n: total })} • {t('Page')} {page}/{totalPages}</p>
         </div>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <div className="m-scroll-x m-full" style={{ display:'flex', gap:6, flexWrap:'wrap', whiteSpace:'nowrap' }}>
           {viewDeleted ? (
             <button onClick={() => setViewDeleted(false)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="arrow_back" size={14}/> {t('Back to leads')}</button>
           ) : (
@@ -202,14 +205,14 @@ export default function LeadsPage() {
           )}
           {!viewDeleted && <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> {t('Bulk Lookup')}</button>}
           {!viewDeleted && <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>}
-          {!viewDeleted && <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>}
+          {!viewDeleted && !isMobile && <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>}
           {!viewDeleted && <button onClick={handleExport} disabled={exporting} className="btn btn-success" style={{ fontSize:'0.75rem' }}><MI name="download" size={14}/> {t('Export')}</button>}
         </div>
       </div>
 
       {/* Stats Row */}
       {stats && !viewDeleted && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:8, marginBottom:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(3,minmax(0,1fr))' : 'repeat(auto-fit,minmax(120px,1fr))', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 12 : 16 }}>
           {[
             { l:t('Total'), v:stats.total, c:'#3b82f6', i:'groups' },
             { l:t('HOT'), v:stats.hot, c:'#ef4444', i:'local_fire_department' },
@@ -218,8 +221,8 @@ export default function LeadsPage() {
             { l:t('Signed'), v:stats.signed, c:'#10b981', i:'verified' },
             { l:t('Partners'), v:stats.partner, c:'#f59e0b', i:'handshake' },
           ].map(s => (
-            <div key={s.l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding:'10px 14px', textAlign:'center' }}>
-              <MI name={s.i} size={18}/><div style={{ fontSize:'1.3rem', fontWeight:800, color:s.c, marginTop:2 }}>{s.v}</div>
+            <div key={s.l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding: isMobile ? '8px 6px' : '10px 14px', textAlign:'center' }}>
+              {!isMobile && <MI name={s.i} size={18}/>}<div style={{ fontSize: isMobile ? '1.1rem' : '1.3rem', fontWeight:800, color:s.c, marginTop:2 }}>{s.v}</div>
               <div style={{ fontSize:'0.65rem', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.5px' }}>{s.l}</div>
             </div>
           ))}
@@ -248,8 +251,14 @@ export default function LeadsPage() {
 
       {/* Filters */}
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}>
-        <input type="text" placeholder={t('Search anything — company, name, email, phone, Telegram, city, ID…')} value={filters.search}
-          onChange={e => setFilters(f => ({...f, search: e.target.value}))} style={{ flex:1, minWidth:180, padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.78rem' }}/>
+        <input type="search" enterKeyHint="search" placeholder={t('Search anything — company, name, email, phone, Telegram, city, ID…')} value={filters.search}
+          onChange={e => setFilters(f => ({...f, search: e.target.value}))} style={{ flex:1, minWidth:180, padding: isMobile ? '10px 12px' : '7px 12px', borderRadius: isMobile ? 12 : 8, border:'1px solid var(--border)', fontSize:'0.78rem' }}/>
+        {isMobile && (() => { const n = [filters.priority, filters.sector, filters.status].filter(Boolean).length; return (
+          <button type="button" onClick={() => setShowFilters(s => !s)} aria-expanded={showFilters}
+            style={{ height:44, padding:'0 12px', borderRadius:12, border:`1px solid ${n || showFilters ? 'var(--primary)' : 'var(--border)'}`, background: n || showFilters ? '#eef2ff' : '#fff', color: n || showFilters ? 'var(--primary)' : '#475569', fontWeight:600, fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
+            <MI name="tune" size={18}/>{n ? n : ''}
+          </button>); })()}
+        {(!isMobile || showFilters) && <div style={ isMobile ? { display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, width:'100%' } : { display:'contents' } }>
         <select value={filters.priority} onChange={e => setFilters(f => ({...f, priority: e.target.value}))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem' }}>
           <option value="">{t('All priorities')}</option>{Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
         </select>
@@ -266,6 +275,7 @@ export default function LeadsPage() {
           style={{ padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.72rem', cursor:'pointer', background: sortOrder === 'asc' ? '#eff6ff' : '#fff', color: sortOrder === 'asc' ? '#2563eb' : '#6b7280', fontWeight:600, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
           <MI name={sortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward'} size={14}/> {sortOrder === 'desc' ? t('Newest') : t('Oldest')}
         </button>
+        </div>}
         {(filters.search||filters.priority||filters.sector||filters.status||filters.lookup) && (
           <button onClick={() => { setFilters({sector:'',priority:'',status:'',search:'',lookup:''}); setBulkLookupText(''); }} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ {t('Clear')}</button>
         )}
@@ -273,7 +283,7 @@ export default function LeadsPage() {
 
       {/* Range Selector + Bulk Actions Bar */}
       {viewDeleted && <div style={{ padding:'8px 14px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, marginBottom:12, fontSize:'0.78rem', color:'#991b1b' }}><MI name="info" size={14}/> {t('Deleted leads are kept here with their full history. Restore brings a lead back to the main list; Delete permanently erases it for good.')}</div>}
-      {!viewDeleted && <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: selected.size > 0 ? 0 : 12, flexWrap:'wrap' }}>
+      {!viewDeleted && !isMobile && <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: selected.size > 0 ? 0 : 12, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:'0.72rem', color:'#6b7280' }}>
           <span style={{ fontWeight:600 }}>{t('Select Range')}:</span>
           <input type="number" placeholder={t('From ID')} value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} style={{ width:70, padding:'4px 6px', borderRadius:6, border:'1px solid var(--border)', fontSize:'0.72rem' }}/>
@@ -284,7 +294,8 @@ export default function LeadsPage() {
       </div>}
 
       {selected.size > 0 && !viewDeleted && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'#eff6ff', borderRadius:10, marginBottom:12, border:'1px solid #bfdbfe', flexWrap:'wrap' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'#eff6ff', borderRadius:10, marginBottom:12, border:'1px solid #bfdbfe', flexWrap:'wrap',
+          ...(isMobile ? { position:'sticky', bottom:'calc(74px + env(safe-area-inset-bottom))', zIndex:30, boxShadow:'0 8px 28px rgba(30,64,175,0.22)', borderRadius:14, padding:'10px 12px' } : {}) }}>
           <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#1e40af' }}>{t('{n} selected', { n: selected.size })}</span>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
           <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} style={{ padding:'5px 8px', borderRadius:6, border:'1px solid #93c5fd', fontSize:'0.72rem' }}>
@@ -297,7 +308,7 @@ export default function LeadsPage() {
               <MI name="description" size={13}/> {t('Set Template')}
             </button>
             {showBulkTpl && (
-              <div style={{ position:'absolute', top:'100%', left:0, width:280, background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,.15)', marginTop:4, zIndex:100 }}>
+              <div style={{ position:'absolute', ...(isMobile ? { bottom:'100%', marginBottom:4, width:'min(280px, 80vw)' } : { top:'100%', width:280 }), left:0, background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,.15)', marginTop:4, zIndex:100 }}>
                 <input autoFocus type="text" placeholder={t('Search template…')} value={bulkTplSearch} onChange={e => setBulkTplSearch(e.target.value)}
                   style={{ width:'100%', padding:'8px 10px', border:'none', borderBottom:'1px solid #e5e7eb', fontSize:'0.72rem', outline:'none' }}/>
                 <div style={{ maxHeight:200, overflowY:'auto' }}>
@@ -329,6 +340,21 @@ export default function LeadsPage() {
           screen and swaps them in place, so the page stays scrolled where the person was working. */}
       {loading && leads.length === 0 ? <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)' }}>{t('Loading…')}</div> : leads.length === 0 ? (
         <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)' }}><MI name={viewDeleted ? 'delete_sweep' : 'groups'} size={40}/><p style={{ marginTop:8 }}>{viewDeleted ? t('No deleted leads') : t('No leads found')}</p></div>
+      ) : isMobile ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:10, opacity: loading ? 0.65 : 1, transition:'opacity .15s' }}>
+          {!viewDeleted && (
+            <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:'0.76rem', color:'#64748b', padding:'0 4px' }}>
+              <input type="checkbox" checked={selected.size === leads.length && leads.length > 0} onChange={toggleSelectAll}/> {t('Select all on this page')}
+            </label>
+          )}
+          {leads.map(l => (
+            <LeadCard key={l.id} l={l} t={t} lang={lang} viewDeleted={viewDeleted} selected={selected.has(l.id)}
+              onToggle={() => toggleSelect(l.id)} onStatus={(v) => handleStatusChange(l.id, v)} onPriority={(v) => handlePriorityChange(l.id, v)}
+              onLog={() => setLogLead(l)} onFollowUp={() => leadFu.create(l)} onEdit={() => setEditLead(l)} onDelete={() => handleDelete(l.id)}
+              onRestore={() => handleRestore(l.id)} onPurge={() => handlePurge(l.id)}
+              template={<TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />} />
+          ))}
+        </div>
       ) : (
         <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)', opacity: loading ? 0.65 : 1, transition:'opacity .15s' }}>
           <table style={{ width:'100%', minWidth: 1700, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
@@ -437,21 +463,26 @@ export default function LeadsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:6, marginTop:16 }}>
-          <button onClick={() => setPage(1)} disabled={page===1} style={PB}>«</button>
-          <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1} style={PB}>‹</button>
-          {Array.from({length: Math.min(7, totalPages)}, (_, i) => {
-            let p; const half = 3;
-            if (totalPages <= 7) p = i+1;
+          {(() => { const W = isMobile ? 3 : 7, half = Math.floor(W / 2), pb = isMobile ? { ...PB, minWidth:42, height:42, fontSize:'0.9rem', borderRadius:10 } : PB; return (<>
+          <button onClick={() => setPage(1)} disabled={page===1} style={pb}>«</button>
+          <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1} style={pb}>‹</button>
+          {Array.from({length: Math.min(W, totalPages)}, (_, i) => {
+            let p;
+            if (totalPages <= W) p = i+1;
             else if (page <= half+1) p = i+1;
-            else if (page >= totalPages-half) p = totalPages-6+i;
+            else if (page >= totalPages-half) p = totalPages-W+1+i;
             else p = page-half+i;
-            return <button key={p} onClick={() => setPage(p)} style={{...PB, background: p===page ? 'var(--primary)' : '#fff', color: p===page ? '#fff' : '#374151', fontWeight: p===page ? 700 : 400}}>{p}</button>;
+            return <button key={p} onClick={() => setPage(p)} style={{...pb, background: p===page ? 'var(--primary)' : '#fff', color: p===page ? '#fff' : '#374151', fontWeight: p===page ? 700 : 400}}>{p}</button>;
           })}
-          <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page===totalPages} style={PB}>›</button>
-          <button onClick={() => setPage(totalPages)} disabled={page===totalPages} style={PB}>»</button>
+          <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page===totalPages} style={pb}>›</button>
+          <button onClick={() => setPage(totalPages)} disabled={page===totalPages} style={pb}>»</button>
+          </>); })()}
         </div>
       )}
 
+      {isMobile && !viewDeleted && selected.size === 0 && (
+        <button type="button" className="m-fab" onClick={() => setShowAddModal(true)} aria-label={t('Add Lead')}><MI name="add" size={26}/></button>
+      )}
       {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
       {editLead && <LeadFormModal t={t} projectId={projectId} lead={editLead} onClose={() => setEditLead(null)} onDone={() => { fetchLeads(); fetchStats(); setEditLead(null); }} />}
       {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} danger={pending.danger} askDate={pending.askDate} onCancel={() => setPending(null)} onConfirm={async (comment, extra) => { const run = pending.run; setPending(null); await run(comment, extra); }} />}
@@ -534,6 +565,90 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
             <button type="submit" disabled={saving} className="btn btn-primary">{saving ? t('Saving…') : isEdit ? t('Save changes') : t('Add Lead')}</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Phone layout: one card per lead instead of the wide spreadsheet table. Every action the table row has
+// is here too; phone numbers and emails are tap-to-call / tap-to-mail.
+function LeadCard({ l, t, lang, viewDeleted, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
+  const [more, setMore] = useState(false);
+  const sc = SC[l.status] || SC.not_contacted;
+  const pc = PC[l.priority] || PC.MEDIUM;
+  const place = [SL[l.sector] ? t(SL[l.sector]) : l.sector, [l.city, l.region].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  const tel = (v) => `tel:${String(v).replace(/[^\d+]/g, '')}`;
+  const chip = { display:'inline-flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:10, border:'1px solid var(--border)', background:'#fff', color:'#334155', fontSize:'0.78rem', fontWeight:600, textDecoration:'none', cursor:'pointer', fontFamily:'inherit', minHeight:38 };
+  const sel = (bg, color) => ({ width:'100%', padding:'9px 10px', borderRadius:10, border:'1px solid rgba(0,0,0,0.06)', fontWeight:700, background:bg, color, appearance:'auto' });
+  const field = (label, value) => value ? <div style={{ minWidth:0 }}><div style={{ fontSize:'0.64rem', color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.3px' }}>{label}</div><div style={{ fontSize:'0.8rem', color:'#1f2937', wordBreak:'break-word', whiteSpace:'pre-wrap' }}>{value}</div></div> : null;
+  return (
+    <div style={{ background: selected ? '#eff6ff' : '#fff', border:`1px solid ${selected ? '#93c5fd' : 'var(--border)'}`, borderLeft:`4px solid ${sc.text}`, borderRadius:14, padding:12, boxShadow:'0 1px 3px rgba(15,23,42,0.05)' }}>
+      <div style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+        {!viewDeleted && <input type="checkbox" checked={selected} onChange={onToggle} aria-label={t('Select')} style={{ marginTop:3, flexShrink:0 }}/>}
+        <div style={{ flex:1, minWidth:0 }} onClick={onLog} role="button">
+          <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+            <span style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'#94a3b8' }}>#{l.project_seq ?? l.id}</span>
+            <span style={{ fontWeight:700, fontSize:'0.95rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</span>
+          </div>
+          {place && <div style={{ fontSize:'0.74rem', color:'#64748b', marginTop:2 }}>{place}</div>}
+          {l.decision_maker_title && <div style={{ fontSize:'0.78rem', color:'#334155', marginTop:4, display:'flex', alignItems:'center', gap:4 }}><MI name="person" size={15}/>{l.decision_maker_title}</div>}
+        </div>
+        {viewDeleted && <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span>}
+      </div>
+
+      {(l.mobile_personal || l.phone || l.email) && (
+        <div className="m-scroll-x" style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>
+          {l.mobile_personal && <a href={tel(l.mobile_personal)} style={chip}><MI name="smartphone" size={16}/>{l.mobile_personal}</a>}
+          {l.phone && l.phone !== l.mobile_personal && <a href={tel(l.phone)} style={chip}><MI name="call" size={16}/>{l.phone}</a>}
+          {l.email && <a href={`mailto:${l.email}`} style={{ ...chip, color:'#2563eb' }}><MI name="mail" size={16}/>{l.email}</a>}
+        </div>
+      )}
+      <div style={{ marginTop:6 }}><ContactBadges l={l} /></div>
+
+      {viewDeleted ? (
+        <div style={{ marginTop:10, fontSize:'0.76rem' }}>
+          <span style={{ padding:'3px 10px', borderRadius:20, fontWeight:600, background:sc.bg, color:sc.text }}>{t(sc.label)}</span>
+          <div style={{ marginTop:8, color:'#991b1b', fontWeight:600 }}>{t('Deleted by')}: {l.deleted_by_name || '—'} <span style={{ color:'#94a3b8', fontWeight:400 }}>{l.deleted_at ? new Date(l.deleted_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : ''}</span></div>
+          {l.delete_comment && <div style={{ marginTop:4, color:'#92400e', background:'#fffbeb', borderRadius:8, padding:'4px 8px', whiteSpace:'pre-wrap' }}>💬 {l.delete_comment}</div>}
+        </div>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1.3fr) minmax(0,1fr)', gap:6, marginTop:10 }}>
+          <select value={l.status} onChange={e => onStatus(e.target.value)} aria-label={t('Status')} style={sel(sc.bg, sc.text)}>
+            {Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
+          </select>
+          <select value={l.priority} onChange={e => onPriority(e.target.value)} aria-label={t('Priority')} style={sel(pc.bg, pc.text)}>
+            {Object.entries(PC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
+          </select>
+        </div>
+      )}
+
+      {l.notes && <div style={{ marginTop:8, fontSize:'0.76rem', color:'#475569', background:'#f8fafc', borderRadius:8, padding:'6px 8px', whiteSpace:'pre-wrap', display:'-webkit-box', WebkitLineClamp: more ? 'unset' : 2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{l.notes}</div>}
+
+      {more && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:10, padding:10, background:'#f8fafc', borderRadius:10 }}>
+          {field(t('Size'), l.company_size)}
+          {field(t('Requirement needed'), l.pain_point)}
+          {field(t('Source of lead'), l.find_instructions)}
+          {field(t('Website'), l.domain)}
+          {!viewDeleted && <div style={{ gridColumn:'1 / -1' }}><div style={{ fontSize:'0.64rem', color:'#94a3b8', textTransform:'uppercase', marginBottom:4 }}>{t('Template Used')}</div>{template}</div>}
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:6, marginTop:10, alignItems:'center', flexWrap:'wrap' }}>
+        <button type="button" onClick={onLog} style={{ ...chip, color:'#1e40af', borderColor:'#bfdbfe', background:'#eff6ff' }}><MI name="history" size={16}/>{t('View log')}</button>
+        {!viewDeleted && (l.next_followup_at
+          ? <DueChip iso={l.next_followup_at} t={t} lang={lang} onClick={onLog} />
+          : <button type="button" onClick={onFollowUp} style={chip}><MI name="event" size={16}/>{t('Follow-up')}</button>)}
+        <div style={{ marginLeft:'auto', display:'flex', gap:2 }}>
+          <button type="button" onClick={() => setMore(m => !m)} aria-label={t('More')} style={{ ...chip, padding:8, border:'none', background:'transparent' }}><MI name={more ? 'expand_less' : 'expand_more'} size={20}/></button>
+          {viewDeleted ? (<>
+            <button type="button" onClick={onRestore} aria-label={t('Restore')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#059669' }}><MI name="restore_from_trash" size={20}/></button>
+            <button type="button" onClick={onPurge} aria-label={t('Delete permanently')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#dc2626' }}><MI name="delete_forever" size={20}/></button>
+          </>) : (<>
+            <button type="button" onClick={onEdit} aria-label={t('Edit')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#2563eb' }}><MI name="edit" size={20}/></button>
+            <button type="button" onClick={onDelete} aria-label={t('Delete')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#dc2626' }}><MI name="delete" size={20}/></button>
+          </>)}
+        </div>
       </div>
     </div>
   );
@@ -871,7 +986,7 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
             {importResult ? (
               <div style={{ padding: '20px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0' }}>
                 <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#15803d', marginBottom: 8 }}>{t('Last Upload')}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                   <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#3b82f6' }}>{importResult.total}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Total')}</div></div>
                   <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#15803d' }}>{importResult.added}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Added')}</div></div>
                   <div style={{ textAlign: 'center' }}><div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#d97706' }}>{importResult.skipped}</div><div style={{ fontSize: '0.68rem', color: '#6b7280' }}>{t('Skipped')}</div></div>

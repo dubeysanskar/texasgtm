@@ -79,9 +79,9 @@ export default function TasksPage() {
           <h1><MI name="task_alt" size={26} /> {t('Task Management')}</h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)' }}>{t('{p} pending, {i} in progress, {c} complete', { p: stats.pending || 0, i: stats.progress || 0, c: stats.complete || 0 })}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input className="form-input" placeholder={t('Search tasks...')} value={filter.search} onChange={e => setFilter(p => ({ ...p, search: e.target.value }))} style={{ width: 180 }} />
-          <select className="form-input" style={{ width: 130 }} value={filter.status} onChange={e => setFilter(p => ({ ...p, status: e.target.value }))}>
+        <div className="m-full" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input className="form-input" type="search" placeholder={t('Search tasks...')} value={filter.search} onChange={e => setFilter(p => ({ ...p, search: e.target.value }))} style={{ width: 180, flex: '1 1 160px' }} />
+          <select className="form-input" style={{ width: 130, flex: '1 1 120px' }} value={filter.status} onChange={e => setFilter(p => ({ ...p, status: e.target.value }))}>
             <option value="">{t('All Status')}</option><option value="pending">{t('Pending')}</option><option value="in_progress">{t('In Progress')}</option><option value="review">{t('Review')}</option><option value="complete">{t('Complete')}</option>
           </select>
           {isManager && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}><MI name={showForm ? 'close' : 'add_task'} size={16} /> {showForm ? t('Cancel') : t('New Task')}</button>}

@@ -10,6 +10,15 @@ export const metadata = {
   icons: {
     icon: '/favicon.png',
   },
+  appleWebApp: { capable: true, title: 'GTM CRM', statusBarStyle: 'black-translucent' },
+};
+
+// Phone-first: fit the device width, allow pinch-zoom, draw under the notch (safe-area padding in CSS)
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#1e1b4b',
 };
 
 export default function RootLayout({ children }) {

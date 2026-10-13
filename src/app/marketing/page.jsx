@@ -7,7 +7,7 @@ export default function MarketingPage() {
   return (
     <div className="page-content">
       <div className="page-header"><h1><MI name="campaign" size={26} /> {t('Marketing')}</h1><p>{t('Campaign tracking & content management')}</p></div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         {[{ label: t('Active Campaigns'), value: 0, icon: 'rocket_launch', color: '#6366f1' },
           { label: t('Leads This Month'), value: 0, icon: 'trending_up', color: '#10b981' },
           { label: t('Conversion Rate'), value: '0%', icon: 'percent', color: '#f59e0b' },

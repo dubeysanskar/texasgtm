@@ -278,7 +278,7 @@ export default function AdminPage() {
       {activeTab === 'users' && (
         <>
           {/* Stats */}
-          <div className="stats-grid" style={{ gridTemplateColumns: `repeat(${ROLES.length}, 1fr)`, marginBottom: 20 }}>
+          <div className="stats-grid m-2col" style={{ gridTemplateColumns: `repeat(${ROLES.length}, 1fr)`, marginBottom: 20 }}>
             {ROLES.map(r => (
               <div key={r} className="stat-card" style={{ borderTopColor: roleColors[r] }}>
                 <div className="stat-value" style={{ color: roleColors[r] }}>{users.filter(u => u.role === r).length}</div>
@@ -757,7 +757,7 @@ export default function AdminPage() {
           <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}><MI name="badge" size={20} /> {t('Role Labels')}</h3>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: 20 }}>{t('Rename roles to match your organization. Changes apply across the entire app.')}</p>
           {settingsSaved && <div style={{ padding: '10px 16px', background: '#f0fdf4', color: '#10b981', borderRadius: 10, marginBottom: 16, fontSize: '0.82rem' }}>✅ {t('Role labels saved!')}</div>}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
             {ROLES.map(role => (
               <div className="form-group" key={role}>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

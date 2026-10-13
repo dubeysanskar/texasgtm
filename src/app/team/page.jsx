@@ -69,7 +69,7 @@ export default function TeamPage() {
         <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 16 }}>
           <h3 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: 12 }}>{t('Invite New Team Member')}</h3>
           <form onSubmit={handleInvite}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div className="leads-form-field"><label>{t('Full Name')} *</label>
                 <input required value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))} placeholder={t('e.g. John Doe')} />
               </div>
@@ -105,7 +105,7 @@ export default function TeamPage() {
       )}
 
       {/* Members Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
         {members.map(m => {
           const r = ROLE_MAP[m.role] || ROLE_MAP.staff;
           return (

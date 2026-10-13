@@ -489,7 +489,7 @@ export default function LeadScraperPage() {
 
 // ─── Components ──────────────────────────────────────────────
 function SectionTitle({ color, title }) { return <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: color }} /><span style={{ fontSize: '0.88rem', fontWeight: 700 }}>{title}</span></div>; }
-function Field({ label, children }) { return <div><label className="scraper-label">{label}</label>{children}</div>; }
+function Field({ label, children }) { return <div style={{ minWidth: 0, maxWidth: '100%' }}><label className="scraper-label">{label}</label>{children}</div>; }
 function Chip({ label, active, onClick }) { return <button onClick={onClick} style={{ padding: '3px 10px', borderRadius: 16, border: '1px solid var(--border)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, background: active ? 'var(--primary)' : 'transparent', color: active ? '#fff' : 'var(--text-muted)' }}>{label}</button>; }
 function StatCard({ value, label, color, bg, border }) { return <div style={{ padding: '6px 14px', borderRadius: 8, background: bg, border: `1px solid ${border}`, textAlign: 'center', minWidth: 70 }}><div style={{ fontSize: '1.1rem', fontWeight: 700, color }}>{value ?? 0}</div><div style={{ fontSize: '0.64rem', color }}>{label}</div></div>; }
 function MiniStat({ label, value, color }) { return <span style={{ fontSize: '0.73rem', fontWeight: 600, color }}>{label}: {value ?? 0}</span>; }

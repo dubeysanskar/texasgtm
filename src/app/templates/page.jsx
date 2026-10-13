@@ -106,7 +106,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Language Selector (global) */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6b7280', marginRight: 6 }}>{t('Language')}:</span>
         {LANGS.map(l => (
           <button key={l.code} onClick={() => setViewLang(l.code)}
@@ -247,7 +247,7 @@ function Modal({ template, t, projectId, onClose, onSave }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
         </div>
         {err && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 12px', borderRadius: 8, fontSize: '0.75rem', marginBottom: 10 }}>{err}</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
           <div className="leads-form-field"><label>{t('Name')} *</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div className="leads-form-field"><label>{t('Platform')}</label>
             <select value={form.platform} onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}>{PLATFORMS.map(p => <option key={p.key} value={p.key}>{t(p.label)}</option>)}</select>

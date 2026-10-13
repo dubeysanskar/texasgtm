@@ -35,7 +35,7 @@ export default function ProfilePage() {
       <div className="page-header"><h1><MI name="person" size={26} /> {t('My Profile')}</h1></div>
       {msg && <div style={{ padding: '10px 16px', background: /error|incorrect|невер|ошибк/i.test(msg) ? '#fef2f2' : '#f0fdf4', color: /error|incorrect|невер|ошибк/i.test(msg) ? '#ef4444' : '#10b981', borderRadius: 10, marginBottom: 16, fontSize: '0.82rem' }}>{msg}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: roleColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 800 }}>{profile.name?.charAt(0)}</div>
