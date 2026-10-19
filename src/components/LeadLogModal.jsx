@@ -63,7 +63,7 @@ export default function LeadLogModal({ t: tProp, lang: langProp, lead: initialLe
   const firstComment = String(data?.lead?.notes || '').trim();
   const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}`, first: true,
     comment: firstComment && !data.logs.some(l => String(l.comment || '').trim() === firstComment) ? firstComment : '' }] : [];
-  const ICONS = { initial: 'chat', create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever', achieved: 'emoji_events', unachieved: 'undo' };
+  const ICONS = { initial: 'chat', create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever', achieved: 'emoji_events', unachieved: 'undo', comment_edit: 'edit' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
@@ -71,6 +71,7 @@ export default function LeadLogModal({ t: tProp, lang: langProp, lead: initialLe
     if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
     if (l.kind === 'note') return t('Comment');
     if (l.kind === 'initial') return t('First comment');
+    if (l.kind === 'comment_edit') return t('Comment edited');
     if (l.kind === 'followup') {
       const when = l.due_at ? new Date(l.due_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined, { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
       const EV = { created: 'Follow-up scheduled', done: 'Follow-up completed', rescheduled: 'Follow-up rescheduled', updated: 'Follow-up updated', deleted: 'Follow-up removed', reopened: 'Follow-up reopened' };
@@ -93,7 +94,7 @@ export default function LeadLogModal({ t: tProp, lang: langProp, lead: initialLe
     ...created,
     // status history rows only for legacy entries that have no matching activity log (new changes are logged with a comment)
     ...data.history.filter(h => !data.logs.some(l => l.kind === 'status' && Math.abs(new Date(l.created_at) - new Date(h.changed_at)) < 5000)).map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}`, comment: h.note && h.note !== 'bulk' ? h.note : '' })),
-    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || (/^Added lead/.test(l.action) ? 'add' : 'edit_note'), text: describe(l), comment: l.comment || '', changes: l.changes, kind: l.kind, first: l.kind === 'create' || l.kind === 'initial' })),
+    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || (/^Added lead/.test(l.action) ? 'add' : 'edit_note'), text: describe(l), comment: l.comment || '', edited: l.edited_at ? { at: l.edited_at, by: l.edited_by } : null, changes: l.kind === 'comment_edit' ? { notes: { from: l.from, to: l.to } } : l.changes, kind: l.kind, first: l.kind === 'create' || l.kind === 'initial' })),
     ...data.sends.map(sd => ({ at: sd.sent_at || sd.created_at, who: t('Auto Email'), icon: 'mail', text: `${t('Email')}: "${sd.subject}" — ${t(sd.status)}${sd.opened_at ? ` · ${t('Opened')} ${fmt(sd.opened_at)}` : ''}` })),
   ].sort((a, b) => (new Date(b.at) - new Date(a.at)) || ((a.first ? 1 : 0) - (b.first ? 1 : 0)) || ((a.kind === 'initial' ? 1 : 0) - (b.kind === 'initial' ? 1 : 0))) : [];
   return (
@@ -169,7 +170,7 @@ export default function LeadLogModal({ t: tProp, lang: langProp, lead: initialLe
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:'0.8rem', color:'var(--text)', wordBreak:'break-word' }}>{e.text}</div>
                   {e.changes && <div style={{ fontSize:'0.7rem', color:'var(--text-dim)', marginTop:3 }}>{Object.entries(e.changes).map(([f, c]) => <div key={f}><strong>{t(FIELD_NAMES[f] || f)}:</strong> <span style={{ textDecoration:'line-through', opacity:0.6 }}>{String(c.from || '—')}</span> → {String(c.to || '—')}</div>)}</div>}
-                  {e.comment && <div style={{ fontSize:'0.76rem', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:6, padding:'4px 8px', marginTop:4, whiteSpace:'pre-wrap' }}>💬 {e.comment}</div>}
+                  {e.comment && <div style={{ fontSize:'0.76rem', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:6, padding:'4px 8px', marginTop:4, whiteSpace:'pre-wrap' }}>💬 {e.comment}{e.edited && <span title={`${e.edited.by || ''} · ${fmt(e.edited.at)}`} style={{ marginLeft:6, fontSize:'0.66rem', color:'#b45309', fontStyle:'italic' }}>({t('edited')})</span>}</div>}
                   <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', marginTop:3 }}><strong>{e.who || t('System')}</strong> · {fmt(e.at)}</div>
                 </div>
               </div>

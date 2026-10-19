@@ -126,6 +126,16 @@ export default function LeadsPage({ mode = 'active' }) {
     return r;
   };
   const leadFu = useFollowUpActions(() => fetchLeads());
+  // Reminder column: edit / reschedule or complete the lead's next follow-up right from the list
+  const withNextFollowup = async (l, act) => {
+    try {
+      const d = await (await fetch(`/api/followups?lead_id=${l.id}&status=open`)).json();
+      const fu = (d.followups || []).find(x => x.id === l.next_followup_id) || (d.followups || [])[0];
+      if (fu) leadFu.actions[act](fu); else fetchLeads();
+    } catch { alert(t('Cannot reach the server. Check your connection and try again.')); }
+  };
+  // Last comment column: add a new comment or correct the latest one without opening the log
+  const [commentEdit, setCommentEdit] = useState(null); // { lead, mode: 'add' | 'edit' }
   const leadName = (id) => leads.find(l => l.id === id)?.company_name || '';
 
   function handleTemplateChange(leadId, tplId) {
@@ -462,6 +472,8 @@ export default function LeadsPage({ mode = 'active' }) {
               onToggle={() => toggleSelect(l.id)} onStatus={(v) => handleStatusChange(l.id, v)} onPriority={(v) => handlePriorityChange(l.id, v)}
               onLog={() => setLogLead(l)} onFollowUp={() => leadFu.create(l)} onEdit={() => setEditLead(l)} onDelete={() => handleDelete(l.id)}
               onRestore={() => handleRestore(l.id)} onPurge={() => handlePurge(l.id)} achievedView={achievedView} onAchieve={() => handleAchieve(l.id, !achievedView)}
+              onAddComment={() => setCommentEdit({ lead: l, mode: 'add' })} onEditComment={() => setCommentEdit({ lead: l, mode: 'edit' })}
+              onEditFollowUp={() => withNextFollowup(l, 'onEdit')} onDoneFollowUp={() => withNextFollowup(l, 'onDone')}
               template={<TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />} />
           ))}
         </div>
@@ -535,7 +547,7 @@ export default function LeadsPage({ mode = 'active' }) {
                         {Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
                       </select>)}
                     </td>
-                    <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}><LastComment l={l} t={t} lang={lang} /></td>
+                    <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}><LastComment l={l} t={t} lang={lang} />{!viewDeleted && <CommentButtons l={l} t={t} onAdd={() => setCommentEdit({ lead: l, mode: 'add' })} onEdit={() => setCommentEdit({ lead: l, mode: 'edit' })} />}</td>
                     <td style={{...TD, minWidth:180, position:'relative'}}>
                       {viewDeleted ? (
                         <div style={{ fontSize:'0.7rem' }}>
@@ -556,7 +568,7 @@ export default function LeadsPage({ mode = 'active' }) {
                     {/* Reminder: the next follow-up (opens the lead's log, where follow-ups are managed), or a button to set one */}
                     <td style={{...TD, overflow:'hidden'}}>
                       {viewDeleted ? '—' : l.next_followup_at
-                        ? <DueChip compact wrap iso={l.next_followup_at} t={t} lang={lang} onClick={() => setLogLead(l)} />
+                        ? <div><DueChip compact wrap iso={l.next_followup_at} t={t} lang={lang} onClick={() => setLogLead(l)} /><ReminderButtons t={t} onEdit={() => withNextFollowup(l, 'onEdit')} onDone={() => withNextFollowup(l, 'onDone')} /></div>
                         : <button onClick={() => leadFu.create(l)} title={t('Schedule a follow-up')} style={{ ...BB, padding:'5px 6px', fontSize:'0.66rem', justifyContent:'center', width:'100%', color:'#64748b', borderColor:'#cbd5e1', whiteSpace:'nowrap' }}><MI name="add_alarm" size={14}/> {t('Set reminder')}</button>}
                     </td>
                     <td style={{...TD, borderRight:'none', textAlign:'center'}}>
@@ -602,6 +614,7 @@ export default function LeadsPage({ mode = 'active' }) {
       {isMobile && !viewDeleted && !achievedView && selected.size === 0 && (
         <button type="button" className="m-fab" onClick={() => setShowAddModal(true)} aria-label={t('Add Lead')}><MI name="add" size={26}/></button>
       )}
+      {commentEdit && <CommentEditor t={t} lead={commentEdit.lead} mode={commentEdit.mode} onClose={() => setCommentEdit(null)} onDone={() => { setCommentEdit(null); fetchLeads(); }} />}
       {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
       {editLead && <LeadFormModal t={t} projectId={projectId} lead={editLead} onClose={() => setEditLead(null)} onDone={() => { fetchLeads(); fetchStats(); setEditLead(null); }} />}
       {pending && <CommentPrompt t={t} title={pending.title} detail={pending.detail} danger={pending.danger} askDate={pending.askDate} onCancel={() => setPending(null)} onConfirm={async (comment, extra) => { const run = pending.run; setPending(null); await run(comment, extra); }} />}
@@ -690,6 +703,63 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
   );
 }
 
+// Small buttons under the reminder: edit / reschedule, mark done
+function ReminderButtons({ t, onEdit, onDone, big }) {
+  const b = { display:'inline-flex', alignItems:'center', gap:3, padding: big ? '6px 10px' : '2px 7px', borderRadius:8, border:'1px solid #cbd5e1', background:'#fff', color:'#334155', fontSize: big ? '0.76rem' : '0.64rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' };
+  return (
+    <div style={{ display:'flex', gap:4, marginTop:4, flexWrap:'wrap' }}>
+      <button type="button" onClick={onEdit} title={t('Edit / reschedule')} style={{ ...b, color:'#1d4ed8', borderColor:'#bfdbfe' }}><MI name="edit_calendar" size={big ? 16 : 13}/> {t('Reschedule')}</button>
+      <button type="button" onClick={onDone} title={t('Mark done')} style={{ ...b, color:'#047857', borderColor:'#a7f3d0' }}><MI name="check" size={big ? 16 : 13}/> {t('Done')}</button>
+    </div>
+  );
+}
+// Small buttons under the last comment: add a new one / edit the latest
+function CommentButtons({ l, t, onAdd, onEdit, big }) {
+  const b = { display:'inline-flex', alignItems:'center', gap:3, padding: big ? '6px 10px' : '2px 7px', borderRadius:8, border:'1px solid #e2e8f0', background:'#fff', color:'#475569', fontSize: big ? '0.76rem' : '0.64rem', fontWeight:600, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' };
+  return (
+    <div style={{ display:'flex', gap:4, marginTop:5, flexWrap:'wrap' }}>
+      <button type="button" onClick={onAdd} title={t('Add a comment')} style={{ ...b, color:'#92400e', borderColor:'#fde68a', background:'#fffbeb' }}><MI name="add_comment" size={big ? 16 : 13}/> {t('Comment')}</button>
+      {(l.last_comment || l.notes) && <button type="button" onClick={onEdit} title={t('Edit the last comment')} style={b}><MI name="edit" size={big ? 16 : 13}/> {t('Edit')}</button>}
+    </div>
+  );
+}
+// Add a new comment to the lead, or correct its latest one
+function CommentEditor({ t, lead, mode, onClose, onDone }) {
+  const [text, setText] = useState(mode === 'edit' ? String(lead.last_comment || lead.notes || '') : '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  async function save(e) {
+    e.preventDefault();
+    if (!text.trim()) { setErr(t('Please enter a comment')); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch(`/api/leads/${lead.id}/comment`, { method: mode === 'edit' ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment: text.trim() }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(t(d.error || 'Failed')); setBusy(false); return; }
+      onDone();
+    } catch { setErr(t('Cannot reach the server. Check your connection and try again.')); setBusy(false); }
+  }
+  return (
+    <div className="leads-modal-overlay" onClick={onClose}>
+      <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <form onSubmit={save}>
+          <h3 style={{ fontSize:'1rem', fontWeight:700, display:'flex', alignItems:'center', gap:8 }}><MI name={mode === 'edit' ? 'edit' : 'add_comment'} size={20}/> {t(mode === 'edit' ? 'Edit the last comment' : 'Add a comment')}</h3>
+          <div style={{ fontSize:'0.8rem', color:'var(--text-dim)', margin:'6px 0 12px' }}><strong>#{lead.project_seq ?? lead.id} · {lead.company_name}</strong></div>
+          {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'6px 10px', borderRadius:8, fontSize:'0.76rem', marginBottom:8 }}>{err}</div>}
+          <div className="leads-form-field">
+            <textarea autoFocus rows={4} value={text} onChange={e => { setText(e.target.value); setErr(''); }} placeholder={t('e.g. Called, spoke to the director — asked to send a proposal')} style={{ fontFamily:'inherit', fontSize:'0.84rem' }} />
+          </div>
+          {mode === 'edit' && <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginTop:6 }}>{t('The log keeps the original text and marks the comment as edited.')}</div>}
+          <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:14 }}>
+            <button type="button" onClick={onClose} className="btn btn-ghost">{t('Cancel')}</button>
+            <button type="submit" disabled={busy} className="btn btn-primary">{busy ? t('Saving…') : t(mode === 'edit' ? 'Save changes' : 'Add to log')}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // "Last comment": whatever was said last about the lead (a log update, a status change, an edit, a
 // follow-up…). Until anyone writes one, it is the comment the lead was added with.
 function LastComment({ l, t, lang, lines = 4 }) {
@@ -720,7 +790,7 @@ function AchievedInfo({ l, t, lang }) {
 
 // Phone layout: one card per lead instead of the wide spreadsheet table. Every action the table row has
 // is here too; phone numbers and emails are tap-to-call / tap-to-mail.
-function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
+function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, onAddComment, onEditComment, onEditFollowUp, onDoneFollowUp, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
   const [more, setMore] = useState(false);
   const sc = SC[l.status] || SC.not_contacted;
   const pc = PC[l.priority] || PC.MEDIUM;
@@ -774,6 +844,7 @@ function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, selected, 
 
       {achievedView && <div style={{ marginTop:8, padding:'6px 8px', background:'#fffbeb', borderRadius:8 }}><AchievedInfo l={l} t={t} lang={lang} /></div>}
       {(l.last_comment || l.notes) && <div style={{ marginTop:8, fontSize:'0.76rem', color:'#475569', background:'#f8fafc', borderRadius:8, padding:'6px 8px' }}><LastComment l={l} t={t} lang={lang} lines={more ? 0 : 2} /></div>}
+      {!viewDeleted && <CommentButtons l={l} t={t} big onAdd={onAddComment} onEdit={onEditComment} />}
 
       {more && (
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:10, padding:10, background:'#f8fafc', borderRadius:10 }}>
@@ -788,7 +859,7 @@ function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, selected, 
       <div style={{ display:'flex', gap:6, marginTop:10, alignItems:'center', flexWrap:'wrap' }}>
         <button type="button" onClick={onLog} style={{ ...chip, color:'#1e40af', borderColor:'#bfdbfe', background:'#eff6ff' }}><MI name="history" size={16}/>{t('View log')}</button>
         {!viewDeleted && (l.next_followup_at
-          ? <DueChip iso={l.next_followup_at} t={t} lang={lang} onClick={onLog} />
+          ? <><DueChip iso={l.next_followup_at} t={t} lang={lang} onClick={onLog} /><ReminderButtons t={t} big onEdit={onEditFollowUp} onDone={onDoneFollowUp} /></>
           : <button type="button" onClick={onFollowUp} style={chip}><MI name="event" size={16}/>{t('Follow-up')}</button>)}
         <div style={{ marginLeft:'auto', display:'flex', gap:2 }}>
           <button type="button" onClick={() => setMore(m => !m)} aria-label={t('More')} style={{ ...chip, padding:8, border:'none', background:'transparent' }}><MI name={more ? 'expand_less' : 'expand_more'} size={20}/></button>

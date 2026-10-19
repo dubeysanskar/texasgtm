@@ -44,7 +44,8 @@ export async function GET(request) {
     w += lookupClause(searchParams.get('lookup'), p);
     return { where: w, params: p };
   };
-  const NEXT_FU = "(SELECT MIN(f.due_at) FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open') AS next_followup_at";
+  const NEXT_FU = "(SELECT MIN(f.due_at) FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open') AS next_followup_at, "
+    + "(SELECT f.id FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open' ORDER BY f.due_at ASC, f.id ASC LIMIT 1) AS next_followup_id";
 
   // Pagination
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'));

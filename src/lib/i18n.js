@@ -479,6 +479,13 @@ export const RU = {
   'My priority leads': 'Мои приоритетные лиды',
   'All {n} in Lead Management': 'Все {n} в управлении лидами',
   'Nothing urgent — no open leads need attention right now.': 'Ничего срочного — сейчас ни один открытый лид не требует внимания.',
+  'Reschedule': 'Перенести',
+  'Mark done': 'Отметить выполненным',
+  'Add a comment': 'Добавить комментарий',
+  'Edit the last comment': 'Изменить последний комментарий',
+  'The log keeps the original text and marks the comment as edited.': 'В журнале сохранится исходный текст, а комментарий будет помечен как изменённый.',
+  'Comment edited': 'Комментарий изменён',
+  'Only the person who wrote this comment (or a super admin) can edit it': 'Изменить комментарий может только его автор (или супер-администратор)',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',
