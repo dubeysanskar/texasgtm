@@ -441,6 +441,9 @@ export const RU = {
   'Last update': 'Последнее обновление',
   'Description': 'Описание',
   'What needs to be done, details, links…': 'Что нужно сделать, подробности, ссылки…',
+  'This report could not be displayed.': 'Не удалось показать отчёт.',
+  'Try again, or pick another period or person.': 'Попробуйте ещё раз или выберите другой период или сотрудника.',
+  'Could not load the report (error {code}). Please try again.': 'Не удалось загрузить отчёт (ошибка {code}). Попробуйте ещё раз.',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

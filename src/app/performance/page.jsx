@@ -1,7 +1,7 @@
 'use client';
 // Team Performance (super admin) — pick a person (or the whole team) and a period; see exactly what they
 // did, when they were logged in, how long they were actually active, and charts of it all.
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Component } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
@@ -17,6 +17,29 @@ const METRIC_LABELS = {
 const METRIC_ICONS = { leads_added: 'person_add', status_changes: 'swap_horiz', comments: 'chat', lead_updates: 'edit_note', followups_scheduled: 'event', followups_done: 'event_available', todos_done: 'task_alt', daily_updates: 'event_note', messages_sent: 'forum', other: 'more_horiz' };
 const RANGES = [['today', 'Today'], ['3d', 'Last 3 days'], ['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['custom', 'Custom']];
 
+// Runs its render function as its own component, so errors in it land in the nearest boundary
+const Deferred = ({ render }) => render() || null;
+
+// If drawing the report ever fails, keep the page (filters included) usable and offer a retry
+// instead of the whole screen going blank.
+class ReportBoundary extends Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error) { console.error('[performance] could not display the report:', error); }
+  componentDidUpdate(prev) { if (this.state.failed && prev.resetKey !== this.props.resetKey) this.setState({ failed: false }); }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    const { t, onRetry } = this.props;
+    return (
+      <div className="card" style={{ padding: 28, textAlign: 'center' }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>{t('This report could not be displayed.')}</div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 12 }}>{t('Try again, or pick another period or person.')}</div>
+        <button className="btn btn-primary" onClick={() => { this.setState({ failed: false }); onRetry(); }}>{t('Try again')}</button>
+      </div>
+    );
+  }
+}
+
 export default function PerformancePage() {
   const { isAdmin } = useAuth();
   const { projectId, t, lang } = useProject();
@@ -29,34 +52,46 @@ export default function PerformancePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [loadCount, setLoadCount] = useState(0); // bumps on every newly loaded report (resets the error boundary)
 
   const dur = (min) => { const m = Math.round(min || 0), h = Math.floor(m / 60), r = m % 60; return lang === 'ru' ? (h ? `${h} ч${r ? ` ${r} мин` : ''}` : `${r} мин`) : (h ? `${h}h${r ? ` ${r}m` : ''}` : `${r}m`); };
   const time = (iso) => iso ? new Date(iso).toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: data?.timezone }) : '—';
   const dateTime = (iso) => iso ? new Date(iso).toLocaleString(loc, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: data?.timezone }) : '—';
   const dayLabel = (d, long) => new Date(`${d}T12:00:00Z`).toLocaleDateString(loc, long ? { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' } : { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
+  // Only the newest request may update the page: switching quickly between people/periods on a slow
+  // connection must never leave an older (e.g. 7-day) answer showing under a newer choice (e.g. Today).
+  const reqSeq = useRef(0);
   const load = useCallback(async () => {
     if (range === 'custom' && (!from || !to)) return;
+    const mine = ++reqSeq.current;
     setLoading(true); setErr('');
     const p = new URLSearchParams({ range, lang });
     if (userId && userId !== 'all') p.set('user_id', userId);
     if (projectId) p.set('project_id', projectId);
     if (range === 'custom') { p.set('from', from); p.set('to', to); }
+    let message = '';
     try {
-      const r = await fetch(`/api/reports/activity?${p}`);
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Failed');
-      setData(d);
-    } catch (e) { setErr(t(e.message)); }
+      const r = await fetch(`/api/reports/activity?${p}`, { cache: 'no-store' });
+      let d = null; try { d = await r.json(); } catch { /* not JSON: e.g. the server restarting during an update */ }
+      if (mine !== reqSeq.current) return;
+      if (!r.ok || !d?.detail) message = d?.error ? t(d.error) : t('Could not load the report (error {code}). Please try again.', { code: r.status });
+      else { setData(d); setLoadCount(n => n + 1); }
+    } catch {
+      if (mine !== reqSeq.current) return;
+      message = t('Cannot reach the server. Check your connection and try again.');
+    }
+    setErr(message);
     setLoading(false);
   }, [userId, range, from, to, projectId, lang, t]);
   useEffect(() => { if (isAdmin) load(); }, [isAdmin, load]);
   useEffect(() => { if (userId) window.history.replaceState(null, '', userId === 'all' ? '/performance' : `/performance?user=${userId}`); }, [userId]);
 
   const d = data?.detail;
-  const selected = userId !== 'all' ? data?.team.find(m => String(m.id) === String(userId)) : null;
+  // The person shown is the one the loaded report is about (never a newer pick whose data hasn't arrived)
+  const selected = d?.id != null ? (data?.team || []).find(m => String(m.id) === String(d.id)) || null : null;
 
-  const metricRows = useMemo(() => d ? Object.keys(METRIC_LABELS).map(k => ({ key: k, label: t(METRIC_LABELS[k]), value: d.counts[k] || 0 })).filter(r => r.value > 0 || r.key !== 'other').sort((a, b) => b.value - a.value) : [], [d, t]);
+  const metricRows = useMemo(() => d ? Object.keys(METRIC_LABELS).map(k => ({ key: k, label: t(METRIC_LABELS[k]), value: d.counts?.[k] || 0 })).filter(r => r.value > 0 || r.key !== 'other').sort((a, b) => b.value - a.value) : [], [d, t]);
 
   if (!isAdmin) return <div className="page-content"><div className="card" style={{ padding: 40, textAlign: 'center' }}>{t('Super admin only')}</div></div>;
 
@@ -99,13 +134,20 @@ export default function PerformancePage() {
             <input type="date" value={to} min={from} max={data?.today} onChange={e => setTo(e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: '0.8rem', fontFamily: 'inherit' }} />
           </div>
         )}
-        {data && <span style={{ marginLeft: 'auto', fontSize: '0.74rem', color: 'var(--text-muted)' }}>{dayLabel(data.from)}{data.from !== data.to ? ` – ${dayLabel(data.to)}` : ''} · {data.days} {t('days')}</span>}
+        {data && <span style={{ marginLeft: 'auto', fontSize: '0.74rem', color: 'var(--text-muted)' }}>{dayLabel(data.from)}{data.from !== data.to ? ` – ${dayLabel(data.to)}` : ''} · {data.days} {t(data.days === 1 ? 'day' : 'days')}</span>}
       </div>
 
-      {err && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: '0.8rem' }}>{err}</div>}
-      {loading && !data && <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>{t('Loading…')}</div>}
+      {err && (
+        <div style={{ background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <MI name="error" size={16} /> <span style={{ flex: 1 }}>{err}</span>
+          <button className="btn btn-sm btn-ghost" style={{ background: '#fff' }} onClick={load} disabled={loading}><MI name="refresh" size={14} /> {t('Try again')}</button>
+        </div>
+      )}
+      {loading && !data && !err && <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>{t('Loading…')}</div>}
 
-      {d && (
+      <ReportBoundary t={t} onRetry={load} resetKey={loadCount}>
+      {/* Drawn inside <Deferred> so anything that fails while building the report is caught by the boundary */}
+      <Deferred render={() => d && (
         <div style={{ opacity: loading ? 0.6 : 1, transition: 'opacity .2s' }}>
           {/* Who */}
           {selected && (
@@ -243,7 +285,7 @@ export default function PerformancePage() {
                       <div style={{ flex: 1, minWidth: 0, fontSize: '0.78rem' }}>
                         <div style={{ color: VIZ.ink }}>
                           {f.lead && <a href={`/leads?log=${f.lead.id}`} onClick={(e) => { e.preventDefault(); router.push(`/leads?log=${f.lead.id}`); }} style={{ color: VIZ.blue, fontWeight: 600, textDecoration: 'none' }}>#{f.lead.seq} {f.lead.company}</a>}
-                          {f.lead && ' · '}{f.text || t(METRIC_LABELS[f.metric])}
+                          {f.lead && ' · '}{f.text || t(METRIC_LABELS[f.metric] || 'Other actions')}
                         </div>
                         {f.comment && <div style={{ marginTop: 3, color: '#78350f', background: '#fffbeb', borderRadius: 6, padding: '3px 8px', whiteSpace: 'pre-wrap' }}>💬 {f.comment}</div>}
                         <div style={{ fontSize: '0.66rem', color: VIZ.muted, marginTop: 2 }}>{dateTime(f.at)}</div>
@@ -255,7 +297,8 @@ export default function PerformancePage() {
             </div>
           )}
         </div>
-      )}
+      )} />
+      </ReportBoundary>
     </div>
   );
 }
