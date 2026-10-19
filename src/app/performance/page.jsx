@@ -10,11 +10,11 @@ import { ColumnChart, HBarChart, VIZ } from '@/components/Charts';
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size, verticalAlign: 'middle' }}>{name}</span>;
 
 const METRIC_LABELS = {
-  leads_added: 'Leads added', status_changes: 'Status changes', comments: 'Comments', lead_updates: 'Lead edits & updates',
+  leads_added: 'Leads added', leads_achieved: 'Leads achieved', status_changes: 'Status changes', comments: 'Comments', lead_updates: 'Lead edits & updates',
   followups_scheduled: 'Follow-ups scheduled', followups_done: 'Follow-ups completed', todos_done: 'To-dos completed',
   daily_updates: 'Daily updates posted', messages_sent: 'Messages sent', other: 'Other actions',
 };
-const METRIC_ICONS = { leads_added: 'person_add', status_changes: 'swap_horiz', comments: 'chat', lead_updates: 'edit_note', followups_scheduled: 'event', followups_done: 'event_available', todos_done: 'task_alt', daily_updates: 'event_note', messages_sent: 'forum', other: 'more_horiz' };
+const METRIC_ICONS = { leads_added: 'person_add', leads_achieved: 'emoji_events', status_changes: 'swap_horiz', comments: 'chat', lead_updates: 'edit_note', followups_scheduled: 'event', followups_done: 'event_available', todos_done: 'task_alt', daily_updates: 'event_note', messages_sent: 'forum', other: 'more_horiz' };
 const RANGES = [['today', 'Today'], ['3d', 'Last 3 days'], ['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['custom', 'Custom']];
 
 // Runs its render function as its own component, so errors in it land in the nearest boundary
@@ -176,6 +176,7 @@ export default function PerformancePage() {
               ['Days active', `${d.days_active} / ${data.days}`, 'calendar_month', ''],
               ['Total actions', d.total_actions, 'touch_app', ''],
               ['Leads added', d.counts.leads_added, 'person_add', ''],
+              ['Leads achieved', d.counts?.leads_achieved || 0, 'emoji_events', ''],
               ['Status changes', d.counts.status_changes, 'swap_horiz', ''],
               ['Follow-ups completed', d.counts.followups_done, 'event_available', ''],
               ['To-dos completed', d.counts.todos_done, 'task_alt', ''],

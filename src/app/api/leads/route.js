@@ -12,6 +12,10 @@ export async function GET(request) {
   const showDeleted = searchParams.get('deleted') === '1';
   if (showDeleted && !isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
   let sql = `SELECT * FROM gtm_leads WHERE deleted_at IS ${showDeleted ? 'NOT NULL' : 'NULL'}`;
+  // Achieved leads live on their own page: achieved=1 → only them, achieved=all → both, default → working list only
+  const achieved = searchParams.get('achieved');
+  if (!showDeleted && achieved === '1') sql += ' AND achieved_at IS NOT NULL';
+  else if (!showDeleted && achieved !== 'all') sql += ' AND achieved_at IS NULL';
   const params = [];
   const projectId = searchParams.get('project_id'); if (projectId) { params.push(projectId); sql += ` AND project_id = $${params.length}`; }
   const status = searchParams.get('status'); if (status) { params.push(status); sql += ` AND status = $${params.length}`; }
@@ -38,6 +42,7 @@ export async function GET(request) {
   const sortOrder = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
   const PRIORITY_RANK = "CASE gtm_leads.priority WHEN 'HOT' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'PARTNER' THEN 3 ELSE 4 END";
   if (showDeleted) sql += ' ORDER BY deleted_at DESC';
+  else if (achieved === '1') sql += ` ORDER BY achieved_at ${sortOrder}`;
   else if (searchParams.get('sort') === 'priority') sql += ` ORDER BY ${PRIORITY_RANK} ASC, COALESCE(last_contacted_at, created_at) ASC`;
   else sql += ` ORDER BY created_at ${sortOrder}`;
   params.push(limit); sql += ` LIMIT $${params.length}`;
@@ -79,13 +84,27 @@ export async function POST(request) {
 export async function PATCH(request) {
   const user = getUserFromRequest(request);
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { ids, status, template_id, comment: rawComment, followup_at, followup_title, tz } = await request.json();
+  const { ids, status, template_id, achieved, comment: rawComment, followup_at, followup_title, tz } = await request.json();
   const comment = typeof rawComment === 'string' ? rawComment.trim().slice(0, 1000) : '';
   if (!ids?.length) return NextResponse.json({ error: 'ids required' }, { status: 400 });
-  if (!status && template_id === undefined) return NextResponse.json({ error: 'status or template_id required' }, { status: 400 });
+  if (!status && template_id === undefined && typeof achieved !== 'boolean') return NextResponse.json({ error: 'status, template_id or achieved required' }, { status: 400 });
 
   const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
-  
+
+  // Bulk "Mark as achieved" / "Move back to working list"
+  if (typeof achieved === 'boolean') {
+    const leads = await queryAll(`SELECT id, company_name, project_id, project_seq, created_by, achieved_at FROM gtm_leads WHERE deleted_at IS NULL AND id IN (${placeholders})`, ids);
+    const changed = leads.filter(l => achieved ? !l.achieved_at : !!l.achieved_at);
+    const kind = achieved ? 'achieved' : 'unachieved';
+    for (const l of changed) {
+      if (achieved) await query('UPDATE gtm_leads SET achieved_at = $1, achieved_by = $2, achieved_by_name = $3, achieve_comment = $4 WHERE id = $5', [new Date().toISOString(), user.id, user.name, comment, l.id]);
+      else await query("UPDATE gtm_leads SET achieved_at = NULL, achieved_by = NULL, achieved_by_name = '', achieve_comment = '' WHERE id = $1", [l.id]);
+      await logLeadActivity(user, l, achieved ? `Marked "${l.company_name}" as achieved (bulk)` : `Moved "${l.company_name}" back from Achieved (bulk)`, { kind, comment, bulk: true }, { notify: false });
+    }
+    if (changed.length) notifyBulk(user, changed, () => ({ kind, comment, bulk: true }), achieved ? 'bulk achieved' : 'bulk unachieved');
+    return NextResponse.json({ updated: changed.length });
+  }
+
   if (status) {
     // Per-lead history so each lead's log (and its watchers) shows the bulk change
     const before = await queryAll(`SELECT id, status, company_name, project_id, project_seq, created_by FROM gtm_leads WHERE id IN (${placeholders})`, ids);

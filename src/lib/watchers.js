@@ -62,6 +62,7 @@ const COPY = {
   en: {
     status: 'Status', priority: 'Priority', template: 'Template assigned', templateCleared: 'Template cleared', edited: 'Details edited',
     note: 'New comment', created: 'Lead added', deleted: 'Lead deleted', restored: 'Lead restored', purged: 'Lead permanently deleted',
+    achieved: 'Marked as achieved 🏆', unachieved: 'Moved back from Achieved to the working list',
     fu: { created: 'Follow-up scheduled', done: 'Follow-up completed', rescheduled: 'Follow-up rescheduled', updated: 'Follow-up updated', deleted: 'Follow-up removed', reopened: 'Follow-up reopened' },
     ccAdded: (n) => `${n} added to CC`, ccRemoved: (n) => `${n} removed from CC`, subscribed: 'Subscribed to updates', unsubscribed: 'Unsubscribed from updates',
     bulk: 'bulk change', by: 'by', comment: 'Comment', now: 'Lead now', contact: 'Contact', nextFu: 'Next follow-up', none: '—',
@@ -72,6 +73,7 @@ const COPY = {
   ru: {
     status: 'Статус', priority: 'Приоритет', template: 'Назначен шаблон', templateCleared: 'Шаблон снят', edited: 'Изменены данные',
     note: 'Новый комментарий', created: 'Лид добавлен', deleted: 'Лид удалён', restored: 'Лид восстановлен', purged: 'Лид удалён навсегда',
+    achieved: 'Отмечен как достигнутый 🏆', unachieved: 'Возвращён из достигнутых в работу',
     fu: { created: 'Запланирован follow-up', done: 'Follow-up выполнен', rescheduled: 'Follow-up перенесён', updated: 'Follow-up изменён', deleted: 'Follow-up удалён', reopened: 'Follow-up возвращён в работу' },
     ccAdded: (n) => `${n} добавлен(а) в копию`, ccRemoved: (n) => `${n} убран(а) из копии`, subscribed: 'Подписка на обновления', unsubscribed: 'Отписка от обновлений',
     bulk: 'массовое изменение', by: '—', comment: 'Комментарий', now: 'Сейчас по лиду', contact: 'Контакт', nextFu: 'Следующий follow-up', none: '—',
@@ -111,6 +113,8 @@ function describe(meta, action, L, tz) {
   if (k === 'delete') return { headline: c.deleted };
   if (k === 'restore') return { headline: c.restored };
   if (k === 'purge') return { headline: c.purged };
+  if (k === 'achieved') return { headline: c.achieved };
+  if (k === 'unachieved') return { headline: c.unachieved };
   if (k === 'followup') {
     const when = fmtDate(meta.due_at, L, tz);
     const head = `${c.fu[meta.event] || c.fu.updated}: «${meta.title || ''}»${when ? ' · ' + when : ''}`;

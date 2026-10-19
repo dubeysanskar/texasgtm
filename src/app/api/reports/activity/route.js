@@ -9,7 +9,7 @@ const { describe } = require('@/lib/watchers');
 // follow-ups, to-dos, daily updates, messages — plus login sessions and real active time.
 // Days are counted in the project's timezone (Moscow for the Russian project).
 
-const METRICS = ['leads_added', 'status_changes', 'comments', 'lead_updates', 'followups_scheduled', 'followups_done', 'todos_done', 'daily_updates', 'messages_sent'];
+const METRICS = ['leads_added', 'leads_achieved', 'status_changes', 'comments', 'lead_updates', 'followups_scheduled', 'followups_done', 'todos_done', 'daily_updates', 'messages_sent'];
 const RANGES = { today: 0, '3d': 2, '7d': 6, '30d': 29 };
 
 function parseMeta(m) { if (!m) return {}; if (typeof m === 'object') return m; try { return JSON.parse(m); } catch { return {}; } }
@@ -20,6 +20,8 @@ function classify(row, meta) {
   if (row.category === 'security') return null;
   if (k === 'create') return 'leads_added';
   if (k === 'status') return 'status_changes';
+  if (k === 'achieved') return 'leads_achieved';
+  if (k === 'unachieved') return 'lead_updates';
   if (k === 'note') return 'comments';
   if (k === 'edit' || k === 'priority' || k === 'template') return 'lead_updates';
   if (k === 'followup') return meta.event === 'created' ? 'followups_scheduled' : meta.event === 'done' ? 'followups_done' : 'lead_updates';

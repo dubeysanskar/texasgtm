@@ -34,6 +34,7 @@ export default function Sidebar() {
     { href: '/daily-updates', label: t('Daily Updates'), icon: 'event_note', show: canSee('daily_updates') },
     { href: '/leads', label: t('Lead Management'), icon: 'leaderboard', show: canSee('leads') },
     { href: '/leads/priority', label: t('Priority Leads'), icon: 'local_fire_department', show: canSee('leads') },
+    { href: '/leads/achieved', label: t('Achieved Leads'), icon: 'emoji_events', show: canSee('leads') },
     { href: '/followups', label: t('Follow-ups'), icon: 'event_upcoming', show: canSee('leads') },
     { href: '/lead-scraper', label: t('Lead Scraper'), icon: 'travel_explore', show: canSee('lead_scraper') },
     { href: '/templates', label: t('Templates'), icon: 'description', show: canSee('templates') },

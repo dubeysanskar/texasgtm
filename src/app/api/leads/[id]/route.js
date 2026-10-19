@@ -20,6 +20,15 @@ export async function PUT(request, { params }) {
   const toLog = [];
   const log = async (action, kind, extra = {}) => { toLog.push([action, { kind, comment, ...extra }]); };
 
+  // Achieved: move the lead to the Achieved Leads page (or back to the working list), with the comment
+  if (b.achieved === true && !lead.achieved_at) {
+    await query('UPDATE gtm_leads SET achieved_at = $1, achieved_by = $2, achieved_by_name = $3, achieve_comment = $4 WHERE id = $5',
+      [new Date().toISOString(), user.id, user.name, comment, id]);
+    await log(`Marked "${lead.company_name}" as achieved`, 'achieved');
+  } else if (b.achieved === false && lead.achieved_at) {
+    await query("UPDATE gtm_leads SET achieved_at = NULL, achieved_by = NULL, achieved_by_name = '', achieve_comment = '' WHERE id = $1", [id]);
+    await log(`Moved "${lead.company_name}" back from Achieved`, 'unachieved');
+  }
   if (b.status && b.status !== lead.status) {
     await query('INSERT INTO gtm_lead_status_history (lead_id, old_status, new_status, changed_by, changed_by_name, note) VALUES ($1,$2,$3,$4,$5,$6)',
       [id, lead.status, b.status, user.id, user.name, comment]);

@@ -12,7 +12,9 @@ import { useIsMobile } from '@/lib/useMediaQuery';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size }}>{name}</span>;
 
-export default function LeadsPage() {
+// mode="achieved" renders the Achieved Leads page (/leads/achieved) with the same table and tools
+export default function LeadsPage({ mode = 'active' }) {
+  const achievedView = mode === 'achieved';
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { projectId, t, lang } = useProject();
   const router = useRouter();
@@ -54,7 +56,7 @@ export default function LeadsPage() {
     const id = new URLSearchParams(window.location.search).get('log');
     if (!id) return;
     fetch(`/api/leads/${id}`).then(r => r.json()).then(d => { if (d.lead) setLogLead(d.lead); }).catch(() => {});
-    window.history.replaceState(null, '', '/leads');
+    window.history.replaceState(null, '', window.location.pathname);
   }, [user]);
 
   const fetchLeads = useCallback(async () => {
@@ -68,17 +70,19 @@ export default function LeadsPage() {
     p.set('page', page); p.set('limit', perPage); p.set('order', sortOrder);
     if (projectId) p.set('project_id', projectId);
     if (viewDeleted) p.set('deleted', '1');
+    else if (achievedView) p.set('achieved', '1');
     try {
       const res = await fetch(`/api/leads?${p}`);
       const d = await res.json();
       setLeads(d.leads || []); setTotal(d.total || 0); setTotalPages(d.totalPages || 1);
     } catch { setLeads([]); }
     setLoading(false);
-  }, [filters, page, perPage, sortOrder, projectId, viewDeleted]);
+  }, [filters, page, perPage, sortOrder, projectId, viewDeleted, achievedView]);
 
   const fetchStats = useCallback(async () => {
-    try { const r = await fetch(`/api/leads/stats${projectId ? '?project_id=' + projectId : ''}`); setStats(await r.json()); } catch {}
-  }, [projectId]);
+    const q = new URLSearchParams(); if (projectId) q.set('project_id', projectId); if (achievedView) q.set('achieved', '1');
+    try { const r = await fetch(`/api/leads/stats?${q}`); setStats(await r.json()); } catch {}
+  }, [projectId, achievedView]);
   const fetchTemplates = useCallback(async () => {
     try { const r = await fetch(`/api/templates${projectId ? '?project_id=' + projectId : ''}`); setTemplates(await r.json()); } catch {}
   }, [projectId]);
@@ -134,6 +138,19 @@ export default function LeadsPage() {
         const d = await r.json().catch(() => ({}));
         if (!r.ok) alert(t(d.error || 'Failed')); else if (d.duplicate_of_live_lead) alert(t('Restored. Note: a live lead with the same company already exists.'));
         fetchLeads(); fetchStats();
+      } });
+  }
+  // Achieved: moves the lead to the Achieved Leads page (or back to the working list), with a comment
+  function handleAchieve(id, on) {
+    setPending({ title: t(on ? 'Mark as achieved' : 'Move back to leads'), detail: leadName(id),
+      run: async (comment) => { await put(id, { achieved: on, comment }); fetchLeads(); fetchStats(); } });
+  }
+  function handleBulkAchieve(on) {
+    if (!selected.size) return;
+    setPending({ title: t(on ? 'Mark as achieved' : 'Move back to leads'), detail: t('{n} selected', { n: selected.size }),
+      run: async (comment) => {
+        await fetch('/api/leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selected], achieved: on, comment }) });
+        setSelected(new Set()); fetchLeads(); fetchStats();
       } });
   }
   function handleBulkStatus() {
@@ -195,18 +212,21 @@ export default function LeadsPage() {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 className={`page-title${viewDeleted ? ' m-keep' : ''}`} style={{ marginBottom:2, fontSize:'1.3rem' }}>{viewDeleted ? <><MI name="delete_sweep" size={22}/> {t('Deleted leads')}</> : t('Lead Management')}</h1>
-          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{viewDeleted ? t('{n} deleted leads', { n: total }) : t('{n} total leads', { n: total })} • {t('Page')} {page}/{totalPages}</p>
+          <h1 className={`page-title${viewDeleted ? ' m-keep' : ''}`} style={{ marginBottom:2, fontSize:'1.3rem' }}>{viewDeleted ? <><MI name="delete_sweep" size={22}/> {t('Deleted leads')}</> : achievedView ? <><MI name="emoji_events" size={22}/> {t('Achieved Leads')}</> : t('Lead Management')}</h1>
+          <p style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{viewDeleted ? t('{n} deleted leads', { n: total }) : achievedView ? t('{n} achieved leads', { n: total }) : t('{n} total leads', { n: total })} • {t('Page')} {page}/{totalPages}</p>
         </div>
         <div className="m-scroll-x m-full" style={{ display:'flex', gap:6, flexWrap:'wrap', whiteSpace:'nowrap' }}>
-          {viewDeleted ? (
+          {achievedView ? (
+            <button onClick={() => router.push('/leads')} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="arrow_back" size={14}/> {t('Back to leads')}</button>
+          ) : viewDeleted ? (
             <button onClick={() => setViewDeleted(false)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="arrow_back" size={14}/> {t('Back to leads')}</button>
           ) : (
             isAdmin && <button onClick={() => setViewDeleted(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #dc2626', color:'#dc2626' }}><MI name="delete_sweep" size={14}/> {t('Deleted leads')}</button>
           )}
+          {!viewDeleted && !achievedView && <button onClick={() => router.push('/leads/achieved')} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #d97706', color:'#b45309', background:'#fffbeb' }}><MI name="emoji_events" size={14}/> {t('Achieved')}{stats?.achieved ? ` (${stats.achieved})` : ''}</button>}
           {!viewDeleted && <button onClick={() => setShowBulkLookup(!showBulkLookup)} className="btn btn-ghost" style={{ fontSize:'0.75rem' }}><MI name="search" size={14}/> {t('Bulk Lookup')}</button>}
-          {!viewDeleted && <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>}
-          {!viewDeleted && !isMobile && <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>}
+          {!viewDeleted && !achievedView && <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost" style={{ fontSize:'0.75rem', border:'1px solid #10b981', color:'#10b981' }}><MI name="upload_file" size={14}/> {t('Bulk Upload')}</button>}
+          {!viewDeleted && !achievedView && !isMobile && <button onClick={() => setShowAddModal(true)} className="btn btn-primary" style={{ fontSize:'0.75rem' }}><MI name="add" size={14}/> {t('Add Lead')}</button>}
           {!viewDeleted && <button onClick={handleExport} disabled={exporting} className="btn btn-success" style={{ fontSize:'0.75rem' }}><MI name="download" size={14}/> {t('Export')}</button>}
         </div>
       </div>
@@ -332,6 +352,10 @@ export default function LeadsPage() {
             <MI name="call" size={13}/> {t('Copy Phones')}
           </button>
           <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
+          <button onClick={() => handleBulkAchieve(!achievedView)} style={{ ...BB, borderColor:'#fcd34d', color:'#b45309', background:'#fffbeb' }}>
+            <MI name={achievedView ? 'undo' : 'emoji_events'} size={13}/> {t(achievedView ? 'Move back to leads' : 'Mark as achieved')}
+          </button>
+          <span style={{ width:1, height:20, background:'#bfdbfe' }}/>
           <button onClick={() => setSelected(new Set())} style={{ fontSize:'0.72rem', color:'#6b7280', background:'none', border:'none', cursor:'pointer' }}>{t('Deselect all')}</button>
         </div>
       )}
@@ -352,7 +376,7 @@ export default function LeadsPage() {
             <LeadCard key={l.id} l={l} t={t} lang={lang} viewDeleted={viewDeleted} selected={selected.has(l.id)}
               onToggle={() => toggleSelect(l.id)} onStatus={(v) => handleStatusChange(l.id, v)} onPriority={(v) => handlePriorityChange(l.id, v)}
               onLog={() => setLogLead(l)} onFollowUp={() => leadFu.create(l)} onEdit={() => setEditLead(l)} onDelete={() => handleDelete(l.id)}
-              onRestore={() => handleRestore(l.id)} onPurge={() => handlePurge(l.id)}
+              onRestore={() => handleRestore(l.id)} onPurge={() => handlePurge(l.id)} achievedView={achievedView} onAchieve={() => handleAchieve(l.id, !achievedView)}
               template={<TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />} />
           ))}
         </div>
@@ -378,10 +402,10 @@ export default function LeadsPage() {
                 <th style={{...TH, width:'8%'}}>{t('Priority')}</th>
                 <th style={{...TH, width:'10%'}}>{t('Status')}</th>
                 <th style={{...TH, width:'8%'}}>{t('Last comment')}</th>
-                <th style={{...TH, width:'9%'}}>{viewDeleted ? t('Deleted by') : t('Template Used')}</th>
+                <th style={{...TH, width:'9%'}}>{viewDeleted ? t('Deleted by') : achievedView ? t('Achieved') : t('Template Used')}</th>
                 <th style={{...TH, width:112}}>{t('Logs')}</th>
                 <th style={{...TH, width:150}}>{t('Reminder')}</th>
-                <th style={{...TH, width:92, borderRight:'none', textAlign:'center'}}>{t('Actions')}</th>
+                <th style={{...TH, width:124, borderRight:'none', textAlign:'center'}}>{t('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -433,7 +457,7 @@ export default function LeadsPage() {
                           <div style={{ color:'#9ca3af' }}>{l.deleted_at ? new Date(l.deleted_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : ''}</div>
                           {l.delete_comment && <div style={{ marginTop:3, color:'#92400e', background:'#fffbeb', borderRadius:6, padding:'2px 6px', whiteSpace:'pre-wrap' }}>💬 {l.delete_comment}</div>}
                         </div>
-                      ) : (
+                      ) : achievedView ? <AchievedInfo l={l} t={t} lang={lang} /> : (
                         <TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
                       )}
                     </td>
@@ -455,6 +479,7 @@ export default function LeadsPage() {
                           <button onClick={() => handleRestore(l.id)} title={t('Restore')} aria-label={t('Restore')} style={ACT('#059669', '#a7f3d0')}><MI name="restore_from_trash" size={16}/></button>
                           <button onClick={() => handlePurge(l.id)} title={t('Delete permanently')} aria-label={t('Delete permanently')} style={ACT('#dc2626', '#fecaca')}><MI name="delete_forever" size={16}/></button>
                         </>) : (<>
+                          <button onClick={() => handleAchieve(l.id, !achievedView)} title={t(achievedView ? 'Move back to leads' : 'Mark as achieved')} aria-label={t(achievedView ? 'Move back to leads' : 'Mark as achieved')} style={ACT('#b45309', '#fcd34d')}><MI name={achievedView ? 'undo' : 'emoji_events'} size={16}/></button>
                           <button onClick={() => setEditLead(l)} title={t('Edit')} aria-label={t('Edit')} style={ACT('#2563eb', '#bfdbfe')}><MI name="edit" size={16}/></button>
                           <button onClick={() => handleDelete(l.id)} title={t('Delete')} aria-label={t('Delete')} style={ACT('#dc2626', '#fecaca')}><MI name="delete" size={16}/></button>
                         </>)}
@@ -488,7 +513,7 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {isMobile && !viewDeleted && selected.size === 0 && (
+      {isMobile && !viewDeleted && !achievedView && selected.size === 0 && (
         <button type="button" className="m-fab" onClick={() => setShowAddModal(true)} aria-label={t('Add Lead')}><MI name="add" size={26}/></button>
       )}
       {showAddModal && <LeadFormModal t={t} projectId={projectId} onClose={() => setShowAddModal(false)} onDone={() => { fetchLeads(); fetchStats(); setShowAddModal(false); }} />}
@@ -595,9 +620,21 @@ function LastComment({ l, t, lang, lines = 4 }) {
   );
 }
 
+// Who marked the lead achieved, when, and their comment (Achieved Leads page)
+function AchievedInfo({ l, t, lang }) {
+  if (!l.achieved_at) return '—';
+  return (
+    <div style={{ fontSize:'0.7rem' }}>
+      <div style={{ fontWeight:700, color:'#b45309', display:'flex', alignItems:'center', gap:4 }}><MI name="emoji_events" size={14}/> {l.achieved_by_name || '—'}</div>
+      <div style={{ color:'#9ca3af' }}>{new Date(l.achieved_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
+      {l.achieve_comment && <div style={{ marginTop:3, color:'#92400e', background:'#fffbeb', borderRadius:6, padding:'2px 6px', whiteSpace:'pre-wrap' }}>💬 {l.achieve_comment}</div>}
+    </div>
+  );
+}
+
 // Phone layout: one card per lead instead of the wide spreadsheet table. Every action the table row has
 // is here too; phone numbers and emails are tap-to-call / tap-to-mail.
-function LeadCard({ l, t, lang, viewDeleted, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
+function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
   const [more, setMore] = useState(false);
   const sc = SC[l.status] || SC.not_contacted;
   const pc = PC[l.priority] || PC.MEDIUM;
@@ -647,6 +684,7 @@ function LeadCard({ l, t, lang, viewDeleted, selected, onToggle, onStatus, onPri
         </div>
       )}
 
+      {achievedView && <div style={{ marginTop:8, padding:'6px 8px', background:'#fffbeb', borderRadius:8 }}><AchievedInfo l={l} t={t} lang={lang} /></div>}
       {(l.last_comment || l.notes) && <div style={{ marginTop:8, fontSize:'0.76rem', color:'#475569', background:'#f8fafc', borderRadius:8, padding:'6px 8px' }}><LastComment l={l} t={t} lang={lang} lines={more ? 0 : 2} /></div>}
 
       {more && (
@@ -670,6 +708,7 @@ function LeadCard({ l, t, lang, viewDeleted, selected, onToggle, onStatus, onPri
             <button type="button" onClick={onRestore} aria-label={t('Restore')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#059669' }}><MI name="restore_from_trash" size={20}/></button>
             <button type="button" onClick={onPurge} aria-label={t('Delete permanently')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#dc2626' }}><MI name="delete_forever" size={20}/></button>
           </>) : (<>
+            <button type="button" onClick={onAchieve} aria-label={t(achievedView ? 'Move back to leads' : 'Mark as achieved')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#b45309' }}><MI name={achievedView ? 'undo' : 'emoji_events'} size={20}/></button>
             <button type="button" onClick={onEdit} aria-label={t('Edit')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#2563eb' }}><MI name="edit" size={20}/></button>
             <button type="button" onClick={onDelete} aria-label={t('Delete')} style={{ ...chip, padding:8, border:'none', background:'transparent', color:'#dc2626' }}><MI name="delete" size={20}/></button>
           </>)}
@@ -1083,7 +1122,7 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
   const firstComment = String(data?.lead?.notes || '').trim();
   const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}`, first: true,
     comment: firstComment && !data.logs.some(l => String(l.comment || '').trim() === firstComment) ? firstComment : '' }] : [];
-  const ICONS = { initial: 'chat', create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
+  const ICONS = { initial: 'chat', create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever', achieved: 'emoji_events', unachieved: 'undo' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
@@ -1103,6 +1142,8 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
     }
     if (l.kind === 'delete') return t('Lead deleted');
     if (l.kind === 'restore') return t('Lead restored');
+    if (l.kind === 'achieved') return `🏆 ${t('Marked as achieved')}${l.bulk ? ` (${t('bulk')})` : ''}`;
+    if (l.kind === 'unachieved') return `${t('Moved back to leads')}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'purge') return t('Permanently deleted');
     if (l.kind === 'create' || /^Added lead/.test(l.action)) return `${t('Lead created')} ${how(l.source || lead.scraped_from)}`;
     return l.action;
@@ -1141,6 +1182,12 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
             </div>); })()}
         </div>
         <LeadWatchersPanel leadId={lead.id} />
+        {lead.achieved_at && !lead.deleted_at && (
+          <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', color:'#92400e', padding:'10px 12px', borderRadius:8, fontSize:'0.8rem', marginBottom:12 }}>
+            <strong><MI name="emoji_events" size={14}/> {t('Achieved')} — {lead.achieved_by_name || '—'}</strong> · {fmt(lead.achieved_at)}
+            {lead.achieve_comment && <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>💬 {lead.achieve_comment}</div>}
+          </div>
+        )}
         {lead.deleted_at && (
           <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#991b1b', padding:'10px 12px', borderRadius:8, fontSize:'0.8rem', marginBottom:12 }}>
             <strong><MI name="delete" size={14}/> {t('Deleted by')} {lead.deleted_by_name || '—'}</strong> · {fmt(lead.deleted_at)}

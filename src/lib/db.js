@@ -499,6 +499,11 @@ async function initSchema() {
     ['gtm_leads', 'max_messenger', "TEXT DEFAULT ''"],
     ['gtm_leads', 'whatsapp', "TEXT DEFAULT ''"],
     ['gtm_tasks', 'description', "TEXT DEFAULT ''"],
+    // "Achieved" leads: won/finished leads moved off the working list onto the Achieved Leads page
+    ['gtm_leads', 'achieved_at', 'TEXT'],
+    ['gtm_leads', 'achieved_by', 'INTEGER'],
+    ['gtm_leads', 'achieved_by_name', "TEXT DEFAULT ''"],
+    ['gtm_leads', 'achieve_comment', "TEXT DEFAULT ''"],
     // Latest comment on the lead (from any change or log update) — shown in the leads list
     ['gtm_leads', 'last_comment', 'TEXT'],
     ['gtm_leads', 'last_comment_at', 'TEXT'],
