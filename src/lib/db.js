@@ -662,6 +662,8 @@ async function initSchema() {
 
   await backfillProjectSeq();
   await backfillLastComment();
+  // "Closed" was merged into "Not Interested (Closed)"
+  await query("UPDATE gtm_leads SET status = 'not_interested' WHERE status = 'closed'");
 
   // Seed default settings
   const defaults = [

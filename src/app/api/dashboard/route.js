@@ -19,7 +19,7 @@ export async function GET(request) {
   const totalLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${working}`);
   const hotLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${working} AND priority = 'HOT'`);
   const notInterested = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'not_interested'${pf}`);
-  const closedLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'closed'${pf}`);
+  const signedLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'contract_signed'${pf}`);
   const achievedLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NOT NULL${pf}`);
   const unreadMsgs = await queryOne('SELECT COUNT(*) as c FROM gtm_messages WHERE receiver_id = $1 AND is_read = 0', [user.id]);
   const totalUsers = isAdmin(user.role) ? await queryOne('SELECT COUNT(*) as c FROM gtm_users') : { c: 0 };
@@ -39,7 +39,7 @@ export async function GET(request) {
     total_leads: parseInt(totalLeads?.c || 0),
     hot_leads: parseInt(hotLeads?.c || 0),
     not_interested_leads: parseInt(notInterested?.c || 0),
-    closed_leads: parseInt(closedLeads?.c || 0),
+    signed_leads: parseInt(signedLeads?.c || 0),
     achieved_leads: parseInt(achievedLeads?.c || 0),
     unread_messages: parseInt(unreadMsgs?.c || 0),
     total_users: parseInt(totalUsers?.c || 0),

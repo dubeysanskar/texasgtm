@@ -291,11 +291,10 @@ export default function LeadsPage({ mode = 'active' }) {
             { l:t('HOT'), v:stats.hot, c:'#ef4444', i:'local_fire_department', go: { priority:'HOT', status:'' } },
             { l:t('HIGH'), v:stats.high, c:'#22c55e', i:'bolt', go: { priority:'HIGH', status:'' } },
             { l:t('Active'), v:stats.active, c:'#8b5cf6', i:'trending_up' },
-            { l:t('Signed'), v:stats.signed, c:'#10b981', i:'verified', go: { priority:'', status:'contract_signed' } },
+            { l:t('Contract Signed – Closed'), v:stats.signed || 0, c:'#047857', i:'verified', go: { priority:'', status:'contract_signed' } },
             { l:t('Partners'), v:stats.partner, c:'#f59e0b', i:'handshake', go: { priority:'PARTNER', status:'' } },
             ...(achievedView ? [] : [
-              { l:t('Not Interested'), v:stats.not_interested || 0, c:'#A32D2D', i:'thumb_down', go: { priority:'', status:'not_interested' } },
-              { l:t('Closed'), v:stats.closed || 0, c:'#4b5563', i:'block', go: { priority:'', status:'closed' } },
+              { l:t('Not Interested (Closed)'), v:stats.not_interested || 0, c:'#A32D2D', i:'thumb_down', go: { priority:'', status:'not_interested' } },
             ]),
           ].map(s => {
             const on = s.go && ((s.go.status && s.go.status === filters.status) || (s.go.priority && s.go.priority === filters.priority && !filters.status));
@@ -986,7 +985,7 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
       if (row.email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(row.email)) errors.push({ field: 'email', msg: t('Invalid email') });
       if (row.phone && !/^[+\d\s\-()]{6,20}$/.test(row.phone)) errors.push({ field: 'phone', msg: t('Invalid phone') });
       if (row.priority && !['HOT','HIGH','MEDIUM','PARTNER','ГОРЯЧИЙ','ВЫСОКИЙ','СРЕДНИЙ','ПАРТНЁР','ПАРТНЕР'].includes(row.priority.toUpperCase())) errors.push({ field: 'priority', msg: t('Invalid') });
-      if (row.status && !['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','closed','follow_up_later'].includes(row.status.toLowerCase()) && !/[а-яё]/i.test(row.status)) errors.push({ field: 'status', msg: t('Invalid') });
+      if (row.status && !['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','closed','follow_up_later','not interested','contract signed'].includes(row.status.toLowerCase()) && !/[а-яё]/i.test(row.status)) errors.push({ field: 'status', msg: t('Invalid') });
       updated[rowIdx]._errors = errors;
       updated[rowIdx]._hasErrors = errors.length > 0;
       return updated;

@@ -626,6 +626,8 @@ export const RU = {
   'This project follows the default settings again.': 'Проект снова использует настройки по умолчанию.',
   'Saved for this project.': 'Сохранено для этого проекта.',
   'Saved. Every project without its own settings now uses these.': 'Сохранено. Все проекты без своих настроек теперь используют эти.',
+  'Contract Signed – Closed': 'Договор подписан – закрыт',
+  'Contract Signed – Closed ✓': 'Договор подписан – закрыт ✓',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

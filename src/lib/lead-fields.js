@@ -11,9 +11,9 @@ const LEAD_FIELDS = [
   'notes', 'source_url', 'priority', 'status',
 ];
 
-const VALID_STATUSES = ['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','closed','follow_up_later'];
+const VALID_STATUSES = ['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','follow_up_later'];
 // Closed statuses: hidden from the working list, Priority and the Dashboard (see lib/lead-status.js)
-const CLOSED_STATUSES = ['not_interested', 'closed'];
+const CLOSED_STATUSES = ['not_interested', 'contract_signed'];
 const VALID_PRIORITIES = ['HOT','HIGH','MEDIUM','PARTNER'];
 
 // Column headers written into the downloadable template, per language
@@ -42,8 +42,8 @@ const PRIORITY_LABELS = {
   ru: { HOT: 'Горячий', HIGH: 'Высокий', MEDIUM: 'Средний', PARTNER: 'Партнёр' },
 };
 const STATUS_LABELS = {
-  en: { not_contacted: 'Not Contacted', touch_1: 'Touch 1', touch_2: 'Touch 2', touch_3: 'Touch 3', email_sent: 'Email Sent', call_made: 'Call Made', replied: 'Replied', meeting_booked: 'Meeting Booked', proposal_sent: 'Proposal Sent', negotiating: 'Negotiating', contract_signed: 'Contract Signed', not_interested: 'Not Interested', closed: 'Closed', follow_up_later: 'Follow Up Later' },
-  ru: { not_contacted: 'Не связывались', touch_1: 'Касание 1', touch_2: 'Касание 2', touch_3: 'Касание 3', email_sent: 'Письмо отправлено', call_made: 'Звонок сделан', replied: 'Ответили', meeting_booked: 'Встреча назначена', proposal_sent: 'КП отправлено', negotiating: 'Переговоры', contract_signed: 'Договор подписан', not_interested: 'Не заинтересованы', closed: 'Закрыт', follow_up_later: 'Связаться позже' },
+  en: { not_contacted: 'Not Contacted', touch_1: 'Touch 1', touch_2: 'Touch 2', touch_3: 'Touch 3', email_sent: 'Email Sent', call_made: 'Call Made', replied: 'Replied', meeting_booked: 'Meeting Booked', proposal_sent: 'Proposal Sent', negotiating: 'Negotiating', contract_signed: 'Contract Signed – Closed', not_interested: 'Not Interested (Closed)', follow_up_later: 'Follow Up Later' },
+  ru: { not_contacted: 'Не связывались', touch_1: 'Касание 1', touch_2: 'Касание 2', touch_3: 'Касание 3', email_sent: 'Письмо отправлено', call_made: 'Звонок сделан', replied: 'Ответили', meeting_booked: 'Встреча назначена', proposal_sent: 'КП отправлено', negotiating: 'Переговоры', contract_signed: 'Договор подписан – закрыт', not_interested: 'Не заинтересованы (закрыт)', follow_up_later: 'Связаться позже' },
 };
 
 // Sample row for the template, per language
@@ -167,6 +167,8 @@ function invert(labels) {
 const SECTOR_BY_LABEL = invert(SECTOR_LABELS);
 const PRIORITY_BY_LABEL = invert(PRIORITY_LABELS);
 const STATUS_BY_LABEL = invert(STATUS_LABELS);
+// Older spellings still accepted on import ("Closed" was merged into Not Interested)
+Object.assign(STATUS_BY_LABEL, { 'closed': 'not_interested', 'закрыт': 'not_interested', 'not interested': 'not_interested', 'не заинтересованы': 'not_interested', 'contract signed': 'contract_signed', 'договор подписан': 'contract_signed' });
 // Extra spellings people actually type
 Object.assign(SECTOR_BY_LABEL, { 'логистика и склад': 'warehouse_logistics', 'склад': 'warehouse_logistics', 'пищевка': 'food_processing', 'пищевое производство': 'food_processing', 'химическая промышленность': 'chemicals', 'нефтехимия': 'chemicals', 'авто': 'automotive', 'отели': 'hospitality', 'ресторан': 'hospitality', 'ритейл': 'retail', 'торговля': 'retail', 'прочее': 'other', 'другая': 'other' });
 Object.assign(PRIORITY_BY_LABEL, { 'горячий': 'HOT', 'горячо': 'HOT', 'высокий': 'HIGH', 'средний': 'MEDIUM', 'партнер': 'PARTNER', 'партнёр': 'PARTNER', 'hot': 'HOT', 'high': 'HIGH', 'medium': 'MEDIUM', 'partner': 'PARTNER' });

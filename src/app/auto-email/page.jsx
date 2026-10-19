@@ -8,7 +8,7 @@ const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" 
 
 const SECTORS = { construction:'Construction', manufacturing:'Manufacturing', warehouse_logistics:'Warehouse/Logistics', food_processing:'Food Processing', metallurgy:'Metallurgy', mining:'Mining', chemicals:'Chemicals', automotive:'Automotive', hospitality:'Hospitality', retail:'Retail', agency_partner:'Agency Partner', industry_association:'Industry Association', other:'Other' };
 const PRIORITIES = { HOT:'🔥 HOT', HIGH:'⚡ HIGH', MEDIUM:'● MEDIUM', PARTNER:'🤝 PARTNER' };
-const LEAD_STATUSES = { not_contacted:'Not Contacted', touch_1:'Touch 1', touch_2:'Touch 2', touch_3:'Touch 3', email_sent:'Email Sent', call_made:'Call Made', replied:'Replied', meeting_booked:'Meeting Booked', proposal_sent:'Proposal Sent', negotiating:'Negotiating', contract_signed:'Contract Signed', not_interested:'Not Interested', closed:'Closed', follow_up_later:'Follow Up Later' };
+const LEAD_STATUSES = { not_contacted:'Not Contacted', touch_1:'Touch 1', touch_2:'Touch 2', touch_3:'Touch 3', email_sent:'Email Sent', call_made:'Call Made', replied:'Replied', meeting_booked:'Meeting Booked', proposal_sent:'Proposal Sent', negotiating:'Negotiating', contract_signed:'Contract Signed – Closed', not_interested:'Not Interested (Closed)', follow_up_later:'Follow Up Later' };
 const LANGS = [{ code:'en', label:'English', flag:'🇬🇧' }, { code:'ru', label:'Russian', flag:'🇷🇺' }, { code:'de', label:'German', flag:'🇩🇪' }, { code:'ar', label:'Arabic', flag:'🇦🇪' }];
 
 const CAMP_STATUS = {

@@ -18,20 +18,20 @@ export async function GET(request) {
   const hidden = hiddenSql(await getPriorityConfig(pid));
   const scope = `deleted_at IS NULL AND achieved_at IS ${achievedPage ? 'NOT NULL' : `NULL AND status NOT IN (${hidden})`}${pf}`;
   const notInterested = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'not_interested'${pf}`);
-  const closedCount = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'closed'${pf}`);
+  // "Contract Signed – Closed" is counted on its own (it is hidden from the working list by default)
+  const signedAll = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS ${achievedPage ? 'NOT NULL' : 'NULL'} AND status = 'contract_signed'${pf}`);
 
   const total = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope}`);
   const hot = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope} AND priority = 'HOT'`);
   const high = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope} AND priority = 'HIGH'`);
   const active = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope} AND status NOT IN ('not_contacted','not_interested')`);
-  const signed = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope} AND status = 'contract_signed'`);
   const partner = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope} AND priority = 'PARTNER'`);
   const achieved = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NOT NULL${pf}`);
 
   return NextResponse.json({
     total: parseInt(total?.c||0), hot: parseInt(hot?.c||0), high: parseInt(high?.c||0),
-    active: parseInt(active?.c||0), signed: parseInt(signed?.c||0), partner: parseInt(partner?.c||0),
+    active: parseInt(active?.c||0), partner: parseInt(partner?.c||0),
     achieved: parseInt(achieved?.c||0),
-    not_interested: parseInt(notInterested?.c||0), closed: parseInt(closedCount?.c||0),
+    not_interested: parseInt(notInterested?.c||0), signed: parseInt(signedAll?.c||0),
   });
 }

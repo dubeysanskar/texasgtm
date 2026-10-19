@@ -18,7 +18,7 @@ const GROUPS = {
   hot_deal:  { icon: 'local_fire_department', color: '#6d28d9', title: 'Hot deals',                       text: 'Important leads that are already in talks (you choose which priorities and stages below).' },
   due_soon:  { icon: 'event',                 color: '#1d4ed8', title: 'Follow-ups coming up soon',       text: 'A follow-up is planned in the next few days (you choose how many below).' },
   rest:      { icon: 'list',                  color: '#334155', title: 'All other open leads',            text: 'Every lead that is not in another group: HOT first, then HIGH, MEDIUM, PARTNER — and within each, the one waiting longest for contact first.' },
-  parked:    { icon: 'snooze',                color: '#7D6608', title: 'On hold (bottom of the list)',    text: 'Leads you chose to park (e.g. “Follow Up Later”, “Contract Signed”) wait at the bottom until their follow-up date gets close.' },
+  parked:    { icon: 'snooze',                color: '#7D6608', title: 'On hold (bottom of the list)',    text: 'Leads you chose to park (e.g. “Follow Up Later”) wait at the bottom until their follow-up date gets close.' },
 };
 
 export default function PrioritySettingsPage() {

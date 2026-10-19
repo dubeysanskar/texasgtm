@@ -103,8 +103,8 @@ export default function DashboardPage() {
           ...(isAdmin ? [{ label: t('Team Members'), value: stats.total_users || 0, icon: 'group', color: '#8b5cf6', href: '/admin' }] : []),
           // Leads that left the working list: one click opens Lead Management already filtered to them
           ...(showLeads ? [
-            { label: t('Not Interested'), value: stats.not_interested_leads || 0, icon: 'thumb_down', color: '#A32D2D', href: '/leads?status=not_interested' },
-            { label: t('Closed'), value: stats.closed_leads || 0, icon: 'block', color: '#4b5563', href: '/leads?status=closed' },
+            { label: t('Not Interested (Closed)'), value: stats.not_interested_leads || 0, icon: 'thumb_down', color: '#A32D2D', href: '/leads?status=not_interested' },
+            { label: t('Contract Signed – Closed'), value: stats.signed_leads || 0, icon: 'verified', color: '#047857', href: '/leads?status=contract_signed' },
             { label: t('Achieved Leads'), value: stats.achieved_leads || 0, icon: 'emoji_events', color: '#b45309', href: '/leads/achieved' },
           ] : []),
         ].map(m => (

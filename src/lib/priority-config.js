@@ -5,7 +5,7 @@
  */
 const { queryOne, query } = require('./db');
 
-const ALL_STATUSES = ['not_contacted', 'touch_1', 'touch_2', 'touch_3', 'email_sent', 'call_made', 'replied', 'meeting_booked', 'proposal_sent', 'negotiating', 'contract_signed', 'not_interested', 'closed', 'follow_up_later'];
+const ALL_STATUSES = ['not_contacted', 'touch_1', 'touch_2', 'touch_3', 'email_sent', 'call_made', 'replied', 'meeting_booked', 'proposal_sent', 'negotiating', 'contract_signed', 'not_interested', 'follow_up_later'];
 const ALL_PRIORITIES = ['HOT', 'HIGH', 'MEDIUM', 'PARTNER'];
 const RULES = ['overdue', 'due_today', 'hot_deal', 'due_soon', 'rest', 'parked'];
 
@@ -18,8 +18,8 @@ const DEFAULTS = {
   priority_order: ['HOT', 'HIGH', 'MEDIUM', 'PARTNER'],    // order inside "everything else"
   rest_sort: 'longest_silence',                            // longest_silence | newest | oldest
   never_contacted_first: true,
-  parked_statuses: ['follow_up_later', 'contract_signed'], // sink to the bottom (until a follow-up is close)
-  hidden_statuses: ['not_interested', 'closed'],           // leave the working list, search, Priority, Dashboard
+  parked_statuses: ['follow_up_later'],                    // sink to the bottom (until a follow-up is close)
+  hidden_statuses: ['not_interested', 'contract_signed'],  // "… (Closed)" statuses: leave the working list, search, Priority, Dashboard
   default_on: true,                                        // Priority toggle for people who never switched it
   show_rank: true,
   show_reason: true,
@@ -33,7 +33,11 @@ const pick = (arr, allowed) => Array.isArray(arr) ? uniq(arr.filter(x => allowed
 /** Fills gaps with defaults and drops anything invalid. */
 function normalize(raw) {
   const c = { ...DEFAULTS };
-  const r = raw && typeof raw === 'object' ? raw : {};
+  const r = raw && typeof raw === 'object' ? { ...raw } : {};
+  // Settings saved before "Closed" was merged: hiding "closed" now means hiding both closed statuses
+  for (const k of ['hidden_statuses', 'parked_statuses', 'hot_deal_statuses']) {
+    if (Array.isArray(r[k]) && r[k].includes('closed')) r[k] = r[k].filter(x => x !== 'closed').concat(k === 'hidden_statuses' ? ['not_interested', 'contract_signed'] : []);
+  }
   if (Array.isArray(r.rules)) {
     const seen = new Set(); const rules = [];
     for (const x of r.rules) if (x && RULES.includes(x.id) && !seen.has(x.id)) { seen.add(x.id); rules.push({ id: x.id, enabled: x.enabled !== false }); }
@@ -51,6 +55,9 @@ function normalize(raw) {
   const hs = pick(r.hidden_statuses, ALL_STATUSES); if (hs && hs.length < ALL_STATUSES.length - 1) c.hidden_statuses = hs;
   const dc = Number(r.dashboard_count); if (Number.isFinite(dc)) c.dashboard_count = Math.min(30, Math.max(3, Math.round(dc)));
   if (['own', 'all'].includes(r.dashboard_scope)) c.dashboard_scope = r.dashboard_scope;
+  // a hidden (closed) status can't also be "on hold" or a hot deal — those leads aren't in the list at all
+  c.parked_statuses = c.parked_statuses.filter(s => !c.hidden_statuses.includes(s));
+  c.hot_deal_statuses = c.hot_deal_statuses.filter(s => !c.hidden_statuses.includes(s));
   return c;
 }
 
