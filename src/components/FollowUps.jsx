@@ -46,7 +46,8 @@ export function dueLabel(iso, t, lang) {
   }
   if (b === 'today') return `${t('Today')} ${time}`;
   if (b === 'tomorrow') return `${t('Tomorrow')} ${time}`;
-  return d.toLocaleString(loc, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  // Dates in another year say which one (a follow-up for "Thu 2 Sept" could be next year's)
+  return d.toLocaleString(loc, { weekday: 'short', day: 'numeric', month: 'short', ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}), hour: '2-digit', minute: '2-digit' });
 }
 
 export const QUICK_TITLES = ['Call back', 'Send email', 'Send proposal', 'Meeting', 'WhatsApp message', 'Check reply'];
@@ -66,11 +67,11 @@ async function send(url, method, body) {
 }
 
 // ── Chip shown in tables / lists ────────────────────────────────────────────
-export function DueChip({ iso, done, t, lang, onClick, compact }) {
+export function DueChip({ iso, done, t, lang, onClick, compact, wrap }) {
   const tone = TONE[done ? 'done' : bucketOf(iso)];
   return (
     <button type="button" onClick={onClick} title={new Date(iso).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined)}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: compact ? '2px 7px' : '3px 9px', borderRadius: 20, border: `1px solid ${tone.border}`, background: tone.bg, color: tone.text, fontSize: compact ? '0.64rem' : '0.7rem', fontWeight: 700, cursor: onClick ? 'pointer' : 'default', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: compact ? '2px 7px' : '3px 9px', borderRadius: wrap ? 10 : 20, border: `1px solid ${tone.border}`, background: tone.bg, color: tone.text, fontSize: compact ? '0.64rem' : '0.7rem', fontWeight: 700, cursor: onClick ? 'pointer' : 'default', whiteSpace: wrap ? 'normal' : 'nowrap', textAlign: 'left', lineHeight: wrap ? 1.3 : undefined, maxWidth: '100%', fontFamily: 'inherit' }}>
       <MI name={done ? 'check_circle' : 'event'} size={compact ? 12 : 14} /> {dueLabel(iso, t, lang)}
     </button>
   );

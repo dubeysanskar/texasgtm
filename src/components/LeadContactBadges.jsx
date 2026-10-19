@@ -6,7 +6,8 @@
 import { useProject } from '@/context/ProjectContext';
 
 function phoneDigits(v) { return String(v || '').replace(/[^\d]/g, ''); }
-function waLink(mobile, phone) { const d = phoneDigits(mobile) || phoneDigits(phone); return d ? `https://wa.me/${d}` : null; }
+// A dedicated WhatsApp number wins; otherwise the personal mobile, then the office phone
+function waLink(whatsapp, mobile, phone) { const d = phoneDigits(whatsapp) || phoneDigits(mobile) || phoneDigits(phone); return d ? `https://wa.me/${d}` : null; }
 function tgLink(telegram, mobile, phone) {
   const v = String(telegram || '').trim();
   if (v) return /^https?:\/\//i.test(v) ? v : `https://t.me/${v.replace(/^@/, '')}`;
@@ -16,7 +17,7 @@ function tgLink(telegram, mobile, phone) {
 
 export default function ContactBadges({ l, size = 'normal' }) {
   const { t } = useProject();
-  const wa = waLink(l.mobile_personal, l.phone);
+  const wa = waLink(l.whatsapp, l.mobile_personal, l.phone);
   const tg = tgLink(l.telegram, l.mobile_personal, l.phone);
   const max = String(l.max_messenger || '').trim();
   const maxIsLink = /^https?:\/\//i.test(max);

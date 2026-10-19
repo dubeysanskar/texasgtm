@@ -185,6 +185,7 @@ export default function LeadsPage() {
   const TH = { padding:'8px 10px', textAlign:'left', fontSize:'0.7rem', fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.3px', borderRight:'1px solid #d1d5db', borderBottom:'2px solid #9ca3af', whiteSpace:'normal', lineHeight:1.25, userSelect:'none', background:'#f3f4f6', verticalAlign:'middle' };
   const TD = { padding:'5px 8px', borderRight:'1px solid #e5e7eb', borderBottom:'1px solid #e5e7eb', fontSize:'0.74rem', color:'#1f2937', userSelect:'text', cursor:'cell', verticalAlign:'top', lineHeight:1.5, wordBreak:'break-word', overflowWrap:'break-word', whiteSpace:'normal' };
   const PB = { padding:'5px 10px', border:'1px solid var(--border)', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:'0.72rem', color:'#374151' };
+  const ACT = (color, border) => ({ width:30, height:30, borderRadius:8, border:`1px solid ${border}`, background:'#fff', color, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', padding:0 });
   const BB = { fontSize:'0.72rem', padding:'5px 12px', borderRadius:6, border:'1px solid #93c5fd', background:'#fff', cursor:'pointer', color:'#1e40af', fontWeight:600, display:'flex', alignItems:'center', gap:4 };
 
   if (authLoading || !user) return <div className="page-loading">Loading...</div>;
@@ -357,7 +358,7 @@ export default function LeadsPage() {
         </div>
       ) : (
         <div style={{ overflowX:'auto', borderRadius:10, border:'1px solid var(--border)', opacity: loading ? 0.65 : 1, transition:'opacity .15s' }}>
-          <table style={{ width:'100%', minWidth: 1700, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
+          <table style={{ width:'100%', minWidth: 1900, borderCollapse:'collapse', fontSize:'0.76rem', tableLayout:'fixed' }}>
             <thead>
               <tr style={{ background:'#f8fafc', borderBottom:'2px solid var(--border)' }}>
                 <th style={{ padding:'10px 8px', width:36, textAlign:'center' }}>
@@ -378,8 +379,9 @@ export default function LeadsPage() {
                 <th style={{...TH, width:'10%'}}>{t('Status')}</th>
                 <th style={{...TH, width:'8%'}}>{t('Last comment')}</th>
                 <th style={{...TH, width:'9%'}}>{viewDeleted ? t('Deleted by') : t('Template Used')}</th>
-                <th style={{...TH, width:'6%'}}>{t('Logs')}</th>
-                <th style={{width:62}}></th>
+                <th style={{...TH, width:112}}>{t('Logs')}</th>
+                <th style={{...TH, width:150}}>{t('Reminder')}</th>
+                <th style={{...TH, width:92, borderRight:'none', textAlign:'center'}}>{t('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -435,22 +437,28 @@ export default function LeadsPage() {
                         <TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />
                       )}
                     </td>
-                    <td style={{...TD, textAlign:'center'}}>
-                      <button onClick={() => setLogLead(l)} style={{ ...BB, padding:'4px 8px', fontSize:'0.66rem', justifyContent:'center', width:'100%' }}>
-                        <MI name="history" size={13}/> {t('View log')}
+                    {/* Logs | Reminder | Actions — each in its own column, nothing spills into the next cell */}
+                    <td style={{...TD, overflow:'hidden'}}>
+                      <button onClick={() => setLogLead(l)} style={{ ...BB, padding:'5px 6px', fontSize:'0.68rem', justifyContent:'center', width:'100%', whiteSpace:'nowrap' }}>
+                        <MI name="history" size={14}/> {t('View log')}
                       </button>
-                      {!viewDeleted && (l.next_followup_at
-                        ? <div style={{ marginTop:4 }}><DueChip compact iso={l.next_followup_at} t={t} lang={lang} onClick={() => setLogLead(l)} /></div>
-                        : <button onClick={() => leadFu.create(l)} title={t('Schedule a follow-up')} style={{ ...BB, marginTop:4, padding:'3px 6px', fontSize:'0.62rem', justifyContent:'center', width:'100%', color:'#64748b' }}><MI name="event" size={12}/> {t('Follow-up')}</button>)}
                     </td>
-                    <td style={{padding:'8px 4px', textAlign:'center', whiteSpace:'nowrap'}}>
-                      {viewDeleted ? (<>
-                        <button onClick={() => handleRestore(l.id)} title={t('Restore')} style={{ background:'none', border:'none', cursor:'pointer', color:'#059669' }}><MI name="restore_from_trash" size={16}/></button>
-                        <button onClick={() => handlePurge(l.id)} title={t('Delete permanently')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete_forever" size={16}/></button>
-                      </>) : (<>
-                      <button onClick={() => setEditLead(l)} title={t('Edit')} style={{ background:'none', border:'none', cursor:'pointer', color:'#2563eb' }}><MI name="edit" size={15}/></button>
-                      <button onClick={() => handleDelete(l.id)} title={t('Delete')} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626' }}><MI name="delete" size={15}/></button>
-                      </>)}
+                    {/* Reminder: the next follow-up (opens the lead's log, where follow-ups are managed), or a button to set one */}
+                    <td style={{...TD, overflow:'hidden'}}>
+                      {viewDeleted ? '—' : l.next_followup_at
+                        ? <DueChip compact wrap iso={l.next_followup_at} t={t} lang={lang} onClick={() => setLogLead(l)} />
+                        : <button onClick={() => leadFu.create(l)} title={t('Schedule a follow-up')} style={{ ...BB, padding:'5px 6px', fontSize:'0.66rem', justifyContent:'center', width:'100%', color:'#64748b', borderColor:'#cbd5e1', whiteSpace:'nowrap' }}><MI name="add_alarm" size={14}/> {t('Set reminder')}</button>}
+                    </td>
+                    <td style={{...TD, borderRight:'none', textAlign:'center'}}>
+                      <div style={{ display:'flex', gap:6, justifyContent:'center' }}>
+                        {viewDeleted ? (<>
+                          <button onClick={() => handleRestore(l.id)} title={t('Restore')} aria-label={t('Restore')} style={ACT('#059669', '#a7f3d0')}><MI name="restore_from_trash" size={16}/></button>
+                          <button onClick={() => handlePurge(l.id)} title={t('Delete permanently')} aria-label={t('Delete permanently')} style={ACT('#dc2626', '#fecaca')}><MI name="delete_forever" size={16}/></button>
+                        </>) : (<>
+                          <button onClick={() => setEditLead(l)} title={t('Edit')} aria-label={t('Edit')} style={ACT('#2563eb', '#bfdbfe')}><MI name="edit" size={16}/></button>
+                          <button onClick={() => handleDelete(l.id)} title={t('Delete')} aria-label={t('Delete')} style={ACT('#dc2626', '#fecaca')}><MI name="delete" size={16}/></button>
+                        </>)}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -499,7 +507,7 @@ const PB = { width:32, height:32, borderRadius:8, border:'1px solid var(--border
 
 function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
   const isEdit = !!lead;
-  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', telegram:'', max_messenger:'' };
+  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', whatsapp:'', telegram:'', max_messenger:'' };
   const [f, setF] = useState(() => isEdit ? Object.fromEntries(Object.keys(empty).map(k => [k, lead[k] ?? ''])) : empty);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
@@ -552,6 +560,7 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
             <div className="leads-form-field"><label>{t('Email')}</label><input type="email" value={f.email} onChange={e => setF({...f, email:e.target.value})}/></div>
             <div className="leads-form-field"><label><MI name="send" size={13}/> {t('Telegram')}</label><input value={f.telegram} onChange={e => setF({...f, telegram:e.target.value})} placeholder={t('@username or phone')}/></div>
             <div className="leads-form-field"><label><MI name="chat" size={13}/> {t('Max Messenger')}</label><input value={f.max_messenger} onChange={e => setF({...f, max_messenger:e.target.value})} placeholder={t('username or link')}/></div>
+            <div className="leads-form-field"><label><MI name="chat_bubble" size={13}/> WhatsApp</label><input type="tel" value={f.whatsapp} onChange={e => setF({...f, whatsapp:e.target.value})} placeholder="+7 916 000-00-00"/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Source of lead')}</label><input value={f.find_instructions} onChange={e => setF({...f, find_instructions:e.target.value})} placeholder={t('e.g. exhibition, LinkedIn, referral')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Requirement needed')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1', padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8 }}>
@@ -727,8 +736,8 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
   const [importResult, setImportResult] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
 
-  const LEAD_FIELDS = ['company_name','email','phone','mobile_personal','city','domain','sector','company_size','decision_maker_title','pain_point','find_instructions','notes','source_url','priority','status'];
-  const FIELD_LABELS = { company_name:'Company Name', email:'Email', telegram:'Telegram', max_messenger:'Max Messenger', phone:'Telephone', mobile_personal:'Mobile number (personal)', city:'City', domain:'Domain', sector:'Industry', company_size:'Company Size', decision_maker_title:'Decision maker name', pain_point:'Requirement needed', find_instructions:'Source of lead', notes:'Comment', source_url:'Source URL', priority:'Priority', status:'Status', contact_person:'Contact Person' };
+  const LEAD_FIELDS = ['company_name','email','whatsapp','phone','mobile_personal','city','domain','sector','company_size','decision_maker_title','pain_point','find_instructions','notes','source_url','priority','status'];
+  const FIELD_LABELS = { company_name:'Company Name', email:'Email', whatsapp:'WhatsApp', telegram:'Telegram', max_messenger:'Max Messenger', phone:'Telephone', mobile_personal:'Mobile number (personal)', city:'City', domain:'Domain', sector:'Industry', company_size:'Company Size', decision_maker_title:'Decision maker name', pain_point:'Requirement needed', find_instructions:'Source of lead', notes:'Comment', source_url:'Source URL', priority:'Priority', status:'Status', contact_person:'Contact Person' };
 
   async function handleFile(file) {
     if (!file) return;
@@ -1123,7 +1132,13 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Status')}</div><strong>{t(SC[lead.status]?.label || lead.status)}</strong></div>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Priority')}</div><strong>{t(PC[lead.priority]?.label || lead.priority)}</strong></div>
           <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong>{data && <div style={{ color:'var(--text-dim)', marginTop:2 }}>{t('Added by')} {createdBy || t('System')} · {how(lead.scraped_from)}</div>}</div>
-          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last Contacted')}</div><strong>{fmt(lead.last_contacted_at)}</strong></div>
+          {/* Last update: the newest thing that happened on the lead — comment, edit, status change, follow-up… (CC bookkeeping aside) */}
+          {(() => { const last = entries.find(e => e.kind !== 'watch'); return (
+            <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last update')}</div>
+              <strong>{data ? fmt(last?.at || lead.updated_at || lead.created_at) : '…'}</strong>
+              {last && <div style={{ color:'var(--text-dim)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={last.text}>{last.who || t('System')} · {last.text}</div>}
+              {lead.last_contacted_at && <div style={{ color:'var(--text-muted)', marginTop:2 }}>{t('Last Contacted')}: {fmt(lead.last_contacted_at)}</div>}
+            </div>); })()}
         </div>
         <LeadWatchersPanel leadId={lead.id} />
         {lead.deleted_at && (
@@ -1179,5 +1194,5 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
 }
 
 // Human names for lead fields (used in the log)
-const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', telegram:'Telegram', max_messenger:'Max Messenger', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
+const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', whatsapp:'WhatsApp', telegram:'Telegram', max_messenger:'Max Messenger', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
 

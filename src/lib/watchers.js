@@ -54,8 +54,8 @@ function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;'
 const { STATUS_LABELS, PRIORITY_LABELS } = require('./lead-fields');
 
 const FIELD_LABELS = {
-  en: { company_name: 'Company', domain: 'Website', sector: 'Industry', city: 'City', region: 'Region', country: 'Country', company_size: 'Size', pain_point: 'Requirement', decision_maker_title: 'Decision maker', phone: 'Telephone', mobile_personal: 'Mobile', email: 'Email', telegram: 'Telegram', max_messenger: 'Max', contact_method: 'Contact', source_url: 'Source URL', find_instructions: 'Source of lead', notes: 'Comment' },
-  ru: { company_name: 'Компания', domain: 'Сайт', sector: 'Отрасль', city: 'Город', region: 'Регион', country: 'Страна', company_size: 'Размер', pain_point: 'Потребность', decision_maker_title: 'ЛПР', phone: 'Телефон', mobile_personal: 'Мобильный', email: 'Email', telegram: 'Telegram', max_messenger: 'Max', contact_method: 'Контакт', source_url: 'Ссылка', find_instructions: 'Источник лида', notes: 'Комментарий' },
+  en: { company_name: 'Company', domain: 'Website', sector: 'Industry', city: 'City', region: 'Region', country: 'Country', company_size: 'Size', pain_point: 'Requirement', decision_maker_title: 'Decision maker', phone: 'Telephone', mobile_personal: 'Mobile', email: 'Email', telegram: 'Telegram', max_messenger: 'Max', whatsapp: 'WhatsApp', contact_method: 'Contact', source_url: 'Source URL', find_instructions: 'Source of lead', notes: 'Comment' },
+  ru: { company_name: 'Компания', domain: 'Сайт', sector: 'Отрасль', city: 'Город', region: 'Регион', country: 'Страна', company_size: 'Размер', pain_point: 'Потребность', decision_maker_title: 'ЛПР', phone: 'Телефон', mobile_personal: 'Мобильный', email: 'Email', telegram: 'Telegram', max_messenger: 'Max', whatsapp: 'WhatsApp', contact_method: 'Контакт', source_url: 'Ссылка', find_instructions: 'Источник лида', notes: 'Комментарий' },
 };
 
 const COPY = {

@@ -497,6 +497,7 @@ async function initSchema() {
     ['gtm_leads', 'delete_comment', "TEXT DEFAULT ''"],
     ['gtm_leads', 'telegram', "TEXT DEFAULT ''"],
     ['gtm_leads', 'max_messenger', "TEXT DEFAULT ''"],
+    ['gtm_leads', 'whatsapp', "TEXT DEFAULT ''"],
     // Latest comment on the lead (from any change or log update) — shown in the leads list
     ['gtm_leads', 'last_comment', 'TEXT'],
     ['gtm_leads', 'last_comment_at', 'TEXT'],
