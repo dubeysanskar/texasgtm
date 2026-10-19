@@ -69,6 +69,18 @@ export async function GET(request, { params }) {
   const history = await queryAll('SELECT id, old_status, new_status, changed_by_name, note, changed_at FROM gtm_lead_status_history WHERE lead_id = $1 ORDER BY changed_at DESC', [id]);
   const rawLogs = await queryAll("SELECT id, user_name, user_role, action, metadata, created_at FROM gtm_activity_logs WHERE entity_type = 'lead' AND entity_id = $1 ORDER BY created_at DESC LIMIT 200", [id]);
   const logs = rawLogs.map(l => { let meta = {}; try { meta = typeof l.metadata === 'string' ? JSON.parse(l.metadata || '{}') : (l.metadata || {}); } catch {} const { metadata, ...rest } = l; return { ...rest, ...meta }; });
+  // The comment the lead was added with is the first entry of its history. Leads added before that was
+  // logged only carry it on the lead itself: put it on the creation entry, or — when the creation entry
+  // has a different comment — show it as its own "First comment" entry. (Imported/scraped leads have no
+  // creation entry; the log window shows theirs on the "Lead created" line it builds.)
+  const initial = String(lead.notes || '').trim();
+  const created = logs.find(l => l.kind === 'create');
+  if (initial && created) {
+    if (!String(created.comment || '').trim()) created.comment = initial;
+    else if (!logs.some(l => String(l.comment || '').trim() === initial)) {
+      logs.push({ id: `initial-${lead.id}`, kind: 'initial', action: 'First comment', user_name: lead.created_by_name || '', comment: initial, created_at: lead.created_at, synthetic: true });
+    }
+  }
   const sends = await queryAll('SELECT id, subject, status, sent_at, opened_at, created_at FROM gtm_email_sends WHERE lead_id = $1 ORDER BY created_at DESC LIMIT 50', [id]);
   return NextResponse.json({ lead, history, logs, sends });
 }

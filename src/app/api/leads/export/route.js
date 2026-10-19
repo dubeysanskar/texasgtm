@@ -4,8 +4,8 @@ const { getUserFromRequest, isManager } = require('@/lib/auth');
 const { SECTOR_LABELS, STATUS_LABELS, PRIORITY_LABELS } = require('@/lib/lead-fields');
 
 const HEADERS = {
-  en: ['#', 'Company', 'Domain', 'Industry', 'City/Region', 'Size', 'Requirement needed', 'Decision maker name', 'Mobile number (personal)', 'Telephone', 'Email', 'Telegram', 'Max', 'Source of lead', 'Source URL', 'Priority', 'Status', 'Last Contacted', 'Comment'],
-  ru: ['№', 'Компания', 'Сайт', 'Отрасль', 'Город/Регион', 'Размер', 'Требуемая потребность', 'Имя ЛПР', 'Мобильный (личный)', 'Телефон', 'Email', 'Telegram', 'Max', 'Источник лида', 'Ссылка на источник', 'Приоритет', 'Статус', 'Последний контакт', 'Комментарий'],
+  en: ['#', 'Company', 'Domain', 'Industry', 'City/Region', 'Size', 'Requirement needed', 'Decision maker name', 'Mobile number (personal)', 'Telephone', 'Email', 'Telegram', 'Max', 'Source of lead', 'Source URL', 'Priority', 'Status', 'Last Contacted', 'Comment', 'Last comment'],
+  ru: ['№', 'Компания', 'Сайт', 'Отрасль', 'Город/Регион', 'Размер', 'Требуемая потребность', 'Имя ЛПР', 'Мобильный (личный)', 'Телефон', 'Email', 'Telegram', 'Max', 'Источник лида', 'Ссылка на источник', 'Приоритет', 'Статус', 'Последний контакт', 'Комментарий', 'Последний комментарий'],
 };
 const SHEETS = { en: ['All Leads', 'HOT Leads'], ru: ['Все лиды', 'Горячие лиды'] };
 
@@ -48,9 +48,10 @@ export async function POST(request) {
     status(lead.status),
     date(lead.last_contacted_at),
     lead.notes || '',
+    lead.last_comment || lead.notes || '',
   ];
 
-  const cols = [{ wch: 4 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 10 }, { wch: 42 }, { wch: 24 }, { wch: 22 }, { wch: 18 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 30 }];
+  const cols = [{ wch: 4 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 10 }, { wch: 42 }, { wch: 24 }, { wch: 22 }, { wch: 18 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 30 }, { wch: 40 }];
 
   const ws = XLSX.utils.aoa_to_sheet([HEADERS[lang], ...leads.map(toRow)]);
   ws['!cols'] = cols;

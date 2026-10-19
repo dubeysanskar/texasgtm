@@ -497,6 +497,10 @@ async function initSchema() {
     ['gtm_leads', 'delete_comment', "TEXT DEFAULT ''"],
     ['gtm_leads', 'telegram', "TEXT DEFAULT ''"],
     ['gtm_leads', 'max_messenger', "TEXT DEFAULT ''"],
+    // Latest comment on the lead (from any change or log update) — shown in the leads list
+    ['gtm_leads', 'last_comment', 'TEXT'],
+    ['gtm_leads', 'last_comment_at', 'TEXT'],
+    ['gtm_leads', 'last_comment_by', "TEXT DEFAULT ''"],
     ['gtm_projects', 'language', "TEXT DEFAULT 'en'"],
     ['gtm_projects', 'scraper_config', "JSONB DEFAULT '{}'"],
     ['gtm_projects', 'timezone', "TEXT DEFAULT 'UTC'"],
@@ -650,6 +654,7 @@ async function initSchema() {
   `);
 
   await backfillProjectSeq();
+  await backfillLastComment();
 
   // Seed default settings
   const defaults = [
@@ -692,10 +697,39 @@ async function backfillProjectSeq() {
   return missing.length;
 }
 
+/**
+ * One-time fill of gtm_leads.last_comment from the existing activity log: the newest comment written on
+ * each lead (status changes, updates, edits, follow-ups…). CC bookkeeping and delete/purge reasons don't
+ * count. Leads with no logged comment keep NULL and the list falls back to their original comment.
+ * From then on logLeadActivity() keeps the column current. Guarded by a gtm_settings flag.
+ */
+const NOT_A_LEAD_COMMENT = new Set(['watch', 'delete', 'purge']);
+async function backfillLastComment() {
+  const done = await queryOne("SELECT value FROM gtm_settings WHERE key = 'last_comment_backfilled'");
+  if (done) return 0;
+  const rows = await queryAll("SELECT entity_id, user_name, metadata, created_at FROM gtm_activity_logs WHERE entity_type = 'lead' AND entity_id IS NOT NULL ORDER BY id");
+  const latest = new Map();
+  for (const r of rows) {
+    let meta = r.metadata;
+    if (typeof meta === 'string') { try { meta = JSON.parse(meta || '{}'); } catch { meta = {}; } }
+    const c = typeof meta?.comment === 'string' ? meta.comment.trim() : '';
+    if (!c || NOT_A_LEAD_COMMENT.has(meta.kind)) continue;
+    latest.set(Number(r.entity_id), { c, by: r.user_name || '', at: r.created_at ? new Date(r.created_at).toISOString() : null });
+  }
+  let n = 0;
+  for (const [id, v] of latest) {
+    const res = await query('UPDATE gtm_leads SET last_comment = $1, last_comment_at = $2, last_comment_by = $3 WHERE id = $4 AND last_comment IS NULL', [v.c.slice(0, 2000), v.at, v.by, id]);
+    n += res?.rowCount ?? res?.changes ?? 0;
+  }
+  await query("INSERT INTO gtm_settings (key, value) VALUES ('last_comment_backfilled', $1) ON CONFLICT (key) DO NOTHING", [new Date().toISOString()]);
+  console.log(`[db] last comment filled for ${latest.size} leads`);
+  return n;
+}
+
 /** Close connections (used by scripts). */
 async function close() {
   if (pool) { await pool.end(); pool = null; }
   if (sqlite) { sqlite.close(); sqlite = null; }
 }
 
-module.exports = { query, queryOne, queryAll, getPool, initSchema, ensureColumn, close, DRIVER, nextProjectSeq, backfillProjectSeq };
+module.exports = { query, queryOne, queryAll, getPool, initSchema, ensureColumn, close, DRIVER, nextProjectSeq, backfillProjectSeq, NOT_A_LEAD_COMMENT };

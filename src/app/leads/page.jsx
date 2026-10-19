@@ -376,7 +376,7 @@ export default function LeadsPage() {
                 <th style={{...TH, width:'9%'}}>{t('Email')}</th>
                 <th style={{...TH, width:'8%'}}>{t('Priority')}</th>
                 <th style={{...TH, width:'10%'}}>{t('Status')}</th>
-                <th style={{...TH, width:'8%'}}>{t('Comment')}</th>
+                <th style={{...TH, width:'8%'}}>{t('Last comment')}</th>
                 <th style={{...TH, width:'9%'}}>{viewDeleted ? t('Deleted by') : t('Template Used')}</th>
                 <th style={{...TH, width:'6%'}}>{t('Logs')}</th>
                 <th style={{width:62}}></th>
@@ -423,7 +423,7 @@ export default function LeadsPage() {
                         {Object.entries(SC).map(([v,c]) => <option key={v} value={v}>{t(c.label)}</option>)}
                       </select>)}
                     </td>
-                    <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}>{l.notes||'—'}</td>
+                    <td tabIndex={0} style={{...TD, fontSize:'0.7rem', maxWidth:180, whiteSpace:'normal', lineHeight:1.4}}><LastComment l={l} t={t} lang={lang} /></td>
                     <td style={{...TD, minWidth:180, position:'relative'}}>
                       {viewDeleted ? (
                         <div style={{ fontSize:'0.7rem' }}>
@@ -499,7 +499,7 @@ const PB = { width:32, height:32, borderRadius:8, border:'1px solid var(--border
 
 function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
   const isEdit = !!lead;
-  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', telegram:'', max_messenger:'', notes:'' };
+  const empty = { company_name:'', domain:'', sector:'manufacturing', priority:'MEDIUM', status:'not_contacted', city:'', region:'', company_size:'', pain_point:'', decision_maker_title:'', find_instructions:'', mobile_personal:'', phone:'', email:'', telegram:'', max_messenger:'' };
   const [f, setF] = useState(() => isEdit ? Object.fromEntries(Object.keys(empty).map(k => [k, lead[k] ?? ''])) : empty);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
@@ -521,7 +521,7 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
     try {
       const r = isEdit
         ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, comment, ...extra }) })
-        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId, comment, ...extra }) });
+        : await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...f, project_id: projectId, comment, notes: comment, ...extra }) });
       if (r.ok) { onDone(); return; }
       const d = await r.json().catch(() => ({}));
       setErr(t(d.error || (r.status >= 500 ? 'Server error — the database may be unavailable. Please try again shortly.' : 'Failed')));
@@ -554,10 +554,10 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
             <div className="leads-form-field"><label><MI name="chat" size={13}/> {t('Max Messenger')}</label><input value={f.max_messenger} onChange={e => setF({...f, max_messenger:e.target.value})} placeholder={t('username or link')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Source of lead')}</label><input value={f.find_instructions} onChange={e => setF({...f, find_instructions:e.target.value})} placeholder={t('e.g. exhibition, LinkedIn, referral')}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Requirement needed')}</label><textarea rows={2} value={f.pain_point} onChange={e => setF({...f, pain_point:e.target.value})}/></div>
-            <div className="leads-form-field" style={{gridColumn:'1/-1'}}><label>{t('Comment')}</label><textarea rows={2} value={f.notes} onChange={e => setF({...f, notes:e.target.value})}/></div>
             <div className="leads-form-field" style={{gridColumn:'1/-1', padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8 }}>
-              <label style={{ color:'#92400e' }}>{t(isEdit ? 'Comment for this change' : 'Log comment for this lead')} *</label>
-              <textarea rows={2} value={comment} onChange={e => setComment(e.target.value)} placeholder={t(isEdit ? 'Why are you making this change?' : 'e.g. met at exhibition, asked for a quote')} style={{ fontFamily:'inherit' }} />
+              <label style={{ color:'#92400e' }}>{t(isEdit ? 'Comment for this change' : 'Comment')} *</label>
+              <textarea rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder={t(isEdit ? 'Why are you making this change?' : 'e.g. met at exhibition, asked for a quote')} style={{ fontFamily:'inherit' }} />
+              <div style={{ fontSize:'0.68rem', color:'#92400e', marginTop:4 }}>{t(isEdit ? 'Saved in the lead’s log and shown as its last comment.' : 'Saved as the first entry in the lead’s log and shown as its last comment until someone adds a new one.')}</div>
             </div>
           </div>
           <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
@@ -566,6 +566,22 @@ function LeadFormModal({ t, projectId, lead, onClose, onDone }) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// "Last comment": whatever was said last about the lead (a log update, a status change, an edit, a
+// follow-up…). Until anyone writes one, it is the comment the lead was added with.
+function LastComment({ l, t, lang, lines = 4 }) {
+  const text = String(l.last_comment || l.notes || '').trim();
+  if (!text) return '—';
+  const when = l.last_comment && l.last_comment_at ? new Date(l.last_comment_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+  return (
+    <div title={text}>
+      <div style={{ whiteSpace:'pre-wrap', wordBreak:'break-word', ...(lines ? { display:'-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient:'vertical', overflow:'hidden' } : {}) }}>{text}</div>
+      {l.last_comment
+        ? (l.last_comment_by || when) && <div style={{ fontSize:'0.62rem', color:'#94a3b8', marginTop:3 }}>{[l.last_comment_by, when].filter(Boolean).join(' · ')}</div>
+        : <div style={{ fontSize:'0.62rem', color:'#94a3b8', marginTop:3 }}>{t('First comment')}</div>}
     </div>
   );
 }
@@ -622,7 +638,7 @@ function LeadCard({ l, t, lang, viewDeleted, selected, onToggle, onStatus, onPri
         </div>
       )}
 
-      {l.notes && <div style={{ marginTop:8, fontSize:'0.76rem', color:'#475569', background:'#f8fafc', borderRadius:8, padding:'6px 8px', whiteSpace:'pre-wrap', display:'-webkit-box', WebkitLineClamp: more ? 'unset' : 2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{l.notes}</div>}
+      {(l.last_comment || l.notes) && <div style={{ marginTop:8, fontSize:'0.76rem', color:'#475569', background:'#f8fafc', borderRadius:8, padding:'6px 8px' }}><LastComment l={l} t={t} lang={lang} lines={more ? 0 : 2} /></div>}
 
       {more && (
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:10, padding:10, background:'#f8fafc', borderRadius:10 }}>
@@ -1054,14 +1070,18 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
   const how = (src) => t(SOURCE[src] || (src ? 'via {src}' : 'manually'), { src });
   const createdBy = data?.lead?.created_by_name || '';
   // Leads added before creation was logged (bulk upload, scraper, initial import) get a synthesized entry
-  const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}` }] : [];
-  const ICONS = { create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
+  // …carrying the comment the lead was added with, which is always the first comment in its history
+  const firstComment = String(data?.lead?.notes || '').trim();
+  const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}`, first: true,
+    comment: firstComment && !data.logs.some(l => String(l.comment || '').trim() === firstComment) ? firstComment : '' }] : [];
+  const ICONS = { initial: 'chat', create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever' };
   const describe = (l) => {
     if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
     if (l.kind === 'template') return `${t('Template')}: ${l.template || t('Clear template')}${l.bulk ? ` (${t('bulk')})` : ''}`;
     if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
     if (l.kind === 'note') return t('Comment');
+    if (l.kind === 'initial') return t('First comment');
     if (l.kind === 'followup') {
       const when = l.due_at ? new Date(l.due_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined, { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
       const EV = { created: 'Follow-up scheduled', done: 'Follow-up completed', rescheduled: 'Follow-up rescheduled', updated: 'Follow-up updated', deleted: 'Follow-up removed', reopened: 'Follow-up reopened' };
@@ -1082,9 +1102,9 @@ function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChang
     ...created,
     // status history rows only for legacy entries that have no matching activity log (new changes are logged with a comment)
     ...data.history.filter(h => !data.logs.some(l => l.kind === 'status' && Math.abs(new Date(l.created_at) - new Date(h.changed_at)) < 5000)).map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}`, comment: h.note && h.note !== 'bulk' ? h.note : '' })),
-    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || (/^Added lead/.test(l.action) ? 'add' : 'edit_note'), text: describe(l), comment: l.comment || '', changes: l.changes })),
+    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || (/^Added lead/.test(l.action) ? 'add' : 'edit_note'), text: describe(l), comment: l.comment || '', changes: l.changes, kind: l.kind, first: l.kind === 'create' || l.kind === 'initial' })),
     ...data.sends.map(sd => ({ at: sd.sent_at || sd.created_at, who: t('Auto Email'), icon: 'mail', text: `${t('Email')}: "${sd.subject}" — ${t(sd.status)}${sd.opened_at ? ` · ${t('Opened')} ${fmt(sd.opened_at)}` : ''}` })),
-  ].sort((a, b) => new Date(b.at) - new Date(a.at)) : [];
+  ].sort((a, b) => (new Date(b.at) - new Date(a.at)) || ((a.first ? 1 : 0) - (b.first ? 1 : 0)) || ((a.kind === 'initial' ? 1 : 0) - (b.kind === 'initial' ? 1 : 0))) : [];
   return (
     <div className="leads-modal-overlay" onClick={onClose}>
       <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>

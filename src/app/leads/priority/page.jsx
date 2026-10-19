@@ -40,7 +40,7 @@ export default function PriorityLeadsPage() {
       if (q) {
         // every word must appear somewhere on the lead; phone numbers also match on digits alone
         const hay = [l.company_name, l.domain, l.city, l.region, l.email, l.phone, l.mobile_personal, l.telegram, l.max_messenger,
-          l.decision_maker_title, l.contact_person, l.pain_point, l.find_instructions, l.notes, l.project_seq].join(' ').toLowerCase();
+          l.decision_maker_title, l.contact_person, l.pain_point, l.find_instructions, l.notes, l.last_comment, l.project_seq].join(' ').toLowerCase();
         const digits = q.replace(/\D/g, '');
         const phoneHit = digits.length >= 5 && [l.phone, l.mobile_personal].some(v => String(v || '').replace(/\D/g, '').includes(digits.length > 10 ? digits.slice(-10) : digits));
         if (!phoneHit && !q.split(/\s+/).every(w => hay.includes(w))) return false;

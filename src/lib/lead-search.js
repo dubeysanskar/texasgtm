@@ -12,7 +12,7 @@
 const TEXT_FIELDS = [
   'company_name', 'domain', 'city', 'region', 'country', 'email', 'phone', 'mobile_personal',
   'telegram', 'max_messenger', 'decision_maker_title', 'contact_person', 'pain_point',
-  'find_instructions', 'notes', 'source_url', 'sector', 'company_size',
+  'find_instructions', 'notes', 'last_comment', 'source_url', 'sector', 'company_size',
 ];
 const PHONE_FIELDS = ['phone', 'mobile_personal', 'telegram', 'max_messenger'];
 

@@ -11,7 +11,7 @@
  * out to watchers — every route that logs lead activity should go through it instead of inserting
  * directly, so no notification path is ever missed.
  */
-const { query, queryOne, queryAll } = require('./db');
+const { query, queryOne, queryAll, NOT_A_LEAD_COMMENT } = require('./db');
 
 async function listLeadWatchers(leadId) {
   return queryAll(
@@ -206,6 +206,13 @@ async function logLeadActivity(user, lead, action, meta = {}, opts = {}) {
     'INSERT INTO gtm_activity_logs (user_id, user_name, user_role, action, category, entity_type, entity_id, project_id, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
     [user?.id || null, user?.name || 'System', user?.role || 'system', action, 'lead', 'lead', lead.id, lead.project_id || null, JSON.stringify(meta)]
   );
+  // Whatever was said last about the lead — from a status change, an update in the log, an edit, a
+  // follow-up… — becomes its "last comment" in the leads list
+  const said = typeof meta?.comment === 'string' ? meta.comment.trim() : '';
+  if (said && lead.id && !NOT_A_LEAD_COMMENT.has(meta.kind)) {
+    await query('UPDATE gtm_leads SET last_comment = $1, last_comment_at = $2, last_comment_by = $3 WHERE id = $4',
+      [said.slice(0, 2000), new Date().toISOString(), user?.name || 'System', lead.id]);
+  }
   if (opts.notify === false) return;
   notifyWatchers(user, lead, action, meta).catch(e => console.error('[watchers] notify failed:', e.message));
 }
