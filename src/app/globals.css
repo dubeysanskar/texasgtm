@@ -933,6 +933,7 @@ table td[style*="cursor: cell"] { -webkit-user-select: text; user-select: text; 
   .m-fab { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 96; width: 56px; height: 56px; border-radius: 18px; border: none; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(79,70,229,0.4); cursor: pointer; }
   .m-fab:active { transform: scale(0.96); }
   .m-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .ps-savebar { bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
   .main-content select, .main-content input:not([type=checkbox]):not([type=radio]), .main-content textarea { max-width: 100%; }
   .main-content img, .main-content iframe, .main-content video { max-width: 100%; }
   .m-2col { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }

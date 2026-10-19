@@ -7,7 +7,7 @@ const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" 
 // Priority view: rank (#1 = act first) and the reason the lead sits there
 export function RankBadge({ n, t }) {
   const top = n <= 3;
-  return <span title={t('Priority rank')} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', minWidth:22, height:18, padding:'0 5px', borderRadius:999, background: top ? '#f59e0b' : '#e2e8f0', color: top ? '#fff' : '#334155', fontSize:'0.62rem', fontWeight:800, fontFamily:'Inter, sans-serif', verticalAlign:'middle', marginRight:4 }}>{n}</span>;
+  return <span title={t('Priority rank')} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', minWidth:24, height:20, padding:'0 6px', borderRadius:999, background: top ? '#f59e0b' : '#eef2ff', color: top ? '#fff' : '#3730a3', border: top ? 'none' : '1px solid #c7d2fe', fontSize:'0.66rem', fontWeight:800, fontFamily:'Inter, sans-serif', fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', lineHeight:1, verticalAlign:'middle', marginRight:4, flexShrink:0 }}>{n}</span>;
 }
 export function PriorityReason({ r, t, lang }) {
   const loc = lang === 'ru' ? 'ru-RU' : 'en-GB';

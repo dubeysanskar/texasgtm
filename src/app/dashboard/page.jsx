@@ -25,10 +25,13 @@ export default function DashboardPage() {
   const [prio, setPrio] = useState({ leads: [], total: 0, reasons: {} });
   const loadPrio = useCallback(() => {
     if (!showLeads) return;
-    const q = new URLSearchParams({ view: 'priority', limit: '8' });
+    fetch('/api/settings/priority').then(r => r.ok ? r.json() : null).catch(() => null).then(s => {
+    const c = s?.config || { dashboard_count: 8, dashboard_scope: 'own' };
+    const q = new URLSearchParams({ view: 'priority', limit: String(c.dashboard_count) });
     if (projectId) q.set('project_id', projectId);
-    if (!isAdmin) q.set('mine', '1');
-    fetch(`/api/leads?${q}`).then(r => r.json()).then(d => setPrio({ leads: d.leads || [], total: d.total || 0, reasons: d.reasons || {} })).catch(() => {});
+    if (!isAdmin && c.dashboard_scope === 'own') q.set('mine', '1');
+    return fetch(`/api/leads?${q}`).then(r => r.json()).then(d => setPrio({ leads: d.leads || [], total: d.total || 0, reasons: d.reasons || {} }));
+    }).catch(() => {});
   }, [showLeads, isAdmin, projectId]);
   useEffect(() => { loadPrio(); }, [loadPrio]);
   const [data, setData] = useState({ stats: {} });

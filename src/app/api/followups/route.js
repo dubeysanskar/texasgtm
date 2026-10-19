@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 const { queryAll, queryOne } = require('@/lib/db');
 const { getUserFromRequest, isManager } = require('@/lib/auth');
 const { toIso, createFollowup } = require('@/lib/followups');
+const { getPriorityConfig, hiddenSql } = require('@/lib/priority-config');
 
 const SELECT = `SELECT f.*, l.company_name, l.project_seq, l.city, l.status AS lead_status, l.priority AS lead_priority,
   l.phone, l.mobile_personal, l.email AS lead_email, l.decision_maker_title
@@ -22,7 +23,7 @@ export async function GET(request) {
   if (sp.get('from') && toIso(sp.get('from'))) add('f.due_at >= ?', toIso(sp.get('from')));
   if (sp.get('to') && toIso(sp.get('to'))) add('f.due_at < ?', toIso(sp.get('to')));
   // Dashboard: follow-ups on Not Interested / Closed leads are noise there
-  if (sp.get('exclude_closed') === '1') sql += " AND l.status NOT IN ('not_interested','closed')";
+  if (sp.get('exclude_closed') === '1') sql += ` AND l.status NOT IN (${hiddenSql(await getPriorityConfig())})`;
   sql += status === 'done' ? ' ORDER BY f.done_at DESC LIMIT 300' : ' ORDER BY f.due_at ASC LIMIT 1000';
   return NextResponse.json({ followups: await queryAll(sql, params) });
 }

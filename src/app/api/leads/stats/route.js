@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 const { queryOne } = require('@/lib/db');
 const { getUserFromRequest, isManager } = require('@/lib/auth');
+const { getPriorityConfig, hiddenSql } = require('@/lib/priority-config');
 
 // GET /api/leads/stats?project_id=&achieved=1
 // The counters for the Lead Management page (working leads) or, with achieved=1, the Achieved Leads page.
@@ -14,7 +15,8 @@ export async function GET(request) {
   const pf = pid ? ' AND project_id = ' + parseInt(pid) : '';
   const achievedPage = searchParams.get('achieved') === '1';
   // Working list counts leave out Not Interested / Closed (they have their own counters below)
-  const scope = `deleted_at IS NULL AND achieved_at IS ${achievedPage ? 'NOT NULL' : "NULL AND status NOT IN ('not_interested','closed')"}${pf}`;
+  const hidden = hiddenSql(await getPriorityConfig());
+  const scope = `deleted_at IS NULL AND achieved_at IS ${achievedPage ? 'NOT NULL' : `NULL AND status NOT IN (${hidden})`}${pf}`;
   const notInterested = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'not_interested'${pf}`);
   const closedCount = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'closed'${pf}`);
 

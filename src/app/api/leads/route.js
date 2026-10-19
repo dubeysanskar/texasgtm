@@ -4,7 +4,7 @@ const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 const { logLeadActivity, notifyBulk } = require('@/lib/watchers');
 const { searchClause, lookupClause } = require('@/lib/lead-search');
 const { createFollowup } = require('@/lib/followups');
-const { CLOSED_STATUSES } = require('@/lib/lead-fields');
+const { getPriorityConfig, hiddenSql } = require('@/lib/priority-config');
 const { rankLeads } = require('@/lib/lead-priority');
 
 export async function GET(request) {
@@ -12,6 +12,7 @@ export async function GET(request) {
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const showDeleted = searchParams.get('deleted') === '1';
+  const pcfg = await getPriorityConfig(); // super admin's Priority settings (hidden statuses, ranking rules)
   if (showDeleted && !isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
   const achieved = searchParams.get('achieved');
   const status = searchParams.get('status');
@@ -27,8 +28,8 @@ export async function GET(request) {
     else if (!showDeleted && achieved !== 'all') w += ' AND achieved_at IS NULL';
     // Not Interested / Closed leave the working list (and search, lookup, Priority, Dashboard). They only
     // show up when someone asks for that status explicitly (status filter or the Dashboard cards).
-    if (!showDeleted && achieved !== '1' && !CLOSED_STATUSES.includes(status) && searchParams.get('include_closed') !== '1') {
-      w += ` AND status NOT IN (${CLOSED_STATUSES.map(s => `'${s}'`).join(',')})`;
+    if (!showDeleted && achieved !== '1' && !pcfg.hidden_statuses.includes(status) && searchParams.get('include_closed') !== '1') {
+      w += ` AND status NOT IN (${hiddenSql(pcfg)})`;
     }
     const projectId = searchParams.get('project_id'); if (projectId) { p.push(projectId); w += ` AND project_id = $${p.length}`; }
     if (status) { p.push(status); w += ` AND status = $${p.length}`; }
@@ -56,7 +57,7 @@ export async function GET(request) {
   // priority and how long since the last contact; parked "follow up later" last) — see lib/lead-priority
   if (priorityView && !showDeleted) {
     const { where, params: p } = build(true);
-    const all = rankLeads(await queryAll(`SELECT gtm_leads.*, ${NEXT_FU} FROM gtm_leads WHERE ${where}`, p));
+    const all = rankLeads(await queryAll(`SELECT gtm_leads.*, ${NEXT_FU} FROM gtm_leads WHERE ${where}`, p), Date.now(), pcfg);
     const tierQ = build(false);
     const tierRows = await queryAll(`SELECT priority, COUNT(*) as c FROM gtm_leads WHERE ${tierQ.where} GROUP BY priority`, tierQ.params);
     const tiers = { all: 0 }; for (const r of tierRows) { tiers[r.priority] = parseInt(r.c); tiers.all += parseInt(r.c); }

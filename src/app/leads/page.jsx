@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import { useRouter } from 'next/navigation';
@@ -35,10 +35,22 @@ export default function LeadsPage({ mode = 'active' }) {
   // Priority view (on by default, remembered per browser): leads ranked by what needs attention first
   const readPref = (k, dflt) => { try { const v = localStorage.getItem(k); return v === null ? dflt : v === '1'; } catch { return dflt; } };
   const [priorityOn, setPriorityOn] = useState(() => typeof window === 'undefined' ? true : readPref('gtm-leads-priority', true));
+  // Super admin's Priority settings: what is hidden, whether ranks / reasons show, the default for the toggle
+  const [pcfg, setPcfg] = useState(null);
+  useEffect(() => {
+    fetch('/api/settings/priority').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d?.config) return;
+      setPcfg(d.config);
+      let chosen = null; try { chosen = localStorage.getItem('gtm-leads-priority'); } catch {}
+      if (chosen === null) setPriorityOn(d.config.default_on);
+    }).catch(() => {});
+  }, []);
+  const prefTouched = useRef(false);
   const [mine, setMine] = useState(() => typeof window === 'undefined' ? false : (new URLSearchParams(window.location.search).get('mine') === '1' || readPref('gtm-leads-mine', false)));
   const [tiers, setTiers] = useState(null);     // { all, HOT, HIGH, MEDIUM, PARTNER } counts in the Priority view
   const [reasons, setReasons] = useState(null); // { overdue: n, due_today: n, … } in the Priority view
-  useEffect(() => { try { localStorage.setItem('gtm-leads-priority', priorityOn ? '1' : '0'); localStorage.setItem('gtm-leads-mine', mine ? '1' : '0'); } catch {} }, [priorityOn, mine]);
+  // remember the person's own choice (only once they actually touched a switch)
+  useEffect(() => { if (!prefTouched.current) return; try { localStorage.setItem('gtm-leads-priority', priorityOn ? '1' : '0'); localStorage.setItem('gtm-leads-mine', mine ? '1' : '0'); } catch {} }, [priorityOn, mine]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -83,7 +95,8 @@ export default function LeadsPage({ mode = 'active' }) {
     if (/[?&](status|priority|mine|search)=/.test(window.location.search) && !q.get('log')) window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
-  const closedView = CLOSED_STATUSES.includes(filters.status);
+  const closedView = (pcfg?.hidden_statuses || CLOSED_STATUSES).includes(filters.status);
+  const showRank = pcfg ? pcfg.show_rank : true, showReason = pcfg ? pcfg.show_reason : true;
   const priorityActive = priorityOn && !viewDeleted && !achievedView && !closedView;
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -320,7 +333,7 @@ export default function LeadsPage({ mode = 'active' }) {
       {/* Priority toolbar — visible to everyone on the working list */}
       {!viewDeleted && !achievedView && (
         <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-          <button type="button" role="switch" aria-checked={priorityOn} onClick={() => setPriorityOn(v => !v)}
+          <button type="button" role="switch" aria-checked={priorityOn} onClick={() => { prefTouched.current = true; setPriorityOn(v => !v); }}
             style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 12px 6px 6px', borderRadius:999, border:`1px solid ${priorityOn ? '#f59e0b' : 'var(--border)'}`, background: priorityOn ? '#fffbeb' : '#fff', cursor:'pointer', fontWeight:700, fontSize:'0.8rem', color: priorityOn ? '#92400e' : '#475569', fontFamily:'inherit' }}>
             <span style={{ width:36, height:20, borderRadius:999, background: priorityOn ? '#f59e0b' : '#cbd5e1', position:'relative', transition:'background .15s', flexShrink:0 }}>
               <span style={{ position:'absolute', top:2, left: priorityOn ? 18 : 2, width:16, height:16, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 2px rgba(0,0,0,.3)', transition:'left .15s' }}/>
@@ -329,7 +342,7 @@ export default function LeadsPage({ mode = 'active' }) {
           </button>
           <div style={{ display:'inline-flex', background:'#f1f5f9', borderRadius:999, padding:3 }}>
             {[[false, t('All leads'), 'groups'], [true, t('My leads'), 'person']].map(([v, l, ic]) => (
-              <button key={String(v)} type="button" onClick={() => setMine(v)} aria-pressed={mine === v}
+              <button key={String(v)} type="button" onClick={() => { prefTouched.current = true; setMine(v); }} aria-pressed={mine === v}
                 style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 12px', borderRadius:999, border:'none', background: mine === v ? '#fff' : 'transparent', boxShadow: mine === v ? '0 1px 3px rgba(0,0,0,.1)' : 'none', fontWeight: mine === v ? 700 : 500, fontSize:'0.76rem', color: mine === v ? 'var(--text)' : '#64748b', cursor:'pointer', fontFamily:'inherit' }}>
                 <MI name={ic} size={14}/> {l}
               </button>
@@ -471,7 +484,7 @@ export default function LeadsPage({ mode = 'active' }) {
             <LeadCard key={l.id} l={l} t={t} lang={lang} viewDeleted={viewDeleted} selected={selected.has(l.id)}
               onToggle={() => toggleSelect(l.id)} onStatus={(v) => handleStatusChange(l.id, v)} onPriority={(v) => handlePriorityChange(l.id, v)}
               onLog={() => setLogLead(l)} onFollowUp={() => leadFu.create(l)} onEdit={() => setEditLead(l)} onDelete={() => handleDelete(l.id)}
-              onRestore={() => handleRestore(l.id)} onPurge={() => handlePurge(l.id)} achievedView={achievedView} onAchieve={() => handleAchieve(l.id, !achievedView)}
+              onRestore={() => handleRestore(l.id)} onPurge={() => handlePurge(l.id)} achievedView={achievedView} showRank={showRank} showReason={showReason} onAchieve={() => handleAchieve(l.id, !achievedView)}
               onAddComment={() => setCommentEdit({ lead: l, mode: 'add' })} onEditComment={() => setCommentEdit({ lead: l, mode: 'edit' })}
               onEditFollowUp={() => withNextFollowup(l, 'onEdit')} onDoneFollowUp={() => withNextFollowup(l, 'onDone')}
               template={<TemplateSelector t={t} leadId={l.id} currentId={l.last_template_id} templates={templates} onChange={handleTemplateChange} tplSearch={tplSearch} setTplSearch={setTplSearch} />} />
@@ -485,7 +498,7 @@ export default function LeadsPage({ mode = 'active' }) {
                 <th style={{ padding:'10px 8px', width:36, textAlign:'center' }}>
                   {!viewDeleted && <input type="checkbox" checked={selected.size === leads.length && leads.length > 0} onChange={toggleSelectAll} style={{ cursor:'pointer' }}/>}
                 </th>
-                <th style={{...TH, width:40}}>#</th>
+                <th style={{...TH, width:58, textAlign:'center'}}>#</th>
                 <th style={{...TH, width:'12%'}}>{t('Company')}</th>
                 <th style={{...TH, width:'7%'}}>{t('Industry')}</th>
                 <th style={{...TH, width:'7%'}}>{t('City/Region')}</th>
@@ -515,10 +528,10 @@ export default function LeadsPage({ mode = 'active' }) {
                     <td style={{ padding:'8px', textAlign:'center' }}>
                       {!viewDeleted && <input type="checkbox" checked={isSel} onChange={() => toggleSelect(l.id)} style={{ cursor:'pointer' }}/>}
                     </td>
-                    <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af', borderRight:'1px solid #e5e7eb'}}>{l.priority_rank && <div style={{ marginBottom:3 }}><RankBadge n={l.priority_rank} t={t} /></div>}{l.project_seq ?? l.id}</td>
+                    <td tabIndex={0} style={{...TD, textAlign:'center', whiteSpace:'nowrap', wordBreak:'normal', borderRight:'1px solid #e5e7eb'}}>{showRank && l.priority_rank && <div style={{ marginBottom:4 }}><RankBadge n={l.priority_rank} t={t} /></div>}<div style={{ fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af' }}>#{l.project_seq ?? l.id}</div></td>
                     <td tabIndex={0} style={{...TD}}>
                       <div style={{ fontWeight:600, fontSize:'0.78rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</div>
-                      {l.priority_reason && <PriorityReason r={l.priority_reason} t={t} lang={lang} />}
+                      {showReason && l.priority_reason && <PriorityReason r={l.priority_reason} t={t} lang={lang} />}
                       {l.domain && <div style={{ fontSize:'0.64rem', color:'#9ca3af', marginTop:1, wordBreak:'break-all' }}>{l.domain}</div>}
                     </td>
                     <td tabIndex={0} style={TD}>{SL[l.sector] ? t(SL[l.sector]) : (l.sector||'—')}</td>
@@ -790,7 +803,7 @@ function AchievedInfo({ l, t, lang }) {
 
 // Phone layout: one card per lead instead of the wide spreadsheet table. Every action the table row has
 // is here too; phone numbers and emails are tap-to-call / tap-to-mail.
-function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, onAddComment, onEditComment, onEditFollowUp, onDoneFollowUp, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
+function LeadCard({ l, t, lang, showRank = true, showReason = true, viewDeleted, achievedView, onAchieve, onAddComment, onEditComment, onEditFollowUp, onDoneFollowUp, selected, onToggle, onStatus, onPriority, onLog, onFollowUp, onEdit, onDelete, onRestore, onPurge, template }) {
   const [more, setMore] = useState(false);
   const sc = SC[l.status] || SC.not_contacted;
   const pc = PC[l.priority] || PC.MEDIUM;
@@ -805,12 +818,12 @@ function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, onAddComme
         {!viewDeleted && <input type="checkbox" checked={selected} onChange={onToggle} aria-label={t('Select')} style={{ marginTop:3, flexShrink:0 }}/>}
         <div style={{ flex:1, minWidth:0 }} onClick={onLog} role="button">
           <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-            {l.priority_rank && <RankBadge n={l.priority_rank} t={t} />}
+            {showRank && l.priority_rank && <RankBadge n={l.priority_rank} t={t} />}
             <span style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'#94a3b8' }}>#{l.project_seq ?? l.id}</span>
             <span style={{ fontWeight:700, fontSize:'0.95rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</span>
           </div>
           {place && <div style={{ fontSize:'0.74rem', color:'#64748b', marginTop:2 }}>{place}</div>}
-          {l.priority_reason && <PriorityReason r={l.priority_reason} t={t} lang={lang} />}
+          {showReason && l.priority_reason && <PriorityReason r={l.priority_reason} t={t} lang={lang} />}
           {l.decision_maker_title && <div style={{ fontSize:'0.78rem', color:'#334155', marginTop:4, display:'flex', alignItems:'center', gap:4 }}><MI name="person" size={15}/>{l.decision_maker_title}</div>}
         </div>
         {viewDeleted && <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span>}
