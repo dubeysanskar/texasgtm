@@ -18,7 +18,7 @@ export async function GET(request) {
   if (pid) { params.push(pid); sql += ` AND t.project_id = $${params.length}`; }
   if (status) { params.push(status); sql += ` AND t.status = $${params.length}`; }
   if (priority) { params.push(priority); sql += ` AND t.priority = $${params.length}`; }
-  if (search) { params.push(`%${search}%`); sql += ` AND t.title ILIKE $${params.length}`; }
+  if (search) { params.push(`%${search}%`, `%${search}%`); sql += ` AND (t.title ILIKE $${params.length - 1} OR t.description ILIKE $${params.length})`; }
   sql += ' ORDER BY t.created_at DESC';
 
   const tasks = await queryAll(sql, params);
@@ -46,12 +46,13 @@ export async function GET(request) {
 export async function POST(request) {
   const user = getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { title, assigned_to, priority, completion_days, project_id } = await request.json();
+  const { title, description, assigned_to, priority, completion_days, project_id } = await request.json();
+  const desc = typeof description === 'string' ? description.trim().slice(0, 5000) : '';
   if (!title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 });
 
   const result = await query(
-    'INSERT INTO gtm_tasks (title, assigned_by, assigner_name, assigned_to, priority, completion_days, project_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-    [title.trim(), user.id, user.name, assigned_to || null, priority || 'normal', completion_days || 2, project_id || null]
+    'INSERT INTO gtm_tasks (title, description, assigned_by, assigner_name, assigned_to, priority, completion_days, project_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+    [title.trim(), desc, user.id, user.name, assigned_to || null, priority || 'normal', completion_days || 2, project_id || null]
   );
 
   if (assigned_to) {
@@ -89,7 +90,8 @@ export async function PUT(request) {
   // Full task edit
   if (body.task_id && body.title) {
     const updates = []; const vals = [];
-    ['title', 'priority', 'completion_days', 'status'].forEach(f => {
+    if (typeof body.description === 'string') body.description = body.description.trim().slice(0, 5000);
+    ['title', 'description', 'priority', 'completion_days', 'status'].forEach(f => {
       if (body[f] !== undefined) { vals.push(body[f]); updates.push(`${f} = $${vals.length}`); }
     });
     if (body.assigned_to !== undefined) { vals.push(body.assigned_to || null); updates.push(`assigned_to = $${vals.length}`); }

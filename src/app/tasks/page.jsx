@@ -40,7 +40,8 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ status: '', search: '' });
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', assigned_to: '', priority: 'normal', completion_days: 2 });
+  const EMPTY_TASK = { title: '', description: '', assigned_to: '', priority: 'normal', completion_days: 2 };
+  const [form, setForm] = useState(EMPTY_TASK);
   const [selectedTask, setSelectedTask] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -58,7 +59,7 @@ export default function TasksPage() {
   const createTask = async (e) => {
     e.preventDefault();
     await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, project_id: projectId }) });
-    setForm({ title: '', assigned_to: '', priority: 'normal', completion_days: 2 }); setShowForm(false); fetchTasks();
+    setForm(EMPTY_TASK); setShowForm(false); fetchTasks();
   };
 
   const quickStatusChange = async (taskId, newStatus) => {
@@ -66,7 +67,7 @@ export default function TasksPage() {
     fetchTasks();
   };
 
-  const startEdit = (task) => { setEditingTask(task.id); setEditForm({ title: task.title, status: task.status, priority: task.priority, assigned_to: task.assigned_to || '', completion_days: task.completion_days }); };
+  const startEdit = (task) => { setEditingTask(task.id); setEditForm({ title: task.title, description: task.description || '', status: task.status, priority: task.priority, assigned_to: task.assigned_to || '', completion_days: task.completion_days }); };
   const saveEdit = async (taskId) => { await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: taskId, ...editForm }) }); setEditingTask(null); fetchTasks(); };
   const deleteTask = async (taskId) => { await fetch(`/api/tasks?id=${taskId}`, { method: 'DELETE' }); setDeleteConfirm(null); fetchTasks(); };
 
@@ -96,6 +97,7 @@ export default function TasksPage() {
               <div className="form-group"><label>{t('Assign To')}</label><select className="form-input" value={form.assigned_to} onChange={e => setForm(p => ({ ...p, assigned_to: e.target.value }))}>
                 <option value="">{t('Unassigned')}</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
             </div>
+            <div className="form-group"><label>{t('Description')}</label><textarea className="form-input" rows={4} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder={t('What needs to be done, details, links…')} style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} /></div>
             <div className="form-row">
               <div className="form-group"><label>{t('Priority')}</label><select className="form-input" value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
                 <option value="low">{t('Low')}</option><option value="normal">{t('Normal')}</option><option value="high">{t('High')}</option><option value="urgent">🔥 {t('Urgent')}</option></select></div>
@@ -115,7 +117,8 @@ export default function TasksPage() {
 
           if (editingTask === task.id) return (
             <div key={task.id} className="card" style={{ animation: 'slideUp 0.2s ease' }}>
-              <div className="form-group"><input className="form-input" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} /></div>
+              <div className="form-group"><label>{t('Title')}</label><input className="form-input" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} /></div>
+              <div className="form-group"><label>{t('Description')}</label><textarea className="form-input" rows={3} value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} /></div>
               <div className="form-row">
                 <div className="form-group"><label>{t('Status')}</label><select className="form-input" value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
                   <option value="pending">{t('Pending')}</option><option value="in_progress">{t('In Progress')}</option><option value="review">{t('Review')}</option><option value="complete">{t('Complete')}</option></select></div>
@@ -134,6 +137,7 @@ export default function TasksPage() {
               <div style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: si.bg, color: si.color, flexShrink: 0 }}><MI name={si.icon} size={16} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.88rem', textDecoration: task.status === 'complete' ? 'line-through' : 'none', color: task.status === 'complete' ? 'var(--text-muted)' : 'var(--text)' }}>{task.title}</div>
+                {task.description && <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={task.description}>{task.description}</div>}
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>{t('by')} {task.assigner_name} → {task.assigned_to_name} • {new Date(task.created_at).toLocaleDateString()}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -223,13 +227,14 @@ function TaskDetailPanel({ task, onClose, onRefresh, user }) {
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(2px)', zIndex: 999 }} onClick={onClose} />
-      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 520, background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', animation: 'slideUp 0.2s ease' }}>
+      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(520px, 100vw)', background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 20px rgba(0,0,0,0.1)', animation: 'slideUp 0.2s ease' }}>
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600, marginBottom: 4 }}>{t('Task Details')}</div>
               <h2 style={{ fontSize: '1.05rem', marginBottom: 6 }}>{taskDetail.title}</h2>
+              {taskDetail.description && <div style={{ fontSize: '0.84rem', color: 'var(--text)', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', margin: '6px 0 8px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.55, maxHeight: 220, overflowY: 'auto' }}>{taskDetail.description}</div>}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: 10, fontWeight: 600, background: si.bg, color: si.color, display: 'flex', alignItems: 'center', gap: 4 }}><MI name={si.icon} size={12} /> {t(si.label)}</span>
                 <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: 10, fontWeight: 700, background: dl.bg, color: dl.color }}><MI name={dl.icon} size={12} /> {dl.label}</span>
