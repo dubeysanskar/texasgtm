@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import { MI, TONE, bucketOf, sameDay, startOfDay, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
+import LeadLogModal from '@/components/LeadLogModal';
 
 const GROUPS = [
   { key: 'overdue', label: 'Overdue', icon: 'warning' },
@@ -38,7 +39,9 @@ export default function FollowUpsPage() {
   useEffect(() => { if (user) load(); }, [user, load]);
 
   const { actions, modals, create } = useFollowUpActions(load);
-  const openLead = (f) => router.push(`/leads?log=${f.lead_id}`);
+  // A lead's log opens right here, over the calendar (no jump to Lead Management)
+  const [logLead, setLogLead] = useState(null);
+  const openLead = (f) => setLogLead({ id: f.lead_id, company_name: f.company_name, project_seq: f.project_seq });
 
   // Calendar grid (weeks start on Monday)
   const cells = useMemo(() => {
@@ -168,6 +171,7 @@ export default function FollowUpsPage() {
         </div>
       </div>
       {modals(projectId)}
+      {logLead && <LeadLogModal lead={logLead} projectId={projectId} onChanged={load} onClose={() => setLogLead(null)} />}
     </div>
   );
 }

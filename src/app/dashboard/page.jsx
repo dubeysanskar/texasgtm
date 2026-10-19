@@ -6,13 +6,31 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { TONE, bucketOf, FollowUpRow, useFollowUpActions } from '@/components/FollowUps';
 import { useTodos, TodoQuickAdd, TodoRow, bucketOf as todoBucketOf, TONE as TODO_TONE, todayStr } from '@/components/Todos';
+import LeadLogModal from '@/components/LeadLogModal';
+import { RankBadge, PriorityReason } from '@/components/LeadPriority';
+import { SC, PC } from '@/lib/lead-status';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size, verticalAlign: 'middle' }}>{name}</span>;
 
 export default function DashboardPage() {
   const { user, isAdmin, canSee } = useAuth();
   const router = useRouter();
-  const { projectId, activeProject, t } = useProject();
+  const { projectId, activeProject, t, lang } = useProject();
+  // A lead's log opens right here (no jump to Lead Management)
+  const [logLead, setLogLead] = useState(null);
+
+  // Priority leads: the top of the same ranking as Lead Management's Priority view.
+  // Super admins see the whole team's; everyone else sees their own leads (added by them or CC'd).
+  const showLeads = canSee('leads');
+  const [prio, setPrio] = useState({ leads: [], total: 0, reasons: {} });
+  const loadPrio = useCallback(() => {
+    if (!showLeads) return;
+    const q = new URLSearchParams({ view: 'priority', limit: '8' });
+    if (projectId) q.set('project_id', projectId);
+    if (!isAdmin) q.set('mine', '1');
+    fetch(`/api/leads?${q}`).then(r => r.json()).then(d => setPrio({ leads: d.leads || [], total: d.total || 0, reasons: d.reasons || {} })).catch(() => {});
+  }, [showLeads, isAdmin, projectId]);
+  useEffect(() => { loadPrio(); }, [loadPrio]);
   const [data, setData] = useState({ stats: {} });
   const [loading, setLoading] = useState(true);
 
@@ -24,7 +42,7 @@ export default function DashboardPage() {
   const loadFollowups = useCallback(() => {
     if (!showFollowups) return;
     const mine = isAdmin ? '' : '&mine=1';
-    fetch(`/api/followups?status=open${mine}${projectId ? '&project_id=' + projectId : ''}`).then(r => r.json()).then(d => setFollowups(d.followups || [])).catch(() => {});
+    fetch(`/api/followups?status=open&exclude_closed=1${mine}${projectId ? '&project_id=' + projectId : ''}`).then(r => r.json()).then(d => setFollowups(d.followups || [])).catch(() => {});
   }, [showFollowups, isAdmin, projectId]);
   useEffect(() => { loadFollowups(); }, [loadFollowups]);
   const fu = useFollowUpActions(loadFollowups);
@@ -78,8 +96,14 @@ export default function DashboardPage() {
           { label: t('Completed'), value: stats.completed_tasks || 0, icon: 'check_circle', color: '#10b981', href: '/tasks' },
           { label: t('Pending'), value: stats.pending_tasks || 0, icon: 'schedule', color: '#f59e0b', href: '/tasks' },
           { label: t('Total Leads'), value: stats.total_leads || 0, icon: 'leaderboard', color: '#3b82f6', href: '/leads' },
-          { label: t('HOT Leads'), value: stats.hot_leads || 0, icon: 'local_fire_department', color: '#ef4444', href: '/leads/priority' },
+          { label: t('HOT Leads'), value: stats.hot_leads || 0, icon: 'local_fire_department', color: '#ef4444', href: '/leads?priority=HOT' },
           ...(isAdmin ? [{ label: t('Team Members'), value: stats.total_users || 0, icon: 'group', color: '#8b5cf6', href: '/admin' }] : []),
+          // Leads that left the working list: one click opens Lead Management already filtered to them
+          ...(showLeads ? [
+            { label: t('Not Interested'), value: stats.not_interested_leads || 0, icon: 'thumb_down', color: '#A32D2D', href: '/leads?status=not_interested' },
+            { label: t('Closed'), value: stats.closed_leads || 0, icon: 'block', color: '#4b5563', href: '/leads?status=closed' },
+            { label: t('Achieved Leads'), value: stats.achieved_leads || 0, icon: 'emoji_events', color: '#b45309', href: '/leads/achieved' },
+          ] : []),
         ].map(m => (
           <div key={m.label} className="stat-card" style={{ borderTopColor: m.color, cursor: 'pointer' }} onClick={() => router.push(m.href)}>
             <div className="stat-icon"><MI name={m.icon} size={18} /></div>
@@ -88,6 +112,43 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {showLeads && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 8 }}><MI name="local_fire_department" size={18} /> {t(isAdmin ? 'Priority leads' : 'My priority leads')}</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {[['overdue', t('Overdue'), '#b91c1c', '#fef2f2'], ['due_today', t('Today'), '#c2410c', '#fff7ed'], ['hot_deal', t('Hot deals'), '#6d28d9', '#f5f3ff'], ['due_soon', t('Next 3 days'), '#1d4ed8', '#eff6ff']].map(([k, l, c, bg]) => (
+                <span key={k} style={{ padding: '3px 10px', borderRadius: 20, background: bg, color: c, fontSize: '0.72rem', fontWeight: 700 }}>{l}: {prio.reasons[k] || 0}</span>
+              ))}
+              <Link href={isAdmin ? '/leads' : '/leads?mine=1'} style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', marginLeft: 6 }}>{t('All {n} in Lead Management', { n: prio.total })} →</Link>
+            </div>
+          </div>
+          {prio.leads.length === 0
+            ? <p className="no-data" style={{ padding: 24 }}>{t('Nothing urgent — no open leads need attention right now.')}</p>
+            : prio.leads.map(l => {
+              const sc = SC[l.status] || SC.not_contacted, pc = PC[l.priority] || PC.MEDIUM;
+              return (
+                <div key={l.id} onClick={() => setLogLead(l)} role="button"
+                  style={{ display: 'flex', gap: 12, padding: '10px 18px', borderBottom: '1px solid #f1f5f9', alignItems: 'flex-start', cursor: 'pointer', borderLeft: `3px solid ${pc.text}` }}>
+                  <RankBadge n={l.priority_rank} t={t} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text)', wordBreak: 'break-word' }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>#{l.project_seq ?? l.id}</span> {l.company_name}
+                    </div>
+                    <PriorityReason r={l.priority_reason} t={t} lang={lang} />
+                    {(l.last_comment || l.notes) && <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>💬 {l.last_comment || l.notes}</div>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', flexShrink: 0 }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 20, background: pc.bg, color: pc.text, fontSize: '0.66rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{t(pc.label)}</span>
+                    <span style={{ padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.text, fontSize: '0.66rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{t(sc.label)}</span>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+      {logLead && <LeadLogModal lead={logLead} projectId={projectId} onChanged={() => { loadPrio(); loadFollowups(); }} onClose={() => setLogLead(null)} />}
 
       {showFollowups && (() => {
         const b = { overdue: [], today: [], week: [], later: [] };
@@ -107,7 +168,7 @@ export default function DashboardPage() {
             </div>
             {upcoming.length === 0
               ? <p className="no-data" style={{ padding: 24 }}>{t('No follow-ups scheduled. Schedule one from a lead or the Follow-ups page.')}</p>
-              : upcoming.map(f => <FollowUpRow key={f.id} f={f} {...fu.actions} onOpenLead={(x) => router.push(`/leads?log=${x.lead_id}`)} />)}
+              : upcoming.map(f => <FollowUpRow key={f.id} f={f} {...fu.actions} onOpenLead={(x) => setLogLead({ id: x.lead_id, company_name: x.company_name, project_seq: x.project_seq })} />)}
           </div>
         );
       })()}

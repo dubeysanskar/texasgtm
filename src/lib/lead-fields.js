@@ -11,7 +11,9 @@ const LEAD_FIELDS = [
   'notes', 'source_url', 'priority', 'status',
 ];
 
-const VALID_STATUSES = ['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','follow_up_later'];
+const VALID_STATUSES = ['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','closed','follow_up_later'];
+// Closed statuses: hidden from the working list, Priority and the Dashboard (see lib/lead-status.js)
+const CLOSED_STATUSES = ['not_interested', 'closed'];
 const VALID_PRIORITIES = ['HOT','HIGH','MEDIUM','PARTNER'];
 
 // Column headers written into the downloadable template, per language
@@ -40,8 +42,8 @@ const PRIORITY_LABELS = {
   ru: { HOT: 'Горячий', HIGH: 'Высокий', MEDIUM: 'Средний', PARTNER: 'Партнёр' },
 };
 const STATUS_LABELS = {
-  en: { not_contacted: 'Not Contacted', touch_1: 'Touch 1', touch_2: 'Touch 2', touch_3: 'Touch 3', email_sent: 'Email Sent', call_made: 'Call Made', replied: 'Replied', meeting_booked: 'Meeting Booked', proposal_sent: 'Proposal Sent', negotiating: 'Negotiating', contract_signed: 'Contract Signed', not_interested: 'Not Interested (Closed)', follow_up_later: 'Follow Up Later' },
-  ru: { not_contacted: 'Не связывались', touch_1: 'Касание 1', touch_2: 'Касание 2', touch_3: 'Касание 3', email_sent: 'Письмо отправлено', call_made: 'Звонок сделан', replied: 'Ответили', meeting_booked: 'Встреча назначена', proposal_sent: 'КП отправлено', negotiating: 'Переговоры', contract_signed: 'Договор подписан', not_interested: 'Не заинтересованы (закрыт)', follow_up_later: 'Связаться позже' },
+  en: { not_contacted: 'Not Contacted', touch_1: 'Touch 1', touch_2: 'Touch 2', touch_3: 'Touch 3', email_sent: 'Email Sent', call_made: 'Call Made', replied: 'Replied', meeting_booked: 'Meeting Booked', proposal_sent: 'Proposal Sent', negotiating: 'Negotiating', contract_signed: 'Contract Signed', not_interested: 'Not Interested', closed: 'Closed', follow_up_later: 'Follow Up Later' },
+  ru: { not_contacted: 'Не связывались', touch_1: 'Касание 1', touch_2: 'Касание 2', touch_3: 'Касание 3', email_sent: 'Письмо отправлено', call_made: 'Звонок сделан', replied: 'Ответили', meeting_booked: 'Встреча назначена', proposal_sent: 'КП отправлено', negotiating: 'Переговоры', contract_signed: 'Договор подписан', not_interested: 'Не заинтересованы', closed: 'Закрыт', follow_up_later: 'Связаться позже' },
 };
 
 // Sample row for the template, per language
@@ -230,6 +232,6 @@ function validateRow(row, lang = 'en') {
 }
 
 module.exports = {
-  LEAD_FIELDS, VALID_STATUSES, VALID_PRIORITIES, HEADERS, SAMPLE_ROW, SECTOR_LABELS, PRIORITY_LABELS, STATUS_LABELS,
+  LEAD_FIELDS, VALID_STATUSES, CLOSED_STATUSES, VALID_PRIORITIES, HEADERS, SAMPLE_ROW, SECTOR_LABELS, PRIORITY_LABELS, STATUS_LABELS,
   COLUMN_ALIASES, autoMapColumns, normalizeLeadValues, validateRow, fieldGuide, MSG,
 };

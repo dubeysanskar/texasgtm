@@ -21,6 +21,8 @@ export async function GET(request) {
   if (sp.get('mine') === '1') add('COALESCE(f.assigned_to, f.created_by) = ?', user.id);
   if (sp.get('from') && toIso(sp.get('from'))) add('f.due_at >= ?', toIso(sp.get('from')));
   if (sp.get('to') && toIso(sp.get('to'))) add('f.due_at < ?', toIso(sp.get('to')));
+  // Dashboard: follow-ups on Not Interested / Closed leads are noise there
+  if (sp.get('exclude_closed') === '1') sql += " AND l.status NOT IN ('not_interested','closed')";
   sql += status === 'done' ? ' ORDER BY f.done_at DESC LIMIT 300' : ' ORDER BY f.due_at ASC LIMIT 1000';
   return NextResponse.json({ followups: await queryAll(sql, params) });
 }

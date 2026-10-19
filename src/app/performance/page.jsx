@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useProject } from '@/context/ProjectContext';
 import { ColumnChart, HBarChart, VIZ } from '@/components/Charts';
+import LeadLogModal from '@/components/LeadLogModal';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size, verticalAlign: 'middle' }}>{name}</span>;
 
@@ -44,6 +45,7 @@ export default function PerformancePage() {
   const { isAdmin } = useAuth();
   const { projectId, t, lang } = useProject();
   const router = useRouter();
+  const [logLead, setLogLead] = useState(null); // a lead's log opens right here
   const loc = lang === 'ru' ? 'ru-RU' : 'en-GB';
   const [userId, setUserId] = useState(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('user')) || 'all');
   const [range, setRange] = useState('7d');
@@ -285,7 +287,7 @@ export default function PerformancePage() {
                       <span style={{ width: 26, height: 26, borderRadius: 8, background: '#eef2ff', color: VIZ.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><MI name={METRIC_ICONS[f.metric] || 'bolt'} size={15} /></span>
                       <div style={{ flex: 1, minWidth: 0, fontSize: '0.78rem' }}>
                         <div style={{ color: VIZ.ink }}>
-                          {f.lead && <a href={`/leads?log=${f.lead.id}`} onClick={(e) => { e.preventDefault(); router.push(`/leads?log=${f.lead.id}`); }} style={{ color: VIZ.blue, fontWeight: 600, textDecoration: 'none' }}>#{f.lead.seq} {f.lead.company}</a>}
+                          {f.lead && <a href={`/leads?log=${f.lead.id}`} onClick={(e) => { e.preventDefault(); setLogLead({ id: f.lead.id, company_name: f.lead.company, project_seq: f.lead.seq }); }} style={{ color: VIZ.blue, fontWeight: 600, textDecoration: 'none' }}>#{f.lead.seq} {f.lead.company}</a>}
                           {f.lead && ' · '}{f.text || t(METRIC_LABELS[f.metric] || 'Other actions')}
                         </div>
                         {f.comment && <div style={{ marginTop: 3, color: '#78350f', background: '#fffbeb', borderRadius: 6, padding: '3px 8px', whiteSpace: 'pre-wrap' }}>💬 {f.comment}</div>}
@@ -300,6 +302,7 @@ export default function PerformancePage() {
         </div>
       )} />
       </ReportBoundary>
+      {logLead && <LeadLogModal lead={logLead} projectId={projectId} onClose={() => setLogLead(null)} />}
     </div>
   );
 }

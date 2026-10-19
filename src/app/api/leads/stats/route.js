@@ -12,7 +12,11 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const pid = searchParams.get('project_id');
   const pf = pid ? ' AND project_id = ' + parseInt(pid) : '';
-  const scope = `deleted_at IS NULL AND achieved_at IS ${searchParams.get('achieved') === '1' ? 'NOT NULL' : 'NULL'}${pf}`;
+  const achievedPage = searchParams.get('achieved') === '1';
+  // Working list counts leave out Not Interested / Closed (they have their own counters below)
+  const scope = `deleted_at IS NULL AND achieved_at IS ${achievedPage ? 'NOT NULL' : "NULL AND status NOT IN ('not_interested','closed')"}${pf}`;
+  const notInterested = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'not_interested'${pf}`);
+  const closedCount = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'closed'${pf}`);
 
   const total = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope}`);
   const hot = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${scope} AND priority = 'HOT'`);
@@ -26,5 +30,6 @@ export async function GET(request) {
     total: parseInt(total?.c||0), hot: parseInt(hot?.c||0), high: parseInt(high?.c||0),
     active: parseInt(active?.c||0), signed: parseInt(signed?.c||0), partner: parseInt(partner?.c||0),
     achieved: parseInt(achieved?.c||0),
+    not_interested: parseInt(notInterested?.c||0), closed: parseInt(closedCount?.c||0),
   });
 }

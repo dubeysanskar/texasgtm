@@ -7,8 +7,10 @@ import { DueChip, FollowUpRow, useFollowUpActions } from '@/components/FollowUps
 import { LeadWatchersPanel } from '@/components/Watchers';
 import CommentPrompt, { FollowUpDateFields, followupFields } from '@/components/CommentPrompt';
 import ContactBadges from '@/components/LeadContactBadges';
-import { SC, PC, SL } from '@/lib/lead-status';
+import { SC, PC, SL, CLOSED_STATUSES } from '@/lib/lead-status';
 import { useIsMobile } from '@/lib/useMediaQuery';
+import LeadLogModal from '@/components/LeadLogModal';
+import { RankBadge, PriorityReason } from '@/components/LeadPriority';
 
 const MI = ({ name, size = 18 }) => <span className="material-symbols-outlined" style={{ fontSize: size }}>{name}</span>;
 
@@ -23,7 +25,20 @@ export default function LeadsPage({ mode = 'active' }) {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ sector: '', priority: '', status: '', search: '', lookup: '' });
+  // Filters can come from the URL (the Dashboard cards link to /leads?status=not_interested etc.)
+  const [filters, setFilters] = useState(() => {
+    const base = { sector: '', priority: '', status: '', search: '', lookup: '' };
+    if (typeof window === 'undefined') return base;
+    const q = new URLSearchParams(window.location.search);
+    return { ...base, status: q.get('status') || '', priority: q.get('priority') || '', search: q.get('search') || '' };
+  });
+  // Priority view (on by default, remembered per browser): leads ranked by what needs attention first
+  const readPref = (k, dflt) => { try { const v = localStorage.getItem(k); return v === null ? dflt : v === '1'; } catch { return dflt; } };
+  const [priorityOn, setPriorityOn] = useState(() => typeof window === 'undefined' ? true : readPref('gtm-leads-priority', true));
+  const [mine, setMine] = useState(() => typeof window === 'undefined' ? false : (new URLSearchParams(window.location.search).get('mine') === '1' || readPref('gtm-leads-mine', false)));
+  const [tiers, setTiers] = useState(null);     // { all, HOT, HIGH, MEDIUM, PARTNER } counts in the Priority view
+  const [reasons, setReasons] = useState(null); // { overdue: n, due_today: n, … } in the Priority view
+  useEffect(() => { try { localStorage.setItem('gtm-leads-priority', priorityOn ? '1' : '0'); localStorage.setItem('gtm-leads-mine', mine ? '1' : '0'); } catch {} }, [priorityOn, mine]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -58,7 +73,18 @@ export default function LeadsPage({ mode = 'active' }) {
     fetch(`/api/leads/${id}`).then(r => r.json()).then(d => { if (d.lead) setLogLead(d.lead); }).catch(() => {});
     window.history.replaceState(null, '', window.location.pathname);
   }, [user]);
+  // Links like /leads?status=closed (Dashboard cards) open the page already filtered. Read after mount:
+  // on an in-app navigation the address only changes once the page has rendered. Then tidy the address bar.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const pick = { status: q.get('status'), priority: q.get('priority'), search: q.get('search') };
+    if (Object.values(pick).some(Boolean)) setFilters(f => ({ ...f, ...Object.fromEntries(Object.entries(pick).filter(([, v]) => v)) }));
+    if (q.get('mine') === '1') setMine(true);
+    if (/[?&](status|priority|mine|search)=/.test(window.location.search) && !q.get('log')) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
 
+  const closedView = CLOSED_STATUSES.includes(filters.status);
+  const priorityActive = priorityOn && !viewDeleted && !achievedView && !closedView;
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     const p = new URLSearchParams();
@@ -71,13 +97,16 @@ export default function LeadsPage({ mode = 'active' }) {
     if (projectId) p.set('project_id', projectId);
     if (viewDeleted) p.set('deleted', '1');
     else if (achievedView) p.set('achieved', '1');
+    if (priorityActive) p.set('view', 'priority');
+    if (mine && !viewDeleted) p.set('mine', '1');
     try {
       const res = await fetch(`/api/leads?${p}`);
       const d = await res.json();
       setLeads(d.leads || []); setTotal(d.total || 0); setTotalPages(d.totalPages || 1);
+      setTiers(d.tiers || null); setReasons(d.reasons || null);
     } catch { setLeads([]); }
     setLoading(false);
-  }, [filters, page, perPage, sortOrder, projectId, viewDeleted, achievedView]);
+  }, [filters, page, perPage, sortOrder, projectId, viewDeleted, achievedView, priorityActive, mine]);
 
   const fetchStats = useCallback(async () => {
     const q = new URLSearchParams(); if (projectId) q.set('project_id', projectId); if (achievedView) q.set('achieved', '1');
@@ -88,7 +117,7 @@ export default function LeadsPage({ mode = 'active' }) {
   }, [projectId]);
 
   useEffect(() => { if (user) { fetchLeads(); fetchStats(); fetchTemplates(); } }, [user, fetchLeads, fetchStats, fetchTemplates]);
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [filters, perPage, viewDeleted]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [filters, perPage, viewDeleted, priorityOn, mine]);
 
   // Every change goes through a comment prompt; the comment is saved in the lead's log.
   const put = async (id, body) => {
@@ -235,18 +264,26 @@ export default function LeadsPage({ mode = 'active' }) {
       {stats && !viewDeleted && (
         <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(3,minmax(0,1fr))' : 'repeat(auto-fit,minmax(120px,1fr))', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 12 : 16 }}>
           {[
-            { l:t('Total'), v:stats.total, c:'#3b82f6', i:'groups' },
-            { l:t('HOT'), v:stats.hot, c:'#ef4444', i:'local_fire_department' },
-            { l:t('HIGH'), v:stats.high, c:'#22c55e', i:'bolt' },
+            { l:t('Total'), v:stats.total, c:'#3b82f6', i:'groups', go: { priority:'', status:'' } },
+            { l:t('HOT'), v:stats.hot, c:'#ef4444', i:'local_fire_department', go: { priority:'HOT', status:'' } },
+            { l:t('HIGH'), v:stats.high, c:'#22c55e', i:'bolt', go: { priority:'HIGH', status:'' } },
             { l:t('Active'), v:stats.active, c:'#8b5cf6', i:'trending_up' },
-            { l:t('Signed'), v:stats.signed, c:'#10b981', i:'verified' },
-            { l:t('Partners'), v:stats.partner, c:'#f59e0b', i:'handshake' },
-          ].map(s => (
-            <div key={s.l} style={{ background:'#fff', border:'1px solid var(--border)', borderRadius:10, padding: isMobile ? '8px 6px' : '10px 14px', textAlign:'center' }}>
+            { l:t('Signed'), v:stats.signed, c:'#10b981', i:'verified', go: { priority:'', status:'contract_signed' } },
+            { l:t('Partners'), v:stats.partner, c:'#f59e0b', i:'handshake', go: { priority:'PARTNER', status:'' } },
+            ...(achievedView ? [] : [
+              { l:t('Not Interested'), v:stats.not_interested || 0, c:'#A32D2D', i:'thumb_down', go: { priority:'', status:'not_interested' } },
+              { l:t('Closed'), v:stats.closed || 0, c:'#4b5563', i:'block', go: { priority:'', status:'closed' } },
+            ]),
+          ].map(s => {
+            const on = s.go && ((s.go.status && s.go.status === filters.status) || (s.go.priority && s.go.priority === filters.priority && !filters.status));
+            return (
+            <div key={s.l} onClick={s.go ? () => setFilters(f => ({ ...f, ...s.go })) : undefined} role={s.go ? 'button' : undefined}
+              title={s.go ? t('Show these leads') : undefined}
+              style={{ background: on ? `${s.c}0d` : '#fff', border:`1px solid ${on ? s.c : 'var(--border)'}`, borderRadius:10, padding: isMobile ? '8px 6px' : '10px 14px', textAlign:'center', cursor: s.go ? 'pointer' : 'default' }}>
               {!isMobile && <MI name={s.i} size={18}/>}<div style={{ fontSize: isMobile ? '1.1rem' : '1.3rem', fontWeight:800, color:s.c, marginTop:2 }}>{s.v}</div>
               <div style={{ fontSize:'0.65rem', color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.5px' }}>{s.l}</div>
             </div>
-          ))}
+          ); })}
         </div>
       )}
 
@@ -267,6 +304,54 @@ export default function LeadsPage({ mode = 'active' }) {
           <MI name="manage_search" size={16}/> {t('Bulk Lookup active — {n} matching leads', { n: total })}
           <button onClick={() => setShowBulkLookup(true)} className="btn btn-sm btn-ghost" style={{ marginLeft:'auto', fontSize:'0.7rem' }}>{t('Edit list')}</button>
           <button onClick={clearBulkLookup} className="btn btn-sm btn-ghost" style={{ fontSize:'0.7rem' }}><MI name="close" size={14}/> {t('Clear')}</button>
+        </div>
+      )}
+
+      {/* Priority toolbar — visible to everyone on the working list */}
+      {!viewDeleted && !achievedView && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+          <button type="button" role="switch" aria-checked={priorityOn} onClick={() => setPriorityOn(v => !v)}
+            style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 12px 6px 6px', borderRadius:999, border:`1px solid ${priorityOn ? '#f59e0b' : 'var(--border)'}`, background: priorityOn ? '#fffbeb' : '#fff', cursor:'pointer', fontWeight:700, fontSize:'0.8rem', color: priorityOn ? '#92400e' : '#475569', fontFamily:'inherit' }}>
+            <span style={{ width:36, height:20, borderRadius:999, background: priorityOn ? '#f59e0b' : '#cbd5e1', position:'relative', transition:'background .15s', flexShrink:0 }}>
+              <span style={{ position:'absolute', top:2, left: priorityOn ? 18 : 2, width:16, height:16, borderRadius:'50%', background:'#fff', boxShadow:'0 1px 2px rgba(0,0,0,.3)', transition:'left .15s' }}/>
+            </span>
+            <MI name="local_fire_department" size={16}/> {t('Priority')}
+          </button>
+          <div style={{ display:'inline-flex', background:'#f1f5f9', borderRadius:999, padding:3 }}>
+            {[[false, t('All leads'), 'groups'], [true, t('My leads'), 'person']].map(([v, l, ic]) => (
+              <button key={String(v)} type="button" onClick={() => setMine(v)} aria-pressed={mine === v}
+                style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 12px', borderRadius:999, border:'none', background: mine === v ? '#fff' : 'transparent', boxShadow: mine === v ? '0 1px 3px rgba(0,0,0,.1)' : 'none', fontWeight: mine === v ? 700 : 500, fontSize:'0.76rem', color: mine === v ? 'var(--text)' : '#64748b', cursor:'pointer', fontFamily:'inherit' }}>
+                <MI name={ic} size={14}/> {l}
+              </button>
+            ))}
+          </div>
+          {priorityActive && tiers && (
+            <div className="m-scroll-x" style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {[['', t('All'), '#111827'], ...Object.keys(PC).map(k => [k, t(PC[k].label), PC[k].text])].map(([k, l, col]) => {
+                const on = (filters.priority || '') === k;
+                return <button key={k || 'all'} type="button" onClick={() => setFilters(f => ({ ...f, priority: k }))}
+                  style={{ padding:'5px 11px', borderRadius:999, border: on ? `2px solid ${col}` : '1px solid var(--border)', background: on ? `${col}12` : '#fff', color: on ? col : 'var(--text)', fontWeight: on ? 800 : 600, fontSize:'0.74rem', cursor:'pointer', whiteSpace:'nowrap', fontFamily:'inherit' }}>
+                  {l} <span style={{ opacity:0.6 }}>{k ? (tiers[k] || 0) : tiers.all}</span></button>;
+              })}
+            </div>
+          )}
+          {priorityActive && reasons && (
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', fontSize:'0.7rem', marginLeft: isMobile ? 0 : 'auto' }}>
+              {[['overdue', t('Overdue'), '#b91c1c', '#fef2f2'], ['due_today', t('Today'), '#c2410c', '#fff7ed'], ['hot_deal', t('Hot deals'), '#6d28d9', '#f5f3ff'], ['due_soon', t('Next 3 days'), '#1d4ed8', '#eff6ff']]
+                .filter(([k]) => reasons[k]).map(([k, l, c, bg]) => <span key={k} style={{ padding:'3px 9px', borderRadius:999, background:bg, color:c, fontWeight:700 }}>{l}: {reasons[k]}</span>)}
+            </div>
+          )}
+        </div>
+      )}
+      {priorityActive && (
+        <div style={{ fontSize:'0.72rem', color:'var(--text-muted)', marginBottom:10, display:'flex', alignItems:'flex-start', gap:6 }}>
+          <MI name="info" size={14}/> <span>{t('Ranked by what needs attention first: overdue and today’s follow-ups, hot deals in progress, follow-ups in the next 3 days, then HOT → HIGH → MEDIUM leads that have waited longest. “Follow up later” leads wait at the bottom until their date is close.')}</span>
+        </div>
+      )}
+      {closedView && !viewDeleted && !achievedView && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f3f4f6', border:'1px solid #d1d5db', color:'#374151', borderRadius:10, padding:'8px 12px', marginBottom:12, fontSize:'0.78rem', flexWrap:'wrap' }}>
+          <MI name="visibility_off" size={16}/> {t('Showing “{status}” leads — they are hidden from the working list, search and Priority.', { status: t(SC[filters.status]?.label || filters.status) })}
+          <button onClick={() => setFilters(f => ({ ...f, status: '' }))} className="btn btn-sm btn-ghost" style={{ marginLeft:'auto', fontSize:'0.7rem', background:'#fff' }}><MI name="arrow_back" size={14}/> {t('Back to working leads')}</button>
         </div>
       )}
 
@@ -292,10 +377,10 @@ export default function LeadsPage({ mode = 'active' }) {
         <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.75rem', width:80 }}>
           {[25,50,100,200].map(n => <option key={n} value={n}>{n}/{t('pg')}</option>)}
         </select>
-        <button onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={sortOrder === 'desc' ? t('Newest first') : t('Oldest first')}
+        {!priorityActive && <button onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')} title={sortOrder === 'desc' ? t('Newest first') : t('Oldest first')}
           style={{ padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.72rem', cursor:'pointer', background: sortOrder === 'asc' ? '#eff6ff' : '#fff', color: sortOrder === 'asc' ? '#2563eb' : '#6b7280', fontWeight:600, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
           <MI name={sortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward'} size={14}/> {sortOrder === 'desc' ? t('Newest') : t('Oldest')}
-        </button>
+        </button>}
         </div>}
         {(filters.search||filters.priority||filters.sector||filters.status||filters.lookup) && (
           <button onClick={() => { setFilters({sector:'',priority:'',status:'',search:'',lookup:''}); setBulkLookupText(''); }} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ {t('Clear')}</button>
@@ -418,9 +503,10 @@ export default function LeadsPage({ mode = 'active' }) {
                     <td style={{ padding:'8px', textAlign:'center' }}>
                       {!viewDeleted && <input type="checkbox" checked={isSel} onChange={() => toggleSelect(l.id)} style={{ cursor:'pointer' }}/>}
                     </td>
-                    <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af', borderRight:'1px solid #e5e7eb'}}>{l.project_seq ?? l.id}</td>
+                    <td tabIndex={0} style={{...TD, fontFamily:'monospace', fontSize:'0.68rem', color:'#9ca3af', borderRight:'1px solid #e5e7eb'}}>{l.priority_rank && <div style={{ marginBottom:3 }}><RankBadge n={l.priority_rank} t={t} /></div>}{l.project_seq ?? l.id}</td>
                     <td tabIndex={0} style={{...TD}}>
                       <div style={{ fontWeight:600, fontSize:'0.78rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</div>
+                      {l.priority_reason && <PriorityReason r={l.priority_reason} t={t} lang={lang} />}
                       {l.domain && <div style={{ fontSize:'0.64rem', color:'#9ca3af', marginTop:1, wordBreak:'break-all' }}>{l.domain}</div>}
                     </td>
                     <td tabIndex={0} style={TD}>{SL[l.sector] ? t(SL[l.sector]) : (l.sector||'—')}</td>
@@ -649,10 +735,12 @@ function LeadCard({ l, t, lang, viewDeleted, achievedView, onAchieve, selected, 
         {!viewDeleted && <input type="checkbox" checked={selected} onChange={onToggle} aria-label={t('Select')} style={{ marginTop:3, flexShrink:0 }}/>}
         <div style={{ flex:1, minWidth:0 }} onClick={onLog} role="button">
           <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+            {l.priority_rank && <RankBadge n={l.priority_rank} t={t} />}
             <span style={{ fontFamily:'monospace', fontSize:'0.72rem', color:'#94a3b8' }}>#{l.project_seq ?? l.id}</span>
             <span style={{ fontWeight:700, fontSize:'0.95rem', color:'var(--text)', wordBreak:'break-word' }}>{l.company_name}</span>
           </div>
           {place && <div style={{ fontSize:'0.74rem', color:'#64748b', marginTop:2 }}>{place}</div>}
+          {l.priority_reason && <PriorityReason r={l.priority_reason} t={t} lang={lang} />}
           {l.decision_maker_title && <div style={{ fontSize:'0.78rem', color:'#334155', marginTop:4, display:'flex', alignItems:'center', gap:4 }}><MI name="person" size={15}/>{l.decision_maker_title}</div>}
         </div>
         {viewDeleted && <span style={{ padding:'3px 10px', borderRadius:20, fontSize:'0.68rem', fontWeight:700, background:pc.bg, color:pc.text, whiteSpace:'nowrap' }}>{t(pc.label)}</span>}
@@ -814,7 +902,7 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
       if (row.email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(row.email)) errors.push({ field: 'email', msg: t('Invalid email') });
       if (row.phone && !/^[+\d\s\-()]{6,20}$/.test(row.phone)) errors.push({ field: 'phone', msg: t('Invalid phone') });
       if (row.priority && !['HOT','HIGH','MEDIUM','PARTNER','ГОРЯЧИЙ','ВЫСОКИЙ','СРЕДНИЙ','ПАРТНЁР','ПАРТНЕР'].includes(row.priority.toUpperCase())) errors.push({ field: 'priority', msg: t('Invalid') });
-      if (row.status && !['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','follow_up_later'].includes(row.status.toLowerCase()) && !/[а-яё]/i.test(row.status)) errors.push({ field: 'status', msg: t('Invalid') });
+      if (row.status && !['not_contacted','touch_1','touch_2','touch_3','email_sent','call_made','replied','meeting_booked','proposal_sent','negotiating','contract_signed','not_interested','closed','follow_up_later'].includes(row.status.toLowerCase()) && !/[а-яё]/i.test(row.status)) errors.push({ field: 'status', msg: t('Invalid') });
       updated[rowIdx]._errors = errors;
       updated[rowIdx]._hasErrors = errors.length > 0;
       return updated;
@@ -1071,175 +1159,3 @@ function BulkUploadModal({ t, lang, onClose, projectId, onImportDone }) {
     </div>
   );
 }
-
-function LeadLogModal({ t, lang, lead: initialLead, projectId, readOnly, onChanged, onClose }) {
-  const [data, setData] = useState(null);
-  const [err, setErr] = useState('');
-  const [fus, setFus] = useState([]);
-  const [note, setNote] = useState('');
-  const [newStatus, setNewStatus] = useState('');
-  // "Follow Up Later" in the composer also asks when (default: tomorrow 10:00)
-  const [fuDate, setFuDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
-  const [fuTime, setFuTime] = useState('10:00');
-  const [posting, setPosting] = useState(false);
-  const [postErr, setPostErr] = useState('');
-  const lead = data?.lead ? { ...initialLead, ...data.lead } : initialLead;
-  const reload = useCallback(() => {
-    fetch(`/api/leads/${initialLead.id}`).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); setData(d); }).catch(e => setErr(e.message));
-    fetch(`/api/followups?lead_id=${initialLead.id}&status=all`).then(r => r.json()).then(d => setFus(d.followups || [])).catch(() => {});
-  }, [initialLead.id]);
-  useEffect(() => { reload(); }, [reload]);
-  const fu = useFollowUpActions(() => { reload(); onChanged?.(); });
-  // "Add an update": a comment, optionally together with a status change
-  async function postUpdate(e) {
-    e.preventDefault(); setPostErr('');
-    if (!note.trim()) { setPostErr(t('Please enter a comment')); return; }
-    let extra = {};
-    if (newStatus === 'follow_up_later') {
-      const f = followupFields(fuDate, fuTime);
-      if (!f) { setPostErr(t('Pick a date and time')); return; }
-      extra = { ...f, followup_title: t('Follow up later') };
-    }
-    setPosting(true);
-    try {
-      const r = newStatus && newStatus !== lead.status
-        ? await fetch(`/api/leads/${lead.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus, comment: note.trim(), ...extra }) })
-        : await fetch(`/api/leads/${lead.id}/comment`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment: note.trim() }) });
-      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
-      setNote(''); setNewStatus(''); reload(); onChanged?.();
-    } catch (e2) { setPostErr(t(e2.message)); }
-    finally { setPosting(false); }
-  }
-  const openFus = fus.filter(f => f.status === 'open');
-  const fmt = (v) => v ? new Date(v).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined) : '—';
-  // Merge status history, activity log and email sends into one timeline
-  // How the lead got into the CRM (scraped_from); a missing value means it was added by hand
-  const SOURCE = { manual: 'manually', bulk_upload: 'via bulk upload', excel_import: 'via initial data import', google_maps: 'via Lead Scraper (Google Maps)', '2gis': 'via Lead Scraper (2GIS)', web_search: 'via Lead Scraper (web search)', google_dork: 'via Lead Scraper (web search)', 'hh.ru': 'via Lead Scraper (hh.ru)', superjob: 'via Lead Scraper (SuperJob)' };
-  const how = (src) => t(SOURCE[src] || (src ? 'via {src}' : 'manually'), { src });
-  const createdBy = data?.lead?.created_by_name || '';
-  // Leads added before creation was logged (bulk upload, scraper, initial import) get a synthesized entry
-  // …carrying the comment the lead was added with, which is always the first comment in its history
-  const firstComment = String(data?.lead?.notes || '').trim();
-  const created = data && !data.logs.some(l => l.kind === 'create' || /^Added lead/.test(l.action)) ? [{ at: lead.created_at, who: createdBy, icon: 'add', text: `${t('Lead created')} ${how(lead.scraped_from)}`, first: true,
-    comment: firstComment && !data.logs.some(l => String(l.comment || '').trim() === firstComment) ? firstComment : '' }] : [];
-  const ICONS = { initial: 'chat', create: 'add', note: 'chat', followup: 'event', watch: 'visibility', status: 'swap_horiz', priority: 'flag', template: 'description', edit: 'edit_note', delete: 'delete', restore: 'restore_from_trash', purge: 'delete_forever', achieved: 'emoji_events', unachieved: 'undo' };
-  const describe = (l) => {
-    if (l.kind === 'status') return `${t('Status')}: ${t(SC[l.from]?.label || l.from || '—')} → ${t(SC[l.to]?.label || l.to)}${l.bulk ? ` (${t('bulk')})` : ''}`;
-    if (l.kind === 'priority') return `${t('Priority')}: ${t(PC[l.from]?.label || l.from || '—')} → ${t(PC[l.to]?.label || l.to)}`;
-    if (l.kind === 'template') return `${t('Template')}: ${l.template || t('Clear template')}${l.bulk ? ` (${t('bulk')})` : ''}`;
-    if (l.kind === 'edit') return `${t('Edited')}: ${(l.fields || []).map(f => t(FIELD_NAMES[f] || f)).join(', ')}`;
-    if (l.kind === 'note') return t('Comment');
-    if (l.kind === 'initial') return t('First comment');
-    if (l.kind === 'followup') {
-      const when = l.due_at ? new Date(l.due_at).toLocaleString(lang === 'ru' ? 'ru-RU' : undefined, { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
-      const EV = { created: 'Follow-up scheduled', done: 'Follow-up completed', rescheduled: 'Follow-up rescheduled', updated: 'Follow-up updated', deleted: 'Follow-up removed', reopened: 'Follow-up reopened' };
-      return `${t(EV[l.event] || 'Follow-up')}: "${l.title}"${when ? ` · ${when}` : ''}${l.assignee ? ` · ${t('Assigned to')} ${l.assignee}` : ''}`;
-    }
-    if (l.kind === 'watch') {
-      if (l.event === 'added') return l.self ? t('Subscribed to notifications') : t('Added {name} as CC', { name: l.watcher });
-      if (l.event === 'removed') return l.self ? t('Unsubscribed from notifications') : t('Removed {name} from CC', { name: l.watcher });
-      return l.action;
-    }
-    if (l.kind === 'delete') return t('Lead deleted');
-    if (l.kind === 'restore') return t('Lead restored');
-    if (l.kind === 'achieved') return `🏆 ${t('Marked as achieved')}${l.bulk ? ` (${t('bulk')})` : ''}`;
-    if (l.kind === 'unachieved') return `${t('Moved back to leads')}${l.bulk ? ` (${t('bulk')})` : ''}`;
-    if (l.kind === 'purge') return t('Permanently deleted');
-    if (l.kind === 'create' || /^Added lead/.test(l.action)) return `${t('Lead created')} ${how(l.source || lead.scraped_from)}`;
-    return l.action;
-  };
-  const entries = data ? [
-    ...created,
-    // status history rows only for legacy entries that have no matching activity log (new changes are logged with a comment)
-    ...data.history.filter(h => !data.logs.some(l => l.kind === 'status' && Math.abs(new Date(l.created_at) - new Date(h.changed_at)) < 5000)).map(h => ({ at: h.changed_at, who: h.changed_by_name, icon: 'swap_horiz', text: `${t('Status')}: ${t(SC[h.old_status]?.label || h.old_status || '—')} → ${t(SC[h.new_status]?.label || h.new_status)}`, comment: h.note && h.note !== 'bulk' ? h.note : '' })),
-    ...data.logs.filter(l => !/^Changed ".*" status:/.test(l.action) || l.kind).map(l => ({ at: l.created_at, who: l.user_name, icon: ICONS[l.kind] || (/^Added lead/.test(l.action) ? 'add' : 'edit_note'), text: describe(l), comment: l.comment || '', changes: l.changes, kind: l.kind, first: l.kind === 'create' || l.kind === 'initial' })),
-    ...data.sends.map(sd => ({ at: sd.sent_at || sd.created_at, who: t('Auto Email'), icon: 'mail', text: `${t('Email')}: "${sd.subject}" — ${t(sd.status)}${sd.opened_at ? ` · ${t('Opened')} ${fmt(sd.opened_at)}` : ''}` })),
-  ].sort((a, b) => (new Date(b.at) - new Date(a.at)) || ((a.first ? 1 : 0) - (b.first ? 1 : 0)) || ((a.kind === 'initial' ? 1 : 0) - (b.kind === 'initial' ? 1 : 0))) : [];
-  return (
-    <div className="leads-modal-overlay" onClick={onClose}>
-      <div className="leads-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
-          <div>
-            <h3 style={{ fontSize:'1rem', fontWeight:700 }}><MI name="history" size={18}/> {t('Lead log')}</h3>
-            <div style={{ fontSize:'0.78rem', color:'var(--text-dim)', marginTop:2 }}>#{lead.project_seq ?? lead.id} · <strong>{lead.company_name}</strong>{lead.city ? ` · ${lead.city}` : ''}</div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
-              {lead.email && <a href={`mailto:${lead.email}`} style={{ fontSize:'0.74rem', color:'#2563eb', textDecoration:'none' }}><MI name="mail" size={13}/> {lead.email}</a>}
-              <ContactBadges l={lead} />
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#94a3b8' }}>✕</button>
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:8, marginBottom:14, fontSize:'0.74rem' }}>
-          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Status')}</div><strong>{t(SC[lead.status]?.label || lead.status)}</strong></div>
-          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Priority')}</div><strong>{t(PC[lead.priority]?.label || lead.priority)}</strong></div>
-          <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Created')}</div><strong>{fmt(lead.created_at)}</strong>{data && <div style={{ color:'var(--text-dim)', marginTop:2 }}>{t('Added by')} {createdBy || t('System')} · {how(lead.scraped_from)}</div>}</div>
-          {/* Last update: the newest thing that happened on the lead — comment, edit, status change, follow-up… (CC bookkeeping aside) */}
-          {(() => { const last = entries.find(e => e.kind !== 'watch'); return (
-            <div style={{ padding:'8px 10px', background:'#f8fafc', borderRadius:8 }}><div style={{ color:'#9ca3af', fontSize:'0.64rem', textTransform:'uppercase' }}>{t('Last update')}</div>
-              <strong>{data ? fmt(last?.at || lead.updated_at || lead.created_at) : '…'}</strong>
-              {last && <div style={{ color:'var(--text-dim)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={last.text}>{last.who || t('System')} · {last.text}</div>}
-              {lead.last_contacted_at && <div style={{ color:'var(--text-muted)', marginTop:2 }}>{t('Last Contacted')}: {fmt(lead.last_contacted_at)}</div>}
-            </div>); })()}
-        </div>
-        <LeadWatchersPanel leadId={lead.id} />
-        {lead.achieved_at && !lead.deleted_at && (
-          <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', color:'#92400e', padding:'10px 12px', borderRadius:8, fontSize:'0.8rem', marginBottom:12 }}>
-            <strong><MI name="emoji_events" size={14}/> {t('Achieved')} — {lead.achieved_by_name || '—'}</strong> · {fmt(lead.achieved_at)}
-            {lead.achieve_comment && <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>💬 {lead.achieve_comment}</div>}
-          </div>
-        )}
-        {lead.deleted_at && (
-          <div style={{ background:'#fef2f2', border:'1px solid #fecaca', color:'#991b1b', padding:'10px 12px', borderRadius:8, fontSize:'0.8rem', marginBottom:12 }}>
-            <strong><MI name="delete" size={14}/> {t('Deleted by')} {lead.deleted_by_name || '—'}</strong> · {fmt(lead.deleted_at)}
-            {lead.delete_comment && <div style={{ marginTop:4, whiteSpace:'pre-wrap' }}>💬 {lead.delete_comment}</div>}
-          </div>
-        )}
-        {!readOnly && (
-          <form onSubmit={postUpdate} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:10, marginBottom:12, background:'#fcfcfd' }}>
-            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-dim)', marginBottom:6, display:'flex', alignItems:'center', gap:6 }}><MI name="add_comment" size={15}/> {t('Add an update')}</div>
-            <textarea rows={2} value={note} onChange={e => { setNote(e.target.value); setPostErr(''); }} placeholder={t('e.g. Called, spoke to the director — asked to send a proposal')} style={{ width:'100%', fontFamily:'inherit', fontSize:'0.82rem', border:'1px solid var(--border)', borderRadius:8, padding:'7px 10px', resize:'vertical' }} />
-            {postErr && <div style={{ color:'#dc2626', fontSize:'0.74rem', marginTop:4 }}>{postErr}</div>}
-            <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginTop:6 }}>
-              <select value={newStatus} onChange={e => setNewStatus(e.target.value)} style={{ padding:'6px 8px', borderRadius:8, border:'1px solid var(--border)', fontSize:'0.76rem', fontFamily:'inherit' }}>
-                <option value="">{t('Keep status')}: {t(SC[lead.status]?.label || lead.status)}</option>
-                {Object.entries(SC).filter(([v]) => v !== lead.status).map(([v, c]) => <option key={v} value={v}>{t('Change status to')}: {t(c.label)}</option>)}
-              </select>
-              <button type="button" className="btn btn-sm btn-ghost" onClick={() => fu.create(lead)}><MI name="event" size={15}/> {t('Schedule follow-up')}</button>
-              <button type="submit" disabled={posting} className="btn btn-sm btn-primary" style={{ marginLeft:'auto' }}><MI name="send" size={14}/> {posting ? t('Saving…') : t('Add to log')}</button>
-            </div>
-            {newStatus === 'follow_up_later' && <div style={{ marginTop:8 }}><FollowUpDateFields t={t} date={fuDate} time={fuTime} setDate={setFuDate} setTime={setFuTime} /></div>}
-          </form>
-        )}
-        {openFus.length > 0 && (
-          <div style={{ border:'1px solid #fde68a', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
-            <div style={{ padding:'7px 12px', background:'#fffbeb', color:'#92400e', fontWeight:700, fontSize:'0.72rem', display:'flex', alignItems:'center', gap:6 }}><MI name="event_upcoming" size={15}/> {t('Upcoming follow-ups')} ({openFus.length})</div>
-            {openFus.map(f => <FollowUpRow key={f.id} f={f} showLead={false} {...(readOnly ? {} : fu.actions)} />)}
-          </div>
-        )}
-        {fu.modals(projectId)}
-        {err && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'8px 12px', borderRadius:8, fontSize:'0.78rem' }}>{err}</div>}
-        {!data && !err && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)' }}>{t('Loading…')}</div>}
-        {data && entries.length === 0 && <div style={{ textAlign:'center', padding:30, color:'var(--text-muted)', fontSize:'0.8rem' }}>{t('No log entries yet')}</div>}
-        {data && entries.length > 0 && (
-          <div style={{ maxHeight:'55vh', overflowY:'auto', borderTop:'1px solid var(--border)' }}>
-            {entries.map((e, i) => (
-              <div key={i} style={{ display:'flex', gap:10, padding:'10px 4px', borderBottom:'1px solid #f1f5f9', alignItems:'flex-start' }}>
-                <span style={{ width:28, height:28, borderRadius:8, background:'#eef2ff', color:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><MI name={e.icon} size={16}/></span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:'0.8rem', color:'var(--text)', wordBreak:'break-word' }}>{e.text}</div>
-                  {e.changes && <div style={{ fontSize:'0.7rem', color:'var(--text-dim)', marginTop:3 }}>{Object.entries(e.changes).map(([f, c]) => <div key={f}><strong>{t(FIELD_NAMES[f] || f)}:</strong> <span style={{ textDecoration:'line-through', opacity:0.6 }}>{String(c.from || '—')}</span> → {String(c.to || '—')}</div>)}</div>}
-                  {e.comment && <div style={{ fontSize:'0.76rem', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:6, padding:'4px 8px', marginTop:4, whiteSpace:'pre-wrap' }}>💬 {e.comment}</div>}
-                  <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', marginTop:3 }}><strong>{e.who || t('System')}</strong> · {fmt(e.at)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Human names for lead fields (used in the log)
-const FIELD_NAMES = { company_name:'Company', domain:'Domain', sector:'Industry', city:'City', region:'Region', country:'Country', company_size:'Size', pain_point:'Requirement needed', decision_maker_title:'Decision maker name', phone:'Telephone', mobile_personal:'Mobile number (personal)', email:'Email', whatsapp:'WhatsApp', telegram:'Telegram', max_messenger:'Max Messenger', contact_method:'Contact', source_url:'Source URL', find_instructions:'Source of lead', notes:'Comment' };
-

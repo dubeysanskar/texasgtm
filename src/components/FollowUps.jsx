@@ -104,7 +104,7 @@ export function FollowUpModal({ lead: fixedLead, followup, projectId, onClose, o
     if (lead || q.trim().length < 1) { setResults([]); return; }
     const h = setTimeout(() => {
       const p = new URLSearchParams({ search: q.trim(), limit: '8', page: '1' }); if (projectId) p.set('project_id', projectId);
-      p.set('achieved', 'all'); // a follow-up can be scheduled on an achieved lead too
+      p.set('achieved', 'all'); p.set('include_closed', '1'); // a follow-up can be scheduled on any lead
       fetch(`/api/leads?${p}`).then(r => r.json()).then(d => setResults(d.leads || [])).catch(() => {});
     }, 250);
     return () => clearTimeout(h);

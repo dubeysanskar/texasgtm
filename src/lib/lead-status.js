@@ -18,9 +18,14 @@ export const SC = {
   proposal_sent:   { label: 'Proposal Sent',     bg: '#FAEEDA', text: '#854F0B', dot: '#EF9F27', row: '#fffbeb' },
   negotiating:     { label: 'Negotiating',       bg: '#FCE4D6', text: '#993C1D', dot: '#D85A30', row: '#fff7ed' },
   contract_signed: { label: 'Contract Signed ✓', bg: '#9FE1CB', text: '#085041', dot: '#1D9E75', row: '#d1fae5' },
-  not_interested:  { label: 'Not Interested (Closed)', bg: '#FCEBEB', text: '#A32D2D', dot: '#E24B4A', row: '#fef2f2', closed: true },
+  not_interested:  { label: 'Not Interested', bg: '#FCEBEB', text: '#A32D2D', dot: '#E24B4A', row: '#fef2f2', closed: true },
+  closed:          { label: 'Closed',           bg: '#E5E7EB', text: '#374151', dot: '#6B7280', row: '#f3f4f6', closed: true },
   follow_up_later: { label: 'Follow Up Later',   bg: '#FFF2CC', text: '#7D6608', dot: '#EF9F27', row: '#fefce8' },
 };
+
+// Closed statuses leave the working lead list, Priority and the Dashboard; they are only shown when
+// explicitly filtered for (their Dashboard cards / the status filter).
+export const CLOSED_STATUSES = Object.keys(SC).filter(k => SC[k].closed);
 
 export const PC = {
   HOT: { label: '🔥 HOT', bg: '#FCE4D6', text: '#993C1D', rank: 0 },

@@ -4,6 +4,8 @@ const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 const { logLeadActivity, notifyBulk } = require('@/lib/watchers');
 const { searchClause, lookupClause } = require('@/lib/lead-search');
 const { createFollowup } = require('@/lib/followups');
+const { CLOSED_STATUSES } = require('@/lib/lead-fields');
+const { rankLeads } = require('@/lib/lead-priority');
 
 export async function GET(request) {
   const user = getUserFromRequest(request);
@@ -11,26 +13,58 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const showDeleted = searchParams.get('deleted') === '1';
   if (showDeleted && !isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
-  let sql = `SELECT * FROM gtm_leads WHERE deleted_at IS ${showDeleted ? 'NOT NULL' : 'NULL'}`;
-  // Achieved leads live on their own page: achieved=1 → only them, achieved=all → both, default → working list only
   const achieved = searchParams.get('achieved');
-  if (!showDeleted && achieved === '1') sql += ' AND achieved_at IS NOT NULL';
-  else if (!showDeleted && achieved !== 'all') sql += ' AND achieved_at IS NULL';
-  const params = [];
-  const projectId = searchParams.get('project_id'); if (projectId) { params.push(projectId); sql += ` AND project_id = $${params.length}`; }
-  const status = searchParams.get('status'); if (status) { params.push(status); sql += ` AND status = $${params.length}`; }
-  const priority = searchParams.get('priority'); if (priority) { params.push(priority); sql += ` AND priority = $${params.length}`; }
-  const sector = searchParams.get('sector'); if (sector) { params.push(sector); sql += ` AND sector = $${params.length}`; }
-  // Search box: every word matched across all lead fields (+ phone digits); Bulk Lookup: a pasted list, any match
-  sql += searchClause(searchParams.get('search'), params);
-  sql += lookupClause(searchParams.get('lookup'), params);
-  // The Priority Leads view: only open (not closed) leads, so a "not interested" lead never clutters it
-  if (searchParams.get('exclude_closed') === '1') sql += " AND status != 'not_interested'";
+  const status = searchParams.get('status');
+  const priority = searchParams.get('priority');
+  const priorityView = searchParams.get('view') === 'priority';
+
+  // WHERE clause; `withPriority: false` leaves the priority filter out (for the HOT/HIGH/… tab counts)
+  const build = (withPriority) => {
+    let w = `deleted_at IS ${showDeleted ? 'NOT NULL' : 'NULL'}`;
+    const p = [];
+    // Achieved leads live on their own page: achieved=1 → only them, achieved=all → both, default → working list only
+    if (!showDeleted && achieved === '1') w += ' AND achieved_at IS NOT NULL';
+    else if (!showDeleted && achieved !== 'all') w += ' AND achieved_at IS NULL';
+    // Not Interested / Closed leave the working list (and search, lookup, Priority, Dashboard). They only
+    // show up when someone asks for that status explicitly (status filter or the Dashboard cards).
+    if (!showDeleted && achieved !== '1' && !CLOSED_STATUSES.includes(status) && searchParams.get('include_closed') !== '1') {
+      w += ` AND status NOT IN (${CLOSED_STATUSES.map(s => `'${s}'`).join(',')})`;
+    }
+    const projectId = searchParams.get('project_id'); if (projectId) { p.push(projectId); w += ` AND project_id = $${p.length}`; }
+    if (status) { p.push(status); w += ` AND status = $${p.length}`; }
+    if (priority && withPriority) { p.push(priority); w += ` AND priority = $${p.length}`; }
+    const sector = searchParams.get('sector'); if (sector) { p.push(sector); w += ` AND sector = $${p.length}`; }
+    // "My leads": leads I added (owner) or am CC'd on
+    if (searchParams.get('mine') === '1') {
+      p.push(user.id, user.id);
+      w += ` AND (created_by = $${p.length - 1} OR id IN (SELECT lead_id FROM gtm_watch_subscriptions WHERE scope = 'lead' AND watcher_id = $${p.length}))`;
+    }
+    // Search box: every word matched across all lead fields (+ phone digits); Bulk Lookup: a pasted list, any match
+    w += searchClause(searchParams.get('search'), p);
+    w += lookupClause(searchParams.get('lookup'), p);
+    return { where: w, params: p };
+  };
+  const NEXT_FU = "(SELECT MIN(f.due_at) FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open') AS next_followup_at";
 
   // Pagination
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+  const limit = Math.min(1000, Math.max(1, parseInt(searchParams.get('limit') || '50')));
   const offset = (page - 1) * limit;
+
+  // Priority view: rank every matching lead (overdue/today follow-ups, hot deals, due soon, then by
+  // priority and how long since the last contact; parked "follow up later" last) — see lib/lead-priority
+  if (priorityView && !showDeleted) {
+    const { where, params: p } = build(true);
+    const all = rankLeads(await queryAll(`SELECT gtm_leads.*, ${NEXT_FU} FROM gtm_leads WHERE ${where}`, p));
+    const tierQ = build(false);
+    const tierRows = await queryAll(`SELECT priority, COUNT(*) as c FROM gtm_leads WHERE ${tierQ.where} GROUP BY priority`, tierQ.params);
+    const tiers = { all: 0 }; for (const r of tierRows) { tiers[r.priority] = parseInt(r.c); tiers.all += parseInt(r.c); }
+    const reasons = {}; for (const l of all) reasons[l.priority_reason.code] = (reasons[l.priority_reason.code] || 0) + 1;
+    return NextResponse.json({ leads: all.slice(offset, offset + limit), total: all.length, page, limit, totalPages: Math.max(1, Math.ceil(all.length / limit)), tiers, reasons, view: 'priority' });
+  }
+
+  const { where, params } = build(true);
+  let sql = `SELECT * FROM gtm_leads WHERE ${where}`;
 
   // Count total
   const countSql = sql.replace('SELECT *', 'SELECT COUNT(*) as c');
@@ -38,7 +72,7 @@ export async function GET(request) {
   const total = parseInt(countRes?.c || 0);
 
   // Next open follow-up per lead (shown in the table)
-  sql = sql.replace('SELECT *', "SELECT gtm_leads.*, (SELECT MIN(f.due_at) FROM gtm_followups f WHERE f.lead_id = gtm_leads.id AND f.status = 'open') AS next_followup_at");
+  sql = sql.replace('SELECT *', `SELECT gtm_leads.*, ${NEXT_FU}`);
   const sortOrder = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
   const PRIORITY_RANK = "CASE gtm_leads.priority WHEN 'HOT' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'PARTNER' THEN 3 ELSE 4 END";
   if (showDeleted) sql += ' ORDER BY deleted_at DESC';
@@ -49,7 +83,7 @@ export async function GET(request) {
   params.push(offset); sql += ` OFFSET $${params.length}`;
 
   const leads = await queryAll(sql, params);
-  return NextResponse.json({ leads, total, page, limit, totalPages: Math.ceil(total / limit) });
+  return NextResponse.json({ leads, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
 }
 
 export async function POST(request) {
