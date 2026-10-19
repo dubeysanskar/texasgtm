@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [prio, setPrio] = useState({ leads: [], total: 0, reasons: {} });
   const loadPrio = useCallback(() => {
     if (!showLeads) return;
-    fetch('/api/settings/priority').then(r => r.ok ? r.json() : null).catch(() => null).then(s => {
+    fetch(`/api/settings/priority${projectId ? `?project_id=${projectId}` : ''}`).then(r => r.ok ? r.json() : null).catch(() => null).then(s => {
     const c = s?.config || { dashboard_count: 8, dashboard_scope: 'own' };
     const q = new URLSearchParams({ view: 'priority', limit: String(c.dashboard_count) });
     if (projectId) q.set('project_id', projectId);

@@ -15,7 +15,7 @@ export async function GET(request) {
   const completedTasks = await queryOne("SELECT COUNT(*) as c FROM gtm_tasks WHERE status = 'complete'");
   const pendingTasks = await queryOne("SELECT COUNT(*) as c FROM gtm_tasks WHERE status = 'pending'");
   // Lead counts are for the working list: Not Interested / Closed and Achieved have their own cards
-  const working = `deleted_at IS NULL AND achieved_at IS NULL AND status NOT IN (${hiddenSql(await getPriorityConfig())})${pf}`;
+  const working = `deleted_at IS NULL AND achieved_at IS NULL AND status NOT IN (${hiddenSql(await getPriorityConfig(pid))})${pf}`;
   const totalLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${working}`);
   const hotLeads = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE ${working} AND priority = 'HOT'`);
   const notInterested = await queryOne(`SELECT COUNT(*) as c FROM gtm_leads WHERE deleted_at IS NULL AND achieved_at IS NULL AND status = 'not_interested'${pf}`);

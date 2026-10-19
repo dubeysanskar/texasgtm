@@ -38,13 +38,13 @@ export default function LeadsPage({ mode = 'active' }) {
   // Super admin's Priority settings: what is hidden, whether ranks / reasons show, the default for the toggle
   const [pcfg, setPcfg] = useState(null);
   useEffect(() => {
-    fetch('/api/settings/priority').then(r => r.ok ? r.json() : null).then(d => {
+    fetch(`/api/settings/priority${projectId ? `?project_id=${projectId}` : ''}`).then(r => r.ok ? r.json() : null).then(d => {
       if (!d?.config) return;
       setPcfg(d.config);
       let chosen = null; try { chosen = localStorage.getItem('gtm-leads-priority'); } catch {}
       if (chosen === null) setPriorityOn(d.config.default_on);
     }).catch(() => {});
-  }, []);
+  }, [projectId]);
   const prefTouched = useRef(false);
   const [mine, setMine] = useState(() => typeof window === 'undefined' ? false : (new URLSearchParams(window.location.search).get('mine') === '1' || readPref('gtm-leads-mine', false)));
   const [tiers, setTiers] = useState(null);     // { all, HOT, HIGH, MEDIUM, PARTNER } counts in the Priority view

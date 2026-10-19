@@ -12,7 +12,7 @@ export async function GET(request) {
   if (!user || !isManager(user.role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const showDeleted = searchParams.get('deleted') === '1';
-  const pcfg = await getPriorityConfig(); // super admin's Priority settings (hidden statuses, ranking rules)
+  const pcfg = await getPriorityConfig(searchParams.get('project_id')); // super admin's Priority settings (hidden statuses, ranking rules)
   if (showDeleted && !isAdmin(user.role)) return NextResponse.json({ error: 'Super admin only' }, { status: 403 });
   const achieved = searchParams.get('achieved');
   const status = searchParams.get('status');

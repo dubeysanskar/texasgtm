@@ -54,21 +54,41 @@ function normalize(raw) {
   return c;
 }
 
-let cache = null, cacheAt = 0;
-async function getPriorityConfig() {
-  if (cache && Date.now() - cacheAt < 15000) return cache;
+// Settings live under `priority_config` (CRM-wide default) and, for a project that wants its own,
+// `priority_config:<projectId>`. A project without its own settings uses the default.
+const keyFor = (projectId) => (projectId ? `priority_config:${Number(projectId)}` : 'priority_config');
+const cache = new Map(); // key → { raw, at }
+async function readRaw(key) {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < 15000) return hit.raw;
   let raw = null;
-  try { const row = await queryOne("SELECT value FROM gtm_settings WHERE key = 'priority_config'"); raw = row?.value ? JSON.parse(row.value) : null; } catch { raw = null; }
-  cache = normalize(raw); cacheAt = Date.now();
-  return cache;
+  try { const row = await queryOne('SELECT value FROM gtm_settings WHERE key = $1', [key]); raw = row?.value ? JSON.parse(row.value) : null; } catch { raw = null; }
+  cache.set(key, { raw, at: Date.now() });
+  return raw;
 }
-async function savePriorityConfig(raw) {
+/** The settings in force for a project (its own if it has them, otherwise the CRM-wide default). */
+async function getPriorityConfig(projectId) {
+  const own = projectId ? await readRaw(keyFor(projectId)) : null;
+  return normalize(own || await readRaw(keyFor(null)));
+}
+/** { config, custom } — custom = the project has its own settings */
+async function getPriorityConfigInfo(projectId) {
+  const own = projectId ? await readRaw(keyFor(projectId)) : null;
+  return { config: normalize(own || await readRaw(keyFor(null))), custom: !!own, defaults: normalize(await readRaw(keyFor(null))) };
+}
+async function savePriorityConfig(raw, projectId) {
   const c = normalize(raw);
-  await query("INSERT INTO gtm_settings (key, value) VALUES ('priority_config', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [JSON.stringify(c)]);
-  cache = c; cacheAt = Date.now();
+  await query('INSERT INTO gtm_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', [keyFor(projectId), JSON.stringify(c)]);
+  cache.set(keyFor(projectId), { raw: c, at: Date.now() });
   return c;
+}
+/** A project goes back to using the CRM-wide default. */
+async function clearProjectConfig(projectId) {
+  if (!projectId) return;
+  await query('DELETE FROM gtm_settings WHERE key = $1', [keyFor(projectId)]);
+  cache.set(keyFor(projectId), { raw: null, at: Date.now() });
 }
 /** SQL list of hidden statuses, e.g. "'not_interested','closed'" (values come from a fixed allow-list). */
 const hiddenSql = (c) => (c.hidden_statuses.length ? c.hidden_statuses : ['__none__']).map(s => `'${s}'`).join(',');
 
-module.exports = { DEFAULTS, RULES, ALL_STATUSES, ALL_PRIORITIES, normalize, getPriorityConfig, savePriorityConfig, hiddenSql };
+module.exports = { DEFAULTS, RULES, ALL_STATUSES, ALL_PRIORITIES, normalize, getPriorityConfig, getPriorityConfigInfo, savePriorityConfig, clearProjectConfig, hiddenSql };
