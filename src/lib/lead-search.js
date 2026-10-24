@@ -25,7 +25,21 @@ function onlyDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function anyFieldMatches(params, term) {
   params.push(`%${term}%`);
   const p = `$${params.length}`;
-  return '(' + TEXT_FIELDS.map(f => `${f} ILIKE ${p}`).join(' OR ') + `) OR CAST(project_seq AS TEXT) = ${pushRaw(params, term)}`;
+  // "#142" and "142" both find lead number 142
+  return '(' + TEXT_FIELDS.map(f => `${f} ILIKE ${p}`).join(' OR ') + `) OR CAST(project_seq AS TEXT) = ${pushRaw(params, term.replace(/^#/, ''))}`;
+}
+
+/**
+ * ORDER BY for search results, best match first: the exact lead number, then companies whose name
+ * starts with the text, then companies whose name contains it, then everything else (newest first).
+ */
+function relevanceOrder(query, params) {
+  const q = String(query || '').trim();
+  if (!q) return '';
+  const seq = pushRaw(params, q.replace(/^#/, ''));
+  const starts = pushRaw(params, `${q}%`);
+  const contains = pushRaw(params, `%${q}%`);
+  return `CASE WHEN CAST(project_seq AS TEXT) = ${seq} THEN 0 WHEN company_name ILIKE ${starts} THEN 1 WHEN company_name ILIKE ${contains} THEN 2 ELSE 3 END`;
 }
 function pushRaw(params, v) { params.push(v); return `$${params.length}`; }
 
@@ -83,4 +97,4 @@ function lookupClause(text, params) {
   return ` AND (${parts.join(' OR ')})`;
 }
 
-module.exports = { searchClause, lookupClause, parseLookup, TEXT_FIELDS };
+module.exports = { searchClause, lookupClause, parseLookup, relevanceOrder, TEXT_FIELDS };

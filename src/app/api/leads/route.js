@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 const { queryAll, queryOne, query, nextProjectSeq } = require('@/lib/db');
 const { getUserFromRequest, isManager, isAdmin } = require('@/lib/auth');
 const { logLeadActivity, notifyBulk } = require('@/lib/watchers');
-const { searchClause, lookupClause } = require('@/lib/lead-search');
+const { searchClause, lookupClause, relevanceOrder } = require('@/lib/lead-search');
 const { createFollowup } = require('@/lib/followups');
 const { getPriorityConfig, hiddenSql } = require('@/lib/priority-config');
 const { rankLeads } = require('@/lib/lead-priority');
@@ -77,7 +77,10 @@ export async function GET(request) {
   sql = sql.replace('SELECT *', `SELECT gtm_leads.*, ${NEXT_FU}`);
   const sortOrder = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
   const PRIORITY_RANK = "CASE gtm_leads.priority WHEN 'HOT' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'PARTNER' THEN 3 ELSE 4 END";
+  const search = String(searchParams.get('search') || '').trim();
   if (showDeleted) sql += ' ORDER BY deleted_at DESC';
+  // A search lists the best matches first: the lead number, then company names starting with the text…
+  else if (search) sql += ` ORDER BY ${relevanceOrder(search, params)}, created_at DESC`;
   else if (achieved === '1') sql += ` ORDER BY achieved_at ${sortOrder}`;
   else if (searchParams.get('sort') === 'priority') sql += ` ORDER BY ${PRIORITY_RANK} ASC, COALESCE(last_contacted_at, created_at) ASC`;
   else sql += ` ORDER BY created_at ${sortOrder}`;
@@ -85,7 +88,18 @@ export async function GET(request) {
   params.push(offset); sql += ` OFFSET $${params.length}`;
 
   const leads = await queryAll(sql, params);
-  return NextResponse.json({ leads, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
+
+  // A search on the working list also says where else the text appears (closed statuses, Achieved),
+  // so nothing is missed while those leads stay out of the working list.
+  let elsewhere = null;
+  if (search && !showDeleted && achieved !== '1' && !pcfg.hidden_statuses.includes(status)) {
+    const ep = []; let ew = 'deleted_at IS NULL';
+    const projectId = searchParams.get('project_id'); if (projectId) { ep.push(projectId); ew += ` AND project_id = $${ep.length}`; }
+    ew += searchClause(search, ep);
+    const rows = await queryAll(`SELECT CASE WHEN achieved_at IS NOT NULL THEN 'achieved' ELSE status END AS bucket, COUNT(*) as c FROM gtm_leads WHERE ${ew} AND (achieved_at IS NOT NULL OR status IN (${hiddenSql(pcfg)})) GROUP BY bucket`, ep);
+    elsewhere = Object.fromEntries(rows.map(r => [r.bucket, parseInt(r.c)]).filter(([, n]) => n > 0));
+  }
+  return NextResponse.json({ leads, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)), ...(elsewhere ? { elsewhere } : {}) });
 }
 
 export async function POST(request) {

@@ -628,6 +628,13 @@ export const RU = {
   'Saved. Every project without its own settings now uses these.': 'Сохранено. Все проекты без своих настроек теперь используют эти.',
   'Contract Signed – Closed': 'Договор подписан – закрыт',
   'Contract Signed – Closed ✓': 'Договор подписан – закрыт ✓',
+  'Searching all {where} for “{q}” — {n} found, best matches first.': 'Поиск по всем {where}: «{q}» — найдено {n}, сначала лучшие совпадения.',
+  'achieved leads': 'достигнутым лидам',
+  'leads with this status': 'лидам с этим статусом',
+  'working leads': 'рабочим лидам',
+  'Priority order, priority tabs and “My leads” are paused while you search.': 'Порядок приоритета, вкладки приоритета и «Мои лиды» не действуют, пока идёт поиск.',
+  'Also found in:': 'Также найдено в:',
+  'Clear search': 'Очистить поиск',
   'Lead created': 'Лид создан', 'bulk_upload': 'массовая загрузка', 'excel_import': 'импорт из Excel', 'manual': 'вручную', '2gis': '2GIS', 'web_search': 'веб-поиск', 'google_dork': 'Google Dorking', 'google_maps': 'Google Maps',
   // Lead status labels
   'Not Contacted': 'Не связывались', 'Touch 1': 'Касание 1', 'Touch 2': 'Касание 2', 'Touch 3': 'Касание 3', 'Email Sent': 'Письмо отправлено',

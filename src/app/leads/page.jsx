@@ -97,12 +97,15 @@ export default function LeadsPage({ mode = 'active' }) {
 
   const closedView = (pcfg?.hidden_statuses || CLOSED_STATUSES).includes(filters.status);
   const showRank = pcfg ? pcfg.show_rank : true, showReason = pcfg ? pcfg.show_reason : true;
-  const priorityActive = priorityOn && !viewDeleted && !achievedView && !closedView;
+  // Typing in the search box searches ALL working leads: ranking, priority tabs and "My leads" pause until it's cleared
+  const searching = !!filters.search.trim();
+  const priorityActive = priorityOn && !viewDeleted && !achievedView && !closedView && !searching;
+  const [elsewhere, setElsewhere] = useState(null); // search matches in hidden lists: { not_interested, contract_signed, achieved }
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     const p = new URLSearchParams();
     if (filters.sector) p.set('sector', filters.sector);
-    if (filters.priority) p.set('priority', filters.priority);
+    if (filters.priority && !searching) p.set('priority', filters.priority);
     if (filters.status) p.set('status', filters.status);
     if (filters.search) p.set('search', filters.search);
     if (filters.lookup) p.set('lookup', filters.lookup);
@@ -111,15 +114,15 @@ export default function LeadsPage({ mode = 'active' }) {
     if (viewDeleted) p.set('deleted', '1');
     else if (achievedView) p.set('achieved', '1');
     if (priorityActive) p.set('view', 'priority');
-    if (mine && !viewDeleted) p.set('mine', '1');
+    if (mine && !viewDeleted && !searching) p.set('mine', '1');
     try {
       const res = await fetch(`/api/leads?${p}`);
       const d = await res.json();
       setLeads(d.leads || []); setTotal(d.total || 0); setTotalPages(d.totalPages || 1);
-      setTiers(d.tiers || null); setReasons(d.reasons || null);
+      setTiers(d.tiers || null); setReasons(d.reasons || null); setElsewhere(d.elsewhere || null);
     } catch { setLeads([]); }
     setLoading(false);
-  }, [filters, page, perPage, sortOrder, projectId, viewDeleted, achievedView, priorityActive, mine]);
+  }, [filters, page, perPage, sortOrder, projectId, viewDeleted, achievedView, priorityActive, mine, searching]);
 
   const fetchStats = useCallback(async () => {
     const q = new URLSearchParams(); if (projectId) q.set('project_id', projectId); if (achievedView) q.set('achieved', '1');
@@ -380,7 +383,7 @@ export default function LeadsPage({ mode = 'active' }) {
       {/* Filters */}
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}>
         <input type="search" enterKeyHint="search" placeholder={t('Search anything — company, name, email, phone, Telegram, city, ID…')} value={filters.search}
-          onChange={e => setFilters(f => ({...f, search: e.target.value}))} style={{ flex:1, minWidth:180, padding: isMobile ? '10px 12px' : '7px 12px', borderRadius: isMobile ? 12 : 8, border:'1px solid var(--border)', fontSize:'0.78rem' }}/>
+          onChange={e => { const v = e.target.value; setFilters(f => ({ ...f, search: v, ...(!f.search.trim() && v.trim() && !achievedView ? { priority: '' } : {}) })); }} style={{ flex:1, minWidth:180, padding: isMobile ? '10px 12px' : '7px 12px', borderRadius: isMobile ? 12 : 8, border:'1px solid var(--border)', fontSize:'0.78rem' }}/>
         {isMobile && (() => { const n = [filters.priority, filters.sector, filters.status].filter(Boolean).length; return (
           <button type="button" onClick={() => setShowFilters(s => !s)} aria-expanded={showFilters}
             style={{ height:44, padding:'0 12px', borderRadius:12, border:`1px solid ${n || showFilters ? 'var(--primary)' : 'var(--border)'}`, background: n || showFilters ? '#eef2ff' : '#fff', color: n || showFilters ? 'var(--primary)' : '#475569', fontWeight:600, fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
@@ -408,6 +411,29 @@ export default function LeadsPage({ mode = 'active' }) {
           <button onClick={() => { setFilters({sector:'',priority:'',status:'',search:'',lookup:''}); setBulkLookupText(''); }} style={{ fontSize:'0.7rem', color:'#9ca3af', border:'1px solid var(--border)', borderRadius:8, padding:'7px 12px', cursor:'pointer', background:'#fff' }}>✕ {t('Clear')}</button>
         )}
       </div>
+
+      {/* General search: what is being searched, and where else the text appears */}
+      {searching && !viewDeleted && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', background:'#eff6ff', border:'1px solid #bfdbfe', color:'#1e3a8a', borderRadius:10, padding:'8px 12px', marginBottom:12, fontSize:'0.78rem' }}>
+          <MI name="travel_explore" size={16}/>
+          <span style={{ flex:'1 1 260px' }}>
+            {t('Searching all {where} for “{q}” — {n} found, best matches first.', { where: t(achievedView ? 'achieved leads' : closedView ? 'leads with this status' : 'working leads'), q: filters.search.trim(), n: total })}
+            {!achievedView && !closedView && (priorityOn || mine || filters.priority) ? ' ' + t('Priority order, priority tabs and “My leads” are paused while you search.') : ''}
+          </span>
+          {elsewhere && Object.keys(elsewhere).length > 0 && (
+            <span style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+              <strong>{t('Also found in:')}</strong>
+              {Object.entries(elsewhere).map(([k, n]) => (
+                <button key={k} type="button" onClick={() => k === 'achieved' ? router.push(`/leads/achieved?search=${encodeURIComponent(filters.search.trim())}`) : setFilters(f => ({ ...f, status: k }))}
+                  style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 10px', borderRadius:999, border:'1px solid #93c5fd', background:'#fff', color:'#1d4ed8', fontWeight:700, fontSize:'0.72rem', cursor:'pointer', fontFamily:'inherit' }}>
+                  {k === 'achieved' ? t('Achieved Leads') : t(SC[k]?.label || k)} · {n} <MI name="arrow_forward" size={13}/>
+                </button>
+              ))}
+            </span>
+          )}
+          <button type="button" onClick={() => setFilters(f => ({ ...f, search: '' }))} className="btn btn-sm btn-ghost" style={{ background:'#fff', fontSize:'0.72rem' }}><MI name="close" size={14}/> {t('Clear search')}</button>
+        </div>
+      )}
 
       {/* Range Selector + Bulk Actions Bar */}
       {viewDeleted && <div style={{ padding:'8px 14px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, marginBottom:12, fontSize:'0.78rem', color:'#991b1b' }}><MI name="info" size={14}/> {t('Deleted leads are kept here with their full history. Restore brings a lead back to the main list; Delete permanently erases it for good.')}</div>}
